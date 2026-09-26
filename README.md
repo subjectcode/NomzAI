@@ -1,170 +1,180 @@
-# Nomz - Mobile AI Food Assistant 🍲
+# Nomz
 
-Nomz adalah aplikasi asisten kuliner berbasis mobile bertenaga AI yang dirancang untuk membantu pengguna mengelola bahan makanan, merencanakan masakan, dan menemukan resep yang dipersonalisasi.
-
-## Project Status
-**Status:** Hackathon Prototype  
-**Current Phase:** Milestone 1 (Ingredient Vision) Completed
+Nomz adalah mobile food assistant untuk membantu pengguna merencanakan masakan dari bahan-bahan yang sudah ada di dapur. Aplikasi mendeteksi bahan dari foto, memvalidasi bahan bersama pengguna, dan menghasilkan rekomendasi masakan praktis melalui orkestrasi workflow Langflow.
 
 ---
 
-## Milestone Roadmap & Status
+## Masalah yang Diselesaikan
 
-| Milestone | Deskripsi | Status |
+Banyak bahan makanan di dapur terbuang karena pengguna bingung harus memasak apa dari bahan sisa yang ada. Nomz membalik alur pencarian resep konvensional: alih-alih mencari resep lalu berbelanja bahan, Nomz memulai dari bahan yang benar-benar tersedia di dapur pengguna.
+
+---
+
+## Cara Kerja
+
+1. **Pindai Bahan**: Pengguna mengambil foto bahan masakan di dapur atau memilih foto dari galeri.
+2. **Deteksi Multimodal**: Backend vision mendeteksi bahan makanan secara otomatis dalam Bahasa Indonesia terstruktur.
+3. **Konfirmasi Bahan**: Pengguna dapat menyunting, menghapus, atau menambahkan bumbu dapur secara manual.
+4. **Eksekusi Workflow Langflow**: Daftar bahan terkonfirmasi dikirim ke workflow Langflow `find_meals` pada backend.
+5. **Rekomendasi Terstruktur**: Langflow memproses prompt dan model untuk menghasilkan 2-3 rekomendasi masakan realistis dengan pemisahan jelas antara bahan yang dimiliki pengguna vs bahan tambahan yang diperlukan.
+6. **Detail Masakan**: Pengguna memilih masakan untuk melihat metrik waktu, tingkat kesulitan, serta rincian bahan.
+
+---
+
+## Arsitektur Sistem
+
+```text
+React Native / Expo (Mobile Frontend)
+         │  HTTP / REST
+         ▼
+      FastAPI (Backend Gateway)
+         │  POST /api/v1/run/{flow_id}
+         ▼
+ Langflow `find_meals` (Workflow Engine)
+         │
+         ▼
+      AI Model (Gemini)
+```
+
+- **Ingredient Vision**: Diproses langsung oleh backend FastAPI menggunakan Gemini Multimodal dengan structured schema JSON.
+- **Recipe Recommendation**: Dikelola dan dieksekusi oleh workflow Langflow (`find_meals`).
+- **Data Boundary**: FastAPI bertindak sebagai API gateway yang memvalidasi request mobile, mengeksekusi Langflow via REST, serta memvalidasi response schema sebelum dikembalikan ke mobile client.
+
+---
+
+## Fitur yang Berjalan
+
+- [x] Health check backend dan koneksi database SQLite (`GET /api/health`).
+- [x] Upload foto bahan masakan dengan validasi MIME dan batas ukuran file (`POST /api/vision/detect-ingredients`).
+- [x] Deteksi bahan makanan berbasis multimodal AI dalam Bahasa Indonesia alami.
+- [x] Antarmuka mobile untuk pemilihan foto, pratinjau, pengeditan nama bahan, penambahan bahan manual, dan konfirmasi.
+- [x] Eksekusi workflow rekomendasi masakan via Langflow runtime (`POST /api/recommendations`).
+- [x] Kartu rekomendasi masakan dengan pemisahan bahan tersedia vs bahan tambahan.
+- [x] Layar detail masakan dan navigasi bolak-balik tanpa merusak state bahan.
+- [x] Kompatibilitas cross-platform: Expo Web dan physical Android (Expo Go via network IP).
+
+---
+
+## Status Pengembangan
+
+| Milestone | Ruang Lingkup | Status |
 | :--- | :--- | :--- |
-| **Milestone 0** | **Foundation**: Setup React Native Expo frontend, FastAPI backend, SQLite DB, health check endpoint, configuration & testing | ✅ **COMPLETED** |
-| **Milestone 1** | **Food Scanner & Ingredient Detection (AI Vision)**: Image upload, MIME/size validation, multimodal vision AI (Gemini Flash), structured ingredient JSON output, frontend gallery/sample picker, ingredient editor (edit/delete/add), & confirmation flow | ✅ **COMPLETED** |
-| **Milestone 2** | Recipe Generation & AI Reasoning (Gemini / Langflow) | ⏳ Not Started |
-| **Milestone 3** | Video & External Integration (YouTube API, etc.) | ⏳ Not Started |
-| **Milestone 4** | Polish, UI/UX Refinement & Final Demo Preparation | ⏳ Not Started |
+| **M0** | Foundation: FastAPI + SQLite + Expo boilerplate + Health check | **Complete** |
+| **M1** | Ingredient Vision: Multimodal detection + mobile confirmation flow | **Complete** |
+| **M2** | Meal Recommendation: Structured recipe generation + mobile screens | **Complete** |
+| **M3** | Real Langflow Integration: Runtime execution of `find_meals` flow | **Complete** |
+| **M4** | IBM Bob & Model Context Protocol (MCP) Integration | *Belum diimplementasikan* |
 
 ---
 
-## Struktur Project
+## Tech Stack
+
+- **Frontend**: React Native, Expo SDK 52, TypeScript, `@expo/vector-icons` (Feather).
+- **Backend**: Python 3.11, FastAPI, Pydantic v2, SQLAlchemy, HTTPX, Uvicorn.
+- **Workflow / AI Engine**: Langflow 1.12.3 (Docker), Google Gemini via `google-genai` / Langflow Google Component.
+- **Testing**: Pytest, FastAPI TestClient.
+
+---
+
+## Struktur Direktori
 
 ```text
 Nomz/
-├── frontend/             # React Native + Expo mobile application (TypeScript)
-│   ├── src/
-│   │   ├── config.ts     # Konfigurasi base URL dari environment
-│   │   └── services/     # API service (health check call)
-│   ├── App.tsx           # Entry screen dengan status checker
-│   ├── app.json          # Konfigurasi Expo
-│   ├── package.json
-│   ├── .env.example
-│   └── tsconfig.json
-├── backend/              # Python FastAPI service
+├── backend/
 │   ├── app/
-│   │   ├── main.py       # FastAPI application entry & CORS middleware
-│   │   ├── core/
-│   │   │   └── config.py # Settings & Pydantic configuration
-│   │   ├── api/
-│   │   │   └── routes/
-│   │   │       └── health.py # GET /api/health endpoint
-│   │   └── db/
-│   │       ├── database.py   # SQLAlchemy engine & session maker
-│   │       └── models.py     # Base model placeholder
-│   ├── requirements.txt  # Python dependencies
-│   ├── .env.example
-│   └── nomz.db           # SQLite database runtime (git-ignored)
-├── langflow/             # Placeholder untuk AI orchestration flows (Milestone 2)
-├── tests/                # Automated tests (backend health & SQLite connection)
-│   └── test_backend_health.py
-├── docs/                 # Dokumentasi arsitektur dan milestone
-│   └── milestone-0-foundation.md
-├── screenshots/          # Dokumentasi visual prototype
-├── .gitignore
-├── .env.example          # Template environment variable root
+│   │   ├── api/routes/          # Endpoint health, vision, dan recommendations
+│   │   ├── core/config.py       # Pydantic Settings (env loader)
+│   │   ├── db/                  # Database session & models
+│   │   ├── schemas/             # Pydantic request/response schemas
+│   │   └── services/            # Services: vision, langflow client, recommendation
+│   ├── requirements.txt
+│   └── .env.example
+├── frontend/
+│   ├── src/
+│   │   ├── screens/             # ScanBahanScreen, RekomendasiScreen, DetailResepScreen
+│   │   ├── services/api.ts      # Client HTTP & upload multipart
+│   │   └── types/               # TypeScript interfaces
+│   ├── App.tsx                  # Root navigation stack
+│   ├── package.json
+│   └── .env.example
+├── langflow/
+│   ├── find_meals.json          # Export flow Langflow M3
+│   └── README.md                # Dokumentasi node & runtime endpoint
+├── screenshots/                 # Dokumentasi visual prototype M0-M3
+├── tests/                       # Pytest automated test suites
+├── .env.example                 # Root environment template
 └── README.md
 ```
 
 ---
 
-## Persyaratan Sistem
+## Panduan Menjalankan Project
 
-- **Python**: 3.11+ (atau 3.10+)
-- **Node.js**: 18+ (disarankan Node.js 20+)
-- **npm** atau **yarn**
-- **uv** (opsional, sangat direkomendasikan untuk manajemen Python yang cepat) atau `python -m venv`
+### 1. Prasyarat
+- Python 3.11+
+- Node.js 18+ & npm
+- Docker (untuk menjalankan Langflow)
 
----
-
-## Cara Menjalankan Backend
-
-1. Buka terminal dan masuk ke direktori `backend`:
-   ```bash
-   cd backend
-   ```
-
-2. Siapkan Python virtual environment:
-   ```bash
-   # Menggunakan uv (disarankan):
-   uv venv .venv
-   uv pip install -r requirements.txt --python .venv/Scripts/python.exe
-
-   # ATAU menggunakan Python standard:
-   python -m venv .venv
-   # Windows:
-   .venv\Scripts\activate
-   pip install -r requirements.txt
-   # Linux/macOS:
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
-
-3. Salin environment configuration:
-   ```bash
-   copy .env.example .env   # Di Windows
-   # atau: cp .env.example .env (Linux/macOS)
-   ```
-
-4. Jalankan FastAPI server:
-   ```bash
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   ```
-
-5. Verifikasi:
-   - Root: [http://localhost:8000/](http://localhost:8000/)
-   - Health Check: [http://localhost:8000/api/health](http://localhost:8000/api/health)
-   - Interactive Docs (Swagger): [http://localhost:8000/api/docs](http://localhost:8000/api/docs)
-
----
-
-## Cara Menjalankan Frontend
-
-1. Buka terminal baru dan masuk ke direktori `frontend`:
-   ```bash
-   cd frontend
-   ```
-
-2. Install dependencies (jika belum):
-   ```bash
-   npm install
-   ```
-
-3. Salin environment file:
-   ```bash
-   copy .env.example .env   # Di Windows
-   # atau: cp .env.example .env (Linux/macOS)
-   ```
-
-4. Jalankan Expo:
-   ```bash
-   npx expo start
-   ```
-
-5. Membuka aplikasi:
-   - **Web**: Tekan tombol `w` di terminal Expo untuk membuka browser di `http://localhost:8081`.
-   - **Android Emulator**: Tekan `a` di terminal. Pastikan `EXPO_PUBLIC_API_URL=http://10.0.2.2:8000`.
-   - **Physical Device**: Buka aplikasi **Expo Go** pada smartphone dan scan QR code pada terminal. Ubah `EXPO_PUBLIC_API_URL` ke IP LAN komputer Anda (contoh: `http://192.168.1.50:8000`).
-
----
-
-## Catatan Jaringan (Networking Notes)
-
-Karena perbedaan arsitektur runtime, backend URL bervariasi tergantung client yang digunakan:
-
-| Client | Backend Base URL | Keterangan |
-| :--- | :--- | :--- |
-| **Web Browser** | `http://localhost:8000` | Berjalan di mesin yang sama dengan backend. |
-| **iOS Simulator** | `http://localhost:8000` | Berbagi interface loopback dengan host macOS. |
-| **Android Emulator** | `http://10.0.2.2:8000` | `10.0.2.2` adalah alias default QEMU/Android untuk host loopback interface. |
-| **Perangkat Fisik (Expo Go)** | `http://<LAN_IP>:8000` | Komputer dan smartphone harus berada di jaringan WiFi/LAN yang sama. |
-
-Ubah variabel `EXPO_PUBLIC_API_URL` di `frontend/.env` sesuai target perangkat yang sedang diuji.
-
----
-
-## Menjalankan Automated Test
-
-Jalankan test suite dari root project:
-
+### 2. Langflow Setup
+Jalankan instance Langflow lokal (port default `7860`):
 ```bash
-# Menggunakan venv backend
-backend\.venv\Scripts\pytest -v tests/test_backend_health.py
+docker run -d -p 7860:7860 --name langflow langflowai/langflow-all:latest
+```
+Import flow [langflow/find_meals.json](file:///d:/Projects/Bob/Nomz/langflow/find_meals.json) ke instance Langflow Anda, atau gunakan flow ID yang telah terdaftar.
+
+### 3. Backend Setup
+```bash
+cd backend
+python -m venv .venv
+
+# Windows:
+.venv\Scripts\activate
+# Linux/macOS:
+# source .venv/bin/activate
+
+pip install -r requirements.txt
+copy .env.example .env   # isi GEMINI_API_KEY dan LANGFLOW_API_KEY
+
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Test mencakup:
-- Direct query execution ke SQLite (`SELECT 1`)
-- Response schema validation dari endpoint `GET /api/health`
-- Endpoint root API metadata dan dokumentasi
+Verifikasi endpoint:
+- Health check: `http://localhost:8000/api/health`
+- Swagger docs: `http://localhost:8000/api/docs`
+
+### 4. Frontend Setup
+```bash
+cd frontend
+npm install
+copy .env.example .env   # sesuaikan EXPO_PUBLIC_API_URL
+
+# Jalankan Expo:
+npx expo start
+```
+- Tekan `w` untuk menjalankan di web browser (`http://localhost:8081`).
+- Untuk testing di smartphone fisik via Expo Go, set `EXPO_PUBLIC_API_URL=http://<IP_LAN>:8000` di `frontend/.env`.
+
+---
+
+## Menjalankan Automated Tests
+
+Eksekusi seluruh test suite dari root direktori project:
+```bash
+# Windows PowerShell:
+$env:PYTHONPATH="backend"
+backend\.venv\Scripts\python -m pytest -v tests/test_backend_health.py tests/test_backend_vision.py tests/test_backend_recommendation.py tests/test_backend_langflow.py
+```
+
+Typecheck TypeScript pada frontend:
+```bash
+cd frontend
+npx tsc --noEmit
+```
+
+---
+
+## Screenshot Aplikasi
+
+| Pindai Bahan & Deteksi (M1) | Daftar Rekomendasi Langflow (M2-M3) | Detail Resep Masakan (M2) |
+| :---: | :---: | :---: |
+| ![Scan Screen](screenshots/m2_01_initial_screen.png) | ![Rekomendasi](screenshots/m2_02_recommendations_list.png) | ![Detail](screenshots/m2_03_detail_screen.png) |
