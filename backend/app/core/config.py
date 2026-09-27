@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     LANGFLOW_API_KEY: str = ""
     LANGFLOW_TIMEOUT_SECONDS: float = 60.0
 
+    # Authentication (Milestone 5.2)
+    JWT_SECRET_KEY: str = "nomz-dev-secret-change-in-production"
+    GOOGLE_CLIENT_ID: str = ""
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
