@@ -22,3 +22,7 @@ export const API_BASE_URL: string =
 export const HEALTH_ENDPOINT = `${API_BASE_URL}/api/health`;
 export const DETECT_INGREDIENTS_ENDPOINT = `${API_BASE_URL}/api/vision/detect-ingredients`;
 export const RECOMMENDATIONS_ENDPOINT = `${API_BASE_URL}/api/recommendations`;
+export const AUTH_REGISTER_ENDPOINT = `${API_BASE_URL}/api/auth/register`;
+export const AUTH_LOGIN_ENDPOINT = `${API_BASE_URL}/api/auth/login`;
+export const AUTH_ME_ENDPOINT = `${API_BASE_URL}/api/auth/me`;
+export const AUTH_GOOGLE_ENDPOINT = `${API_BASE_URL}/api/auth/google`;

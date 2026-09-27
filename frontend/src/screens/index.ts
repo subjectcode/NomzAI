@@ -2,3 +2,8 @@ export * from './BerandaScreen';
 export * from './ScanBahanScreen';
 export * from './RekomendasiScreen';
 export * from './DetailResepScreen';
+export * from './SplashScreen';
+export * from './OnboardingScreen';
+export * from './AuthWelcomeScreen';
+export * from './LoginScreen';
+export * from './RegisterScreen';
