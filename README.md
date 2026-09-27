@@ -63,7 +63,7 @@ React Native / Expo (Mobile Frontend)
 | **M1** | Ingredient Vision: Multimodal detection + mobile confirmation flow | **Complete** |
 | **M2** | Meal Recommendation: Structured recipe generation + mobile screens | **Complete** |
 | **M3** | Real Langflow Integration: Runtime execution of `find_meals` flow | **Complete** |
-| **M4** | IBM Bob & Model Context Protocol (MCP) Integration | *Belum diimplementasikan* |
+| **M4** | IBM Bob & Model Context Protocol (MCP) Integration | **Complete** |
 
 ---
 
@@ -89,6 +89,9 @@ Nomz/
 │   │   └── services/            # Services: vision, langflow client, recommendation
 │   ├── requirements.txt
 │   └── .env.example
+├── bob/
+│   ├── agent-instructions.md    # Instruksi sistem agent IBM Bob (delegasi find_meals)
+│   └── mcp-config.example.json  # Template aman MCP config untuk IBM Bob
 ├── frontend/
 │   ├── src/
 │   │   ├── screens/             # ScanBahanScreen, RekomendasiScreen, DetailResepScreen
@@ -154,15 +157,27 @@ npx expo start
 - Tekan `w` untuk menjalankan di web browser (`http://localhost:8081`).
 - Untuk testing di smartphone fisik via Expo Go, set `EXPO_PUBLIC_API_URL=http://<IP_LAN>:8000` di `frontend/.env`.
 
+### 5. IBM Bob & MCP Integration (M4)
+
+Nomz mendukung integrasi dengan IBM Bob melalui Model Context Protocol (MCP) untuk menghubungkan agen AI langsung ke workflow Langflow `find_meals`:
+
+1. Salin template MCP:
+   ```bash
+   # Windows PowerShell:
+   copy bob\mcp-config.example.json .bob\mcp.json
+   ```
+2. Isi nilai header `x-api-key` di `.bob/mcp.json` dengan API key Langflow lokal Anda. (File `.bob/mcp.json` otomatis diabaikan oleh `.gitignore` demi keamanan kredensial).
+3. Buka project Nomz di IBM Bob. Agent IBM Bob akan otomatis mendeteksi tool `find_meals` dan panduan delegasi dari `bob/agent-instructions.md`.
+
 ---
 
 ## Menjalankan Automated Tests
 
-Eksekusi seluruh test suite dari root direktori project:
+Eksekusi seluruh test suite (M0–M4) dari root direktori project:
 ```bash
 # Windows PowerShell:
 $env:PYTHONPATH="backend"
-backend\.venv\Scripts\python -m pytest -v tests/test_backend_health.py tests/test_backend_vision.py tests/test_backend_recommendation.py tests/test_backend_langflow.py
+backend\.venv\Scripts\python -m pytest -v tests/
 ```
 
 Typecheck TypeScript pada frontend:

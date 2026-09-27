@@ -44,3 +44,4 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+.bob/mcp.json
