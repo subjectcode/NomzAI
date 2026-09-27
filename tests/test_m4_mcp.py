@@ -1,7 +1,9 @@
 import json
 import os
-import subprocess
+import threading
 import time
+import urllib.request
+import urllib.error
 from pathlib import Path
 import pytest
 
@@ -25,56 +27,110 @@ def _get_langflow_api_key() -> str:
     return ""
 
 
-class MCPStdioClient:
-    """Helper client to interact with mcp-proxy over stdio JSON-RPC."""
+class DirectMCPSSEClient:
+    """Direct MCP client connecting to Langflow via HTTP SSE (streamable-http)."""
 
-    def __init__(self, api_key: str):
+    def __init__(self, sse_url: str, api_key: str):
+        self.sse_url = sse_url
         self.api_key = api_key
-        self.url = "http://localhost:7860/api/v1/mcp/project/61414591-0059-4e01-b071-5def3106d701/streamable"
-        self.cmd = [
-            "uvx",
-            "--with", "mcp<2.0.0",
-            "mcp-proxy",
-            "--transport", "streamablehttp",
-            "--headers", "x-api-key", self.api_key,
-            self.url
-        ]
-        self.process = None
+        self.post_url = None
+        self.messages = []
+        self._running = False
+        self._thread = None
+        self._resp = None
 
-    def start(self):
-        self.process = subprocess.Popen(
-            self.cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1
+    def start(self, timeout: float = 15.0):
+        self._running = True
+        req = urllib.request.Request(self.sse_url, headers={"x-api-key": self.api_key})
+        self._resp = urllib.request.urlopen(req, timeout=timeout)
+
+        self._thread = threading.Thread(target=self._reader, daemon=True)
+        self._thread.start()
+
+        start_time = time.time()
+        while not self.post_url and time.time() - start_time < timeout:
+            time.sleep(0.05)
+        if not self.post_url:
+            raise RuntimeError("Did not receive endpoint event from Langflow SSE stream")
+
+    def _reader(self):
+        current_event = None
+        while self._running:
+            try:
+                line = self._resp.readline()
+                if not line:
+                    break
+                line_str = line.decode("utf-8", errors="ignore").rstrip("\r\n")
+                if not line_str:
+                    current_event = None
+                    continue
+                if line_str.startswith("event:"):
+                    current_event = line_str.split(":", 1)[1].strip()
+                elif line_str.startswith("data:"):
+                    data = line_str.split(":", 1)[1].strip()
+                    if current_event == "endpoint":
+                        if data.startswith("http"):
+                            self.post_url = data
+                        else:
+                            self.post_url = f"http://localhost:7860{data}"
+                    elif current_event == "message" or not current_event:
+                        try:
+                            msg = json.loads(data)
+                            self.messages.append(msg)
+                        except Exception:
+                            pass
+            except Exception:
+                break
+
+    def post_jsonrpc(self, payload: dict):
+        if not self.post_url:
+            raise RuntimeError("Client not connected or endpoint URL missing")
+        data_bytes = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            self.post_url,
+            data=data_bytes,
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": self.api_key
+            },
+            method="POST"
         )
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            body = resp.read()
+            if body:
+                try:
+                    return json.loads(body.decode("utf-8"))
+                except Exception:
+                    pass
+        return None
+
+    def wait_for_response(self, req_id: int, timeout: float = 60.0) -> dict:
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            for msg in self.messages:
+                if msg.get("id") == req_id:
+                    return msg
+            time.sleep(0.1)
+        raise TimeoutError(f"No response with id {req_id} received within {timeout}s")
+
+    def call_method(self, method: str, params: dict, req_id: int, timeout: float = 60.0) -> dict:
+        post_res = self.post_jsonrpc({
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "method": method,
+            "params": params
+        })
+        if post_res and post_res.get("id") == req_id:
+            return post_res
+        return self.wait_for_response(req_id, timeout=timeout)
 
     def stop(self):
-        if self.process:
-            self.process.terminate()
+        self._running = False
+        if self._resp:
             try:
-                self.process.wait(timeout=3)
+                self._resp.close()
             except Exception:
-                self.process.kill()
-            self.process = None
-
-    def send_msg(self, msg: dict):
-        line = json.dumps(msg) + "\n"
-        self.process.stdin.write(line)
-        self.process.stdin.flush()
-
-    def read_msg(self, timeout: float = 30.0) -> dict:
-        start = time.time()
-        while time.time() - start < timeout:
-            line = self.process.stdout.readline()
-            if line:
-                line_str = line.strip()
-                if line_str.startswith("{"):
-                    return json.loads(line_str)
-            time.sleep(0.1)
-        raise TimeoutError(f"No response received from MCP within {timeout}s")
+                pass
 
 
 @pytest.fixture(scope="module")
@@ -82,25 +138,26 @@ def mcp_client():
     api_key = _get_langflow_api_key()
     if not api_key:
         pytest.skip("LANGFLOW_API_KEY not found in environment or backend/.env")
-    client = MCPStdioClient(api_key)
+    sse_url = "http://localhost:7860/api/v1/mcp/project/61414591-0059-4e01-b071-5def3106d701/sse"
+    client = DirectMCPSSEClient(sse_url, api_key)
     client.start()
     try:
         # Perform initialize handshake
-        client.send_msg({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "initialize",
-            "params": {
+        init_res = client.call_method(
+            "initialize",
+            {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {},
-                "clientInfo": {"name": "nomz-test-suite", "version": "1.0"}
-            }
-        })
-        init_res = client.read_msg(timeout=20.0)
+                "clientInfo": {"name": "nomz-direct-test", "version": "1.0"}
+            },
+            req_id=1,
+            timeout=20.0
+        )
         assert init_res.get("id") == 1
         assert "result" in init_res
 
-        client.send_msg({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        # Send initialized notification
+        client.post_jsonrpc({"jsonrpc": "2.0", "method": "notifications/initialized"})
         yield client
     finally:
         client.stop()
@@ -108,13 +165,12 @@ def mcp_client():
 
 def test_mcp_tools_list_find_meals(mcp_client):
     """Test that Langflow MCP server advertises find_meals tool with valid schema."""
-    mcp_client.send_msg({
-        "jsonrpc": "2.0",
-        "id": 2,
-        "method": "tools/list",
-        "params": {}
-    })
-    tools_res = mcp_client.read_msg(timeout=20.0)
+    tools_res = mcp_client.call_method(
+        "tools/list",
+        {},
+        req_id=2,
+        timeout=20.0
+    )
     assert tools_res.get("id") == 2
     tools = tools_res.get("result", {}).get("tools", [])
     assert len(tools) > 0
@@ -126,19 +182,18 @@ def test_mcp_tools_list_find_meals(mcp_client):
 
 
 def test_mcp_real_tool_call_find_meals(mcp_client):
-    """Test end-to-end execution of find_meals via MCP protocol."""
-    mcp_client.send_msg({
-        "jsonrpc": "2.0",
-        "id": 3,
-        "method": "tools/call",
-        "params": {
+    """Test end-to-end execution of find_meals via direct MCP protocol."""
+    call_res = mcp_client.call_method(
+        "tools/call",
+        {
             "name": "find_meals",
             "arguments": {
                 "input_value": "telur, tomat, daun basil"
             }
-        }
-    })
-    call_res = mcp_client.read_msg(timeout=60.0)
+        },
+        req_id=3,
+        timeout=60.0
+    )
     assert call_res.get("id") == 3
     assert not call_res.get("result", {}).get("isError", False)
 
