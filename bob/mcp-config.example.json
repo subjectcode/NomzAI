@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "nomz-langflow": {
+      "command": "uvx",
+      "args": [
+        "--with",
+        "mcp<2.0.0",
+        "mcp-proxy",
+        "--transport",
+        "streamablehttp",
+        "--headers",
+        "x-api-key",
+        "<LANGFLOW_API_KEY>",
+        "http://localhost:7860/api/v1/mcp/project/<PROJECT_ID>/streamable"
+      ]
+    }
+  }
+}
