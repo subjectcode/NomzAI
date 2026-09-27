@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, SafeAreaView, View } from 'react-native';
+import {
+  StyleSheet,
+  View,
+} from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   BerandaScreen,
   ScanBahanScreen,
@@ -14,7 +18,7 @@ import { RecipeRecommendation } from './src/types';
 type CookingStep = 'scan' | 'recommendations' | 'detail';
 
 export default function App() {
-  // State Navigasi Tab Utama (M5.1: Beranda & Scan aktif; Riwayat & Profil disiapkan untuk M5.3)
+  // State Navigasi Tab Utama (Target: Beranda | Jelajahi | Scan | Tersimpan)
   const [activeTab, setActiveTab] = useState<TabRoute>('beranda');
 
   // State Alur Memasak (Core Cooking Flow: Scan -> Rekomendasi -> Detail)
@@ -60,49 +64,50 @@ export default function App() {
   };
 
   // Bottom Nav hanya ditampilkan pada top-level screen (Beranda atau Scan awal)
-  // Pada sub-screen Rekomendasi & Detail, fokus penuh pada konten dengan TopBar back button
   const shouldShowBottomNav =
     activeTab === 'beranda' || (activeTab === 'scan' && cookingStep === 'scan');
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
-      <View style={styles.mainContent}>
-        {/* TAB 1: Beranda */}
-        {activeTab === 'beranda' && (
-          <BerandaScreen onStartScan={handleStartScanFromHome} />
-        )}
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <StatusBar style="dark" />
+        <View style={styles.mainContent}>
+          {/* TAB: Beranda */}
+          {activeTab === 'beranda' && (
+            <BerandaScreen onStartScan={handleStartScanFromHome} />
+          )}
 
-        {/* TAB 2: Scan & Core Cooking Flow */}
-        {activeTab === 'scan' && (
-          <>
-            {cookingStep === 'scan' && (
-              <ScanBahanScreen
-                onNavigateToRecommendations={handleNavigateToRecommendations}
-              />
-            )}
-            {cookingStep === 'recommendations' && (
-              <RekomendasiScreen
-                ingredients={activeIngredients}
-                onSelectRecipe={handleSelectRecipe}
-                onBack={handleBackToScan}
-              />
-            )}
-            {cookingStep === 'detail' && selectedRecipe && (
-              <DetailResepScreen
-                recipe={selectedRecipe}
-                onBack={handleBackToRecommendations}
-              />
-            )}
-          </>
-        )}
-      </View>
+          {/* TAB: Scan & Core Cooking Flow */}
+          {activeTab === 'scan' && (
+            <>
+              {cookingStep === 'scan' && (
+                <ScanBahanScreen
+                  onNavigateToRecommendations={handleNavigateToRecommendations}
+                />
+              )}
+              {cookingStep === 'recommendations' && (
+                <RekomendasiScreen
+                  ingredients={activeIngredients}
+                  onSelectRecipe={handleSelectRecipe}
+                  onBack={handleBackToScan}
+                />
+              )}
+              {cookingStep === 'detail' && selectedRecipe && (
+                <DetailResepScreen
+                  recipe={selectedRecipe}
+                  onBack={handleBackToRecommendations}
+                />
+              )}
+            </>
+          )}
+        </View>
 
-      {/* Bottom Navigation Bar */}
-      {shouldShowBottomNav && (
-        <BottomNavBar currentTab={activeTab} onSelectTab={handleSelectTab} />
-      )}
-    </SafeAreaView>
+        {/* Bottom Navigation Bar */}
+        {shouldShowBottomNav && (
+          <BottomNavBar currentTab={activeTab} onSelectTab={handleSelectTab} />
+        )}
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
@@ -115,3 +120,4 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+

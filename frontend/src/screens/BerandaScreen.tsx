@@ -12,16 +12,19 @@ import { RecipeRecommendation } from '../types';
 
 interface BerandaScreenProps {
   onStartScan: () => void;
-  /**
-   * Slot struktur riwayat resep yang disiapkan untuk M5.3.
-   * Hanya dirender jika data riwayat nyata tersedia (tidak menampilkan data palsu).
-   */
+  // Handler & data yang disiapkan untuk ekspansi M5.2 / M5.3
+  onOpenProfile?: () => void;
+  onStartRescueMode?: () => void;
+  onStartLeftoverRemix?: () => void;
+  onStartManualInput?: () => void;
+  onStartCookNow?: () => void;
   recentRecipes?: RecipeRecommendation[];
   onSelectRecentRecipe?: (recipe: RecipeRecommendation) => void;
 }
 
 export function BerandaScreen({
   onStartScan,
+  onOpenProfile,
   recentRecipes = [],
   onSelectRecentRecipe,
 }: BerandaScreenProps) {
@@ -31,47 +34,82 @@ export function BerandaScreen({
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      {/* Brand Header */}
-      <View style={styles.brandHeader}>
-        <Text style={styles.brandTitle}>Nomz</Text>
-        <Text style={styles.brandSubtitle}>Asisten Memasak Dapur Anda</Text>
-      </View>
-
-      {/* Greeting & Headline */}
-      <View style={styles.headlineWrap}>
-        <Text style={styles.headline}>Mau masak apa hari ini?</Text>
-        <Text style={styles.supportingCopy}>
-          Pindai bahan makanan yang tersedia di dapurmu, dan temukan rekomendasi
-          hidangan lezat tanpa bahan terbuang.
-        </Text>
-      </View>
-
-      {/* Primary Action Hero Card: Pindai Bahan */}
-      <View style={styles.heroCard}>
-        <View style={styles.heroIconBox}>
-          <Feather name="camera" size={24} color={colors.primary} />
+      {/* Top Header: Brand di kiri, Avatar/Profile Affordance di kanan */}
+      <View style={styles.topHeader}>
+        <View style={styles.brandWrap}>
+          <Text style={styles.brandTitle}>Nomz</Text>
+          <Text style={styles.brandSubtitle}>AI Food Rescue Assistant</Text>
         </View>
 
-        <Text style={styles.heroCardTitle}>Pindai Bahan Makanan</Text>
-        <Text style={styles.heroCardDesc}>
-          Foto bahan makanan di kulkas atau meja dapurmu untuk mendapatkan
-          inspirasi resep masakan secara otomatis.
-        </Text>
-
+        {/* Profile Affordance (M5.3 target) */}
         <TouchableOpacity
-          style={styles.ctaButton}
-          onPress={onStartScan}
-          activeOpacity={0.85}
+          style={styles.profileAvatar}
+          onPress={onOpenProfile}
+          activeOpacity={0.7}
+          accessibilityLabel="Profil Pengguna"
         >
-          <Text style={styles.ctaButtonText}>Mulai Pindai Bahan</Text>
-          <Feather name="arrow-right" size={16} color="#FFFFFF" />
+          <Feather name="user" size={18} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* Slot Struktur "Terakhir Dilihat" untuk M5.3 (hanya tampil jika ada data nyata) */}
+      {/* Hero Greeting */}
+      <View style={styles.heroSection}>
+        <Text style={styles.heroGreeting}>Mau masak apa hari ini?</Text>
+        <Text style={styles.heroSubtext}>
+          Selamatkan bahan makanan yang ada di dapurmu. Olah apa yang ada menjadi
+          hidangan lezat dan praktis tanpa ada bahan yang terbuang.
+        </Text>
+      </View>
+
+      {/* Primary Action Card: Pindai Bahan */}
+      <View style={styles.primaryActionCard}>
+        <View style={styles.cardBadge}>
+          <Text style={styles.cardBadgeText}>REKOMENDASI CEPAT</Text>
+        </View>
+
+        <Text style={styles.actionCardTitle}>Pindai Bahan Makanan</Text>
+        <Text style={styles.actionCardDesc}>
+          Ambil foto kulkas atau meja dapurmu. Nomz akan mengenali bahan secara
+          otomatis dan meracik inspirasi resep masakan yang sesuai.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.primaryCtaButton}
+          onPress={onStartScan}
+          activeOpacity={0.85}
+        >
+          <Feather name="camera" size={17} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Text style={styles.primaryCtaText}>Mulai Pindai Sekarang</Text>
+          <Feather name="arrow-right" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Visual Area: Mulai Dari Mana? (Aksi fungsional saat ini) */}
+      <View style={styles.entrySection}>
+        <Text style={styles.sectionHeading}>Mulai Dari Mana?</Text>
+        
+        <TouchableOpacity
+          style={styles.entryCard}
+          onPress={onStartScan}
+          activeOpacity={0.8}
+        >
+          <View style={styles.entryIconBox}>
+            <Feather name="camera" size={20} color={colors.primary} />
+          </View>
+          <View style={styles.entryTextBox}>
+            <Text style={styles.entryTitle}>Pindai Isi Dapur</Text>
+            <Text style={styles.entrySubtitle}>
+              Deteksi bahan dari foto dan temukan resep langsung
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Slot Struktur "Terakhir Dilihat" untuk M5.3 (Hanya tampil jika ada data riwayat nyata) */}
       {recentRecipes.length > 0 && (
         <View style={styles.recentSection}>
-          <Text style={styles.recentTitle}>Terakhir Dilihat</Text>
+          <Text style={styles.sectionHeading}>Terakhir Dilihat</Text>
           {recentRecipes.map((recipe) => (
             <TouchableOpacity
               key={recipe.id}
@@ -98,107 +136,161 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingTop: 12,
+    paddingBottom: 28,
     maxWidth: 520,
     width: '100%',
     alignSelf: 'center',
   },
-  brandHeader: {
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
   },
+  brandWrap: {
+    flex: 1,
+  },
   brandTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700',
     color: colors.primaryDark,
     letterSpacing: -0.5,
   },
   brandSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,
     fontWeight: '500',
   },
-  headlineWrap: {
-    marginTop: 20,
-    marginBottom: 8,
+  profileAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#EFF3EF',
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  headline: {
-    fontSize: 24,
-    fontWeight: '600',
+  heroSection: {
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  heroGreeting: {
+    fontSize: 22,
+    fontWeight: '700',
     color: colors.textPrimary,
-    lineHeight: 30,
+    lineHeight: 28,
     letterSpacing: -0.3,
   },
-  supportingCopy: {
+  heroSubtext: {
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 21,
     marginTop: 8,
   },
-  heroCard: {
+  primaryActionCard: {
     backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 20,
-    marginTop: 24,
+    padding: 18,
+    marginTop: 18,
   },
-  heroIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+  cardBadge: {
     backgroundColor: '#EFF3EF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
   },
-  heroCardTitle: {
+  cardBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.primaryDark,
+    letterSpacing: 0.5,
+  },
+  actionCardTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.textPrimary,
   },
-  heroCardDesc: {
-    fontSize: 14,
+  actionCardDesc: {
+    fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: 20,
+    lineHeight: 19,
     marginTop: 6,
   },
-  ctaButton: {
+  primaryCtaButton: {
     backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    borderRadius: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 18,
   },
-  ctaButtonText: {
+  primaryCtaText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
-    marginRight: 8,
   },
-  recentSection: {
-    marginTop: 28,
+  entrySection: {
+    marginTop: 24,
   },
-  recentTitle: {
+  sectionHeading: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: 12,
   },
-  recentCard: {
+  entryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+  },
+  entryIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#EFF3EF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  entryTextBox: {
+    flex: 1,
+  },
+  entryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  entrySubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  recentSection: {
+    marginTop: 24,
+  },
+  recentCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 14,
     marginBottom: 10,
   },
   recentRecipeName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.textPrimary,
   },

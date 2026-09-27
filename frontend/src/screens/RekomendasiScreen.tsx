@@ -10,6 +10,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { getRecipeRecommendations } from '../services/api';
 import { RecipeRecommendation } from '../types';
+import { colors } from '../theme';
 
 interface RekomendasiScreenProps {
   ingredients: string[];
@@ -48,7 +49,7 @@ export function RekomendasiScreen({
       {/* Top Bar Navigasi */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <Feather name="arrow-left" size={22} color="#0f172a" />
+          <Feather name="arrow-left" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.topBarTextWrap}>
           <Text style={styles.topBarTitle}>Rekomendasi Masakan</Text>
@@ -77,7 +78,7 @@ export function RekomendasiScreen({
         {/* State Memuat */}
         {loading && (
           <View style={styles.centerBox}>
-            <ActivityIndicator size="large" color="#ea580c" />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingTitle}>Meracik Ide Masakan...</Text>
             <Text style={styles.loadingSubtitle}>
               Menyelaraskan bahan masakanmu dengan ide hidangan rumahan terbaik.
@@ -323,10 +324,10 @@ const styles = StyleSheet.create({
   retryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ea580c',
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   retryBtnText: {
     color: '#ffffff',

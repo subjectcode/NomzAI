@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { checkBackendHealth, detectIngredientsFromImage } from '../services/api';
 import { Ingredient } from '../types';
 import { SAMPLE_INGREDIENTS_DATA_URL, SAMPLE_FRUITS_DATA_URL } from '../sampleImages';
+import { colors } from '../theme';
 
 type BackendStatus = 'idle' | 'checking' | 'connected' | 'failed';
 
@@ -152,13 +153,23 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
-      {/* Header Aplikasi */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>Nomz</Text>
-        <Text style={styles.subtitle}>Asisten Memasak Harian</Text>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>Pindai Bahan Makanan</Text>
+      {/* Top Header konsisten dengan Beranda */}
+      <View style={styles.topHeader}>
+        <View style={styles.brandWrap}>
+          <Text style={styles.brandTitle}>Nomz</Text>
+          <Text style={styles.brandSubtitle}>AI Food Rescue Assistant</Text>
         </View>
+        <View style={styles.profileAvatar}>
+          <Feather name="user" size={18} color={colors.primary} />
+        </View>
+      </View>
+
+      {/* Page Heading & Intro */}
+      <View style={styles.pageIntro}>
+        <Text style={styles.pageTitle}>Pindai Bahan Masakan</Text>
+        <Text style={styles.pageDesc}>
+          Pilih foto bahan makanan di meja dapur atau kulkas untuk mendeteksi bahan secara otomatis.
+        </Text>
       </View>
 
       {/* Bar Status Backend */}
@@ -231,7 +242,7 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
           <View>
             <TouchableOpacity style={styles.uploadBox} onPress={handlePickImage} activeOpacity={0.8}>
               <View style={styles.uploadIconContainer}>
-                <Feather name="camera" size={26} color="#ea580c" />
+                <Feather name="camera" size={26} color={colors.primary} />
               </View>
               <Text style={styles.uploadBoxTitle}>Pilih dari Galeri</Text>
               <Text style={styles.uploadBoxHint}>Ketuk untuk memilih foto bahan makanan</Text>
@@ -239,7 +250,7 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
 
             {/* Tombol Contoh Foto Cepat */}
             <View style={styles.sampleRow}>
-              <Text style={styles.sampleLabel}>Atau coba contoh bahan:</Text>
+              <Text style={styles.sampleLabel}>Contoh foto cepat (pengujian):</Text>
               <View style={styles.sampleButtons}>
                 <TouchableOpacity
                   style={styles.sampleBtn}
@@ -261,7 +272,7 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
         {/* Indikator Memuat */}
         {isDetecting && (
           <View style={styles.loadingBanner}>
-            <ActivityIndicator size="small" color="#ea580c" style={{ marginRight: 10 }} />
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 10 }} />
             <Text style={styles.loadingBannerText}>
               Memeriksa bahan makanan pada foto...
             </Text>
@@ -401,8 +412,6 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
         </View>
       )}
 
-      {/* Footer */}
-      <Text style={styles.footer}>Nomz Mobile • Memasak Cerdas dari Dapur Sendiri</Text>
     </ScrollView>
   );
 }
@@ -410,42 +419,62 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
 const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingTop: 12,
+    paddingBottom: 28,
+    maxWidth: 520,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  topHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    width: '100%',
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 18,
+  brandWrap: {
+    flex: 1,
   },
-  logo: {
-    fontSize: 40,
-    fontWeight: '800',
-    color: '#1c1917',
-    letterSpacing: -1,
+  brandTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: colors.primaryDark,
+    letterSpacing: -0.5,
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#78716c',
+  brandSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
     marginTop: 2,
     fontWeight: '500',
   },
-  badge: {
-    backgroundColor: '#fff7ed',
-    borderColor: '#ffedd5',
+  profileAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#EFF3EF',
     borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 3,
-    borderRadius: 9999,
-    marginTop: 8,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  badgeText: {
-    color: '#ea580c',
-    fontSize: 11,
-    fontWeight: '600',
+  pageIntro: {
+    marginTop: 14,
+    marginBottom: 12,
+    width: '100%',
+  },
+  pageTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  pageDesc: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 19,
+    marginTop: 4,
   },
   backendBar: {
     width: '100%',
-    maxWidth: 480,
     backgroundColor: '#FAF8F3',
     borderRadius: 8,
     paddingHorizontal: 10,
@@ -454,8 +483,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#E7E5DE',
-    marginBottom: 12,
+    borderColor: colors.border,
+    marginBottom: 14,
   },
   backendBarLeft: {
     flexDirection: 'row',
@@ -471,45 +500,39 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   statusDotGreen: {
-    backgroundColor: '#4F7A57',
+    backgroundColor: colors.success,
   },
   statusDotRed: {
-    backgroundColor: '#C65A4B',
+    backgroundColor: colors.error,
   },
   statusDotAmber: {
-    backgroundColor: '#E89B5B',
+    backgroundColor: colors.accent,
   },
   backendBarText: {
     fontSize: 11,
-    color: '#6F746C',
+    color: colors.textSecondary,
     flex: 1,
   },
   checkHealthBtn: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
+    borderColor: colors.border,
   },
   checkHealthBtnText: {
     fontSize: 10,
-    color: '#5F7A61',
+    color: colors.primary,
     fontWeight: '600',
   },
   card: {
     width: '100%',
-    maxWidth: 480,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 18,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#e7e5e4',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    borderColor: colors.border,
     marginBottom: 16,
   },
   cardHeaderRow: {
@@ -519,44 +542,44 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#1c1917',
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   cardDesc: {
     fontSize: 13,
-    color: '#78716c',
+    color: colors.textSecondary,
     marginTop: 4,
     marginBottom: 14,
     lineHeight: 18,
   },
   countBadge: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
+    backgroundColor: '#EFF3EF',
+    borderColor: colors.border,
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 999,
   },
   countBadgeText: {
-    color: '#15803d',
+    color: colors.primaryDark,
     fontSize: 11,
     fontWeight: '600',
   },
   uploadBox: {
     borderWidth: 1.5,
-    borderColor: '#e7e5e4',
+    borderColor: colors.border,
     borderStyle: 'dashed',
-    borderRadius: 12,
+    borderRadius: 16,
     paddingVertical: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fafaf9',
+    backgroundColor: '#FAF8F3',
   },
   uploadIconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#EFF3EF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -564,23 +587,21 @@ const styles = StyleSheet.create({
   uploadBoxTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#292524',
+    color: colors.textPrimary,
   },
   uploadBoxHint: {
     fontSize: 12,
-    color: '#a8a29e',
+    color: colors.textSecondary,
     marginTop: 3,
   },
   sampleRow: {
     marginTop: 12,
   },
   sampleLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#78716c',
+    color: colors.textSecondary,
     marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
   },
   sampleButtons: {
     flexDirection: 'row',
@@ -588,18 +609,18 @@ const styles = StyleSheet.create({
   },
   sampleBtn: {
     flex: 1,
-    backgroundColor: '#f5f5f4',
+    backgroundColor: colors.surface,
     paddingVertical: 9,
     paddingHorizontal: 10,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e7e5e4',
+    borderColor: colors.border,
   },
   sampleBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#44403c',
+    color: colors.textPrimary,
   },
   previewContainer: {
     width: '100%',
@@ -607,8 +628,8 @@ const styles = StyleSheet.create({
   imagePreview: {
     width: '100%',
     height: 220,
-    borderRadius: 10,
-    backgroundColor: '#f5f5f4',
+    borderRadius: 14,
+    backgroundColor: '#EFF3EF',
   },
   imageActionRow: {
     flexDirection: 'row',
@@ -617,28 +638,30 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: '#ea580c',
+    backgroundColor: colors.primary,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButtonText: {
     color: '#ffffff',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   secondaryButton: {
     flexDirection: 'row',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: '#f5f5f4',
-    borderRadius: 10,
+    backgroundColor: '#FAF8F3',
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   secondaryButtonText: {
-    color: '#44403c',
+    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -652,34 +675,34 @@ const styles = StyleSheet.create({
   loadingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff7ed',
-    borderColor: '#ffedd5',
+    backgroundColor: '#EFF3EF',
+    borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
     marginTop: 12,
   },
   loadingBannerText: {
-    color: '#c2410c',
+    color: colors.primaryDark,
     fontSize: 12,
     fontWeight: '600',
   },
   errorBox: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fca5a5',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
     marginTop: 12,
   },
   errorBoxTitle: {
-    color: '#b91c1c',
+    color: colors.error,
     fontSize: 12,
     fontWeight: '700',
     marginBottom: 2,
   },
   errorBoxText: {
-    color: '#dc2626',
+    color: colors.error,
     fontSize: 12,
     lineHeight: 16,
   },
@@ -689,7 +712,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 13,
-    color: '#a8a29e',
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   ingredientsList: {
@@ -698,37 +721,37 @@ const styles = StyleSheet.create({
   ingredientRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fafaf9',
-    borderRadius: 8,
+    backgroundColor: '#FAF8F3',
+    borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 6,
     marginBottom: 6,
     borderWidth: 1,
-    borderColor: '#f5f5f4',
+    borderColor: colors.border,
   },
   ingredientIndex: {
     fontSize: 12,
-    color: '#a8a29e',
+    color: colors.textSecondary,
     fontWeight: '600',
     width: 22,
   },
   ingredientInput: {
     flex: 1,
     fontSize: 14,
-    color: '#1c1917',
+    color: colors.textPrimary,
     fontWeight: '600',
     paddingVertical: 4,
     paddingHorizontal: 6,
   },
   confidenceTag: {
-    backgroundColor: '#f0fdf4',
+    backgroundColor: '#EFF3EF',
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 4,
     marginRight: 8,
   },
   confidenceText: {
-    color: '#15803d',
+    color: colors.primaryDark,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -736,7 +759,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#fef2f2',
+    backgroundColor: '#FEF2F2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -744,15 +767,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f5f5f4',
+    borderTopColor: colors.border,
   },
   addSectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#78716c',
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
     marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
   },
   addInputRow: {
     flexDirection: 'row',
@@ -760,20 +781,20 @@ const styles = StyleSheet.create({
   },
   addInput: {
     flex: 1,
-    backgroundColor: '#fafaf9',
+    backgroundColor: '#FAF8F3',
     borderWidth: 1,
-    borderColor: '#e7e5e4',
-    borderRadius: 8,
+    borderColor: colors.border,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
-    color: '#1c1917',
+    color: colors.textPrimary,
   },
   addButton: {
     flexDirection: 'row',
-    backgroundColor: '#292524',
+    backgroundColor: colors.primaryDark,
     paddingHorizontal: 14,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -784,9 +805,9 @@ const styles = StyleSheet.create({
   },
   confirmButton: {
     flexDirection: 'row',
-    backgroundColor: '#16a34a',
+    backgroundColor: colors.primary,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 14,
@@ -797,8 +818,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   confirmedCard: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
+    backgroundColor: '#EFF3EF',
+    borderColor: '#C8D6C9',
   },
   confirmedHeader: {
     flexDirection: 'row',
@@ -809,7 +830,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#dcfce7',
+    backgroundColor: '#DCE8DC',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
@@ -817,11 +838,11 @@ const styles = StyleSheet.create({
   confirmedTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#15803d',
+    color: colors.primaryDark,
   },
   confirmedDesc: {
     fontSize: 13,
-    color: '#166534',
+    color: colors.textSecondary,
     marginBottom: 10,
   },
   tagGrid: {
@@ -832,14 +853,14 @@ const styles = StyleSheet.create({
   },
   confirmedTag: {
     backgroundColor: '#ffffff',
-    borderColor: '#86efac',
+    borderColor: colors.primary,
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   confirmedTagText: {
-    color: '#15803d',
+    color: colors.primaryDark,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'capitalize',
@@ -848,25 +869,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ea580c',
+    backgroundColor: colors.primary,
     paddingVertical: 14,
-    borderRadius: 10,
-    shadowColor: '#ea580c',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    borderRadius: 14,
   },
   toRecommendationsBtnText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',
     marginRight: 6,
-  },
-  footer: {
-    marginTop: 12,
-    fontSize: 11,
-    color: '#a8a29e',
-    textAlign: 'center',
   },
 });

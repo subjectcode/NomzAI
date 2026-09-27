@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { RecipeRecommendation } from '../types';
+import { colors } from '../theme';
 
 interface DetailResepScreenProps {
   recipe: RecipeRecommendation;
@@ -22,7 +23,7 @@ export function DetailResepScreen({ recipe, onBack }: DetailResepScreenProps) {
       {/* Top Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <Feather name="arrow-left" size={22} color="#0f172a" />
+          <Feather name="arrow-left" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.topBarTextWrap}>
           <Text style={styles.topBarTitle} numberOfLines={1}>
@@ -41,7 +42,7 @@ export function DetailResepScreen({ recipe, onBack }: DetailResepScreenProps) {
           {/* Quick Metrics */}
           <View style={styles.metricsRow}>
             <View style={styles.metricItem}>
-              <Feather name="clock" size={16} color="#ea580c" style={{ marginBottom: 4 }} />
+              <Feather name="clock" size={16} color={colors.primary} style={{ marginBottom: 4 }} />
               <Text style={styles.metricLabel}>Waktu Masak</Text>
               <Text style={styles.metricValue}>{recipe.estimasi_waktu}</Text>
             </View>
@@ -336,18 +337,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ea580c',
+    backgroundColor: colors.primary,
     paddingVertical: 15,
-    borderRadius: 12,
+    borderRadius: 14,
     marginTop: 8,
-    shadowColor: '#ea580c',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
   },
   primaryActionBtnDone: {
-    backgroundColor: '#16a34a',
+    backgroundColor: colors.primaryDark,
   },
   primaryActionBtnText: {
     color: '#ffffff',
