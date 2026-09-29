@@ -33,6 +33,7 @@ export function LoginScreen({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -73,7 +74,7 @@ export function LoginScreen({
       await login({
         email: email.trim(),
         password,
-      });
+      }, rememberMe);
       // AuthContext memperbarui isAuthenticated -> root router mengarahkan ke Home
     } catch (err: any) {
       const status = err.status;
@@ -215,6 +216,24 @@ export function LoginScreen({
                 </TouchableOpacity>
               </View>
             </View>
+
+            {/* Remember Me Checkbox */}
+            <TouchableOpacity
+              style={styles.rememberRow}
+              onPress={() => setRememberMe(!rememberMe)}
+              activeOpacity={0.7}
+              disabled={isSubmitting}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: rememberMe }}
+              accessibilityLabel="Ingat saya"
+            >
+              <Feather
+                name={rememberMe ? 'check-square' : 'square'}
+                size={20}
+                color={rememberMe ? colors.primary : colors.textSecondary}
+              />
+              <Text style={styles.rememberLabel}>Ingat saya</Text>
+            </TouchableOpacity>
 
             {/* Primary Action Button: Masuk */}
             <TouchableOpacity
@@ -380,6 +399,19 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
+  },
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  rememberLabel: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    marginLeft: 10,
+    fontWeight: '500',
   },
   dividerRow: {
     flexDirection: 'row',

@@ -28,7 +28,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   register: (input: RegisterInput) => Promise<User>;
-  login: (input: LoginInput) => Promise<User>;
+  login: (input: LoginInput, rememberMe?: boolean) => Promise<User>;
   logout: () => Promise<void>;
   restoreSession: () => Promise<void>;
 }
@@ -121,13 +121,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   /**
-   * Login pengguna, menyimpan token ke SecureStore, dan mengaktifkan status auth.
+   * Login pengguna.
+   * rememberMe = true  → token disimpan ke SecureStore (persisten antar restart)
+   * rememberMe = false → token hanya di memori (hilang saat app process restart)
+   *                       dan hapus token lama dari SecureStore agar tidak bangkit
    */
-  const handleLogin = async (input: LoginInput): Promise<User> => {
+  const handleLogin = async (input: LoginInput, rememberMe: boolean = true): Promise<User> => {
     setIsLoading(true);
     try {
       const response = await loginUser(input);
-      await saveAuthToken(response.access_token);
+      if (rememberMe) {
+        await saveAuthToken(response.access_token);
+      } else {
+        // Hapus token persisten lama agar tidak bangkit setelah restart
+        await deleteAuthToken();
+      }
       setToken(response.access_token);
       setUser(response.user);
       return response.user;
