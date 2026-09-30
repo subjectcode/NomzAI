@@ -6,9 +6,15 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
+  Image,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors, radius, shadows, spacing } from '../theme';
+
+const ILLUST_MAKANAN_INSTANT = require('../../assets/brand/illustrations/makanan-instant-icon.png');
+const ILLUST_SISAAN_MAKANAN = require('../../assets/brand/illustrations/sisaan-makanan-icon.png');
+const ILLUST_RESEP_KREATIF = require('../../assets/brand/illustrations/resep-kreatif-icon.png');
+const ILLUST_LEBIH_SEHAT = require('../../assets/brand/illustrations/lebih-sehat-dan-hemat-icon.png');
 
 interface JelajahiScreenProps {
   onSelectCategoryIngredients: (ingredients: string[]) => void;
@@ -22,6 +28,7 @@ interface RescueCategory {
   badge: string;
   ingredients: string[];
   icon: keyof typeof Feather.glyphMap;
+  illustration: any;
   themeColor: string;
   bgTint: string;
 }
@@ -30,21 +37,23 @@ interface RescueCategory {
 const RESCUE_CATEGORIES: RescueCategory[] = [
   {
     id: 'cat-1',
-    title: 'Makanan Praktis',
+    title: 'Makanan Instant',
     subtitle: 'Masak kilat < 15 menit saat waktu terbatas',
     badge: 'Cepat & Praktis',
     ingredients: ['telur', 'tomat', 'kecap manis'],
     icon: 'zap',
+    illustration: ILLUST_MAKANAN_INSTANT,
     themeColor: colors.primary,
     bgTint: colors.mintSoft,
   },
   {
     id: 'cat-2',
-    title: 'Sisaan Makanan (Food Rescue)',
+    title: 'Sisaan Makanan',
     subtitle: 'Selamatkan sisa nasi, tahu, dan sayuran sebelum layu',
     badge: 'Penyelamat Dapur',
     ingredients: ['nasi putih', 'bawang putih', 'telur', 'sayur'],
     icon: 'refresh-cw',
+    illustration: ILLUST_SISAAN_MAKANAN,
     themeColor: colors.orangeDark,
     bgTint: '#FFF7ED',
   },
@@ -55,6 +64,7 @@ const RESCUE_CATEGORIES: RescueCategory[] = [
     badge: 'Kaya Rempah',
     ingredients: ['bawang bombay', 'cabai', 'telur', 'saus tiram'],
     icon: 'compass',
+    illustration: ILLUST_RESEP_KREATIF,
     themeColor: colors.success,
     bgTint: '#F0FDF4',
   },
@@ -65,6 +75,7 @@ const RESCUE_CATEGORIES: RescueCategory[] = [
     badge: 'Hemat & Bernutrisi',
     ingredients: ['tahu', 'tempe', 'bawang merah', 'tomat'],
     icon: 'heart',
+    illustration: ILLUST_LEBIH_SEHAT,
     themeColor: '#0284C7',
     bgTint: '#F0F9FF',
   },
@@ -141,7 +152,16 @@ export function JelajahiScreen({
               activeOpacity={0.85}
             >
               <View style={[styles.categoryIconBox, { backgroundColor: cat.bgTint }]}>
-                <Feather name={cat.icon} size={22} color={cat.themeColor} />
+                {cat.illustration ? (
+                  <Image
+                    source={cat.illustration}
+                    style={styles.categoryIllustration}
+                    resizeMode="contain"
+                    accessibilityLabel={cat.title}
+                  />
+                ) : (
+                  <Feather name={cat.icon} size={22} color={cat.themeColor} />
+                )}
               </View>
 
               <View style={styles.categoryContent}>
@@ -292,6 +312,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  categoryIllustration: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.xs,
   },
   categoryContent: {
     flex: 1,

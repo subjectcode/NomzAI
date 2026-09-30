@@ -45,3 +45,7 @@ Thumbs.db
 *.swp
 *.swo
 .bob/mcp.json
+
+# Brand asset archive and extraction
+Nomz_Brand_Assets.zip
+Nomz_Brand_Assets/

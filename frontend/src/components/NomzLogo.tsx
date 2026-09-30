@@ -1,179 +1,79 @@
 import React from 'react';
-import { StyleSheet, View, Text, ViewStyle } from 'react-native';
-import { colors } from '../theme';
+import { StyleSheet, View, Image, ViewStyle, ImageStyle } from 'react-native';
 
-interface NomzLogoProps {
+const LOGO_FULL = require('../../assets/brand/logo/nomz-logo-primary-transparent.png');
+const LOGO_COMPACT = require('../../assets/brand/logo/nomz-logo-compact-transparent.png');
+const LOGO_MARK = require('../../assets/brand/logo/nomz-mark-transparent.png');
+
+export interface NomzLogoProps {
   size?: 'sm' | 'md' | 'lg';
   variant?: 'full' | 'compact' | 'symbol';
   showSubtitle?: boolean;
   style?: ViewStyle;
+  imageStyle?: ImageStyle;
 }
 
 /**
  * Nomz Official Brand Logo Component
- * Derived directly from Nomz_DESIGN.md Section 2 & Brand Board Reference
- * Features the abstract botanical / food-rescue leaf symbol + orange food dot.
+ * Uses authoritative assets from Nomz_Brand_Assets
+ * Full: Nömz wordmark with official "AI Food Rescue Assistant" tagline
+ * Compact: Nömz wordmark with botanical 'o' and orange food dot
+ * Symbol: Isolated botanical leaf food rescue mark
  */
 export const NomzLogo: React.FC<NomzLogoProps> = ({
   size = 'md',
   variant = 'compact',
   showSubtitle = false,
   style,
+  imageStyle,
 }) => {
   const isSm = size === 'sm';
   const isLg = size === 'lg';
 
-  // Dimension scaling
-  const iconScale = isSm ? 0.75 : isLg ? 1.35 : 1;
-  const wordmarkSize = isSm ? 18 : isLg ? 28 : 22;
-  const subtitleSize = isSm ? 8 : isLg ? 11 : 9;
+  // Use full logo if explicitly requested or showSubtitle is enabled
+  const isFull = variant === 'full' || (showSubtitle && variant !== 'symbol');
+  const isSymbol = variant === 'symbol';
+
+  // Dimensions preserving official asset aspect ratios
+  // Full logo ratio: 490 / 220 = 2.227
+  // Compact wordmark ratio: 418 / 150 = 2.787
+  // Symbol mark ratio: 160 / 165 = 0.97
+  let imageSource = LOGO_COMPACT;
+  let imgWidth = isSm ? 76 : isLg ? 168 : 106;
+  let imgHeight = isSm ? 27 : isLg ? 60 : 38;
+
+  if (isSymbol) {
+    imageSource = LOGO_MARK;
+    imgWidth = isSm ? 28 : isLg ? 64 : 38;
+    imgHeight = isSm ? 29 : isLg ? 66 : 39;
+  } else if (isFull) {
+    imageSource = LOGO_FULL;
+    imgWidth = isSm ? 76 : isLg ? 168 : 112;
+    imgHeight = isSm ? 34 : isLg ? 75 : 50;
+  }
 
   return (
     <View style={[styles.container, style]}>
-      {/* Botanical Symbol Mark */}
-      <View style={[styles.symbolWrapper, { transform: [{ scale: iconScale }] }]}>
-        {/* Left flowing leaf */}
-        <View style={styles.leftLeaf} />
-        {/* Right upper leaf */}
-        <View style={styles.rightLeaf} />
-        {/* Warm food dot */}
-        <View style={styles.foodDot} />
-        {/* Lower flow foundation */}
-        <View style={styles.bottomFlow} />
-      </View>
-
-      {/* Wordmark (if not symbol-only) */}
-      {variant !== 'symbol' && (
-        <View style={styles.textContainer}>
-          <View style={styles.wordmarkRow}>
-            <Text style={[styles.wordmarkN, { fontSize: wordmarkSize }]}>N</Text>
-            {/* The 'o' with twin botanical leaves */}
-            <View style={styles.oWrapper}>
-              <View style={styles.leafCrown}>
-                <View style={styles.crownLeafLeft} />
-                <View style={styles.crownLeafRight} />
-              </View>
-              <Text style={[styles.wordmarkLetter, { fontSize: wordmarkSize }]}>o</Text>
-            </View>
-            <Text style={[styles.wordmarkLetter, { fontSize: wordmarkSize }]}>mz</Text>
-          </View>
-
-          {(variant === 'full' || showSubtitle) && (
-            <Text style={[styles.subtitle, { fontSize: subtitleSize }]}>
-              AI FOOD RESCUE ASSISTANT
-            </Text>
-          )}
-        </View>
-      )}
+      <Image
+        source={imageSource}
+        style={[
+          {
+            width: imgWidth,
+            height: imgHeight,
+          },
+          imageStyle,
+        ]}
+        resizeMode="contain"
+        accessibilityRole="image"
+        accessibilityLabel="Nomz Brand Logo"
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
     alignItems: 'center',
-  },
-  symbolWrapper: {
-    width: 32,
-    height: 32,
-    position: 'relative',
-    marginRight: 8,
-  },
-  leftLeaf: {
-    position: 'absolute',
-    left: 2,
-    top: 6,
-    width: 15,
-    height: 20,
-    backgroundColor: colors.freshMint,
-    borderTopLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    borderBottomLeftRadius: 4,
-    transform: [{ rotate: '-15deg' }],
-  },
-  rightLeaf: {
-    position: 'absolute',
-    right: 4,
-    top: 2,
-    width: 10,
-    height: 14,
-    backgroundColor: colors.primary,
-    borderTopRightRadius: 12,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 2,
-    transform: [{ rotate: '20deg' }],
-  },
-  foodDot: {
-    position: 'absolute',
-    right: 1,
-    top: 13,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.softOrange,
-  },
-  bottomFlow: {
-    position: 'absolute',
-    bottom: 2,
-    left: 8,
-    width: 16,
-    height: 10,
-    backgroundColor: colors.primaryDark,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
-    borderTopRightRadius: 8,
-    transform: [{ rotate: '10deg' }],
-    opacity: 0.9,
-  },
-  textContainer: {
-    flexDirection: 'column',
     justifyContent: 'center',
-  },
-  wordmarkRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  wordmarkN: {
-    color: colors.primary,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  wordmarkLetter: {
-    color: colors.primary,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  oWrapper: {
-    position: 'relative',
-    alignItems: 'center',
-  },
-  leafCrown: {
-    position: 'absolute',
-    top: -5,
-    flexDirection: 'row',
-    gap: 2,
-  },
-  crownLeafLeft: {
-    width: 3.5,
-    height: 5,
-    backgroundColor: colors.freshMint,
-    borderTopLeftRadius: 3,
-    borderBottomRightRadius: 3,
-    transform: [{ rotate: '-25deg' }],
-  },
-  crownLeafRight: {
-    width: 3.5,
-    height: 5,
-    backgroundColor: colors.freshMint,
-    borderTopRightRadius: 3,
-    borderBottomLeftRadius: 3,
-    transform: [{ rotate: '25deg' }],
-  },
-  subtitle: {
-    color: colors.textMuted,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    marginTop: 1,
   },
 });
