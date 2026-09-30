@@ -7,6 +7,8 @@ export interface RecipeRecommendation {
   estimasi_waktu: string;
   tingkat_kesulitan: string;
   alasan: string;
+  langkah?: string[];
+  porsi?: string;
 }
 
 export interface RecommendationResponse {

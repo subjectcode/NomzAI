@@ -24,9 +24,9 @@ export interface TabConfig {
  */
 export const ALL_TABS: TabConfig[] = [
   { id: 'beranda', label: 'Beranda', icon: 'home', isAvailable: true },
-  { id: 'jelajahi', label: 'Jelajahi', icon: 'compass', isAvailable: false },
+  { id: 'jelajahi', label: 'Jelajahi', icon: 'compass', isAvailable: true },
   { id: 'scan', label: 'Scan', icon: 'camera', isAvailable: true },
-  { id: 'tersimpan', label: 'Tersimpan', icon: 'bookmark', isAvailable: false },
+  { id: 'tersimpan', label: 'Tersimpan', icon: 'bookmark', isAvailable: true },
 ];
 
 interface BottomNavBarProps {

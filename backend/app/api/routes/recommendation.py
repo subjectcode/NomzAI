@@ -26,7 +26,11 @@ def get_recommendations_endpoint(payload: RecommendationRequest, response: Respo
             detail="Daftar bahan makanan tidak boleh kosong.",
         )
 
-    result = generate_recommendations(cleaned)
+    result = generate_recommendations(
+        cleaned,
+        mode=payload.mode or "rescue",
+        constraint=payload.constraint,
+    )
     response.headers["X-Recommendation-Engine"] = result.source or "langflow"
     if result.flow_id:
         response.headers["X-Langflow-Flow-Id"] = result.flow_id

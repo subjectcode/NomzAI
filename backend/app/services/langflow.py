@@ -75,10 +75,13 @@ def _clean_json_markdown(text: str) -> str:
     return cleaned.strip()
 
 
-def run_find_meals_flow(ingredients: List[str]) -> RecommendationResponse:
+def run_find_meals_flow(
+    ingredients: List[str],
+    mode: Optional[str] = None,
+    constraint: Optional[str] = None,
+) -> RecommendationResponse:
     """Mengeksekusi workflow Langflow 'find_meals' secara sinkron via REST API
-
-    menggunakan confirmed ingredients pengguna.
+    menggunakan confirmed ingredients pengguna dan opsi constraint.
     """
     cleaned_ingredients = [ing.strip().lower() for ing in ingredients if ing and ing.strip()]
     if not cleaned_ingredients:
@@ -99,6 +102,17 @@ def run_find_meals_flow(ingredients: List[str]) -> RecommendationResponse:
 
     # Format input untuk node Chat Input di Langflow find_meals
     input_str = ", ".join(cleaned_ingredients)
+    if constraint:
+        input_str += f" (Kendala khusus: {constraint})"
+    elif mode and mode != "rescue":
+        mode_labels = {
+            "no_shopping": "Tanpa belanja bahan tambahan, maksimalkan bahan yang ada",
+            "quick": "Lebih cepat, waktu memasak sesingkat mungkin",
+            "simple": "Lebih sederhana, langkah minim dan bumbu praktis",
+            "free": "Eksplorasi bebas variasi rasa",
+        }
+        input_str += f" (Mode: {mode_labels.get(mode, mode)})"
+
     payload = {
         "input_value": input_str,
         "input_type": "chat",
@@ -153,7 +167,7 @@ def run_find_meals_flow(ingredients: List[str]) -> RecommendationResponse:
             detail=f"Format output resep dari Langflow tidak valid: {parse_err}",
         )
 
-    # Validasi terhadap Pydantic schema M2
+    # Validasi terhadap Pydantic schema
     try:
         recommendations_resp = RecommendationResponse.model_validate(parsed_dict)
     except Exception as val_err:
@@ -175,6 +189,18 @@ def run_find_meals_flow(ingredients: List[str]) -> RecommendationResponse:
                 if b not in item.bahan_tambahan:
                     item.bahan_tambahan.append(b)
         item.bahan_tersedia = sanitized_tersedia if sanitized_tersedia else [cleaned_ingredients[0]]
+
+        # Pastikan ada langkah-langkah memasak praktis
+        if not item.langkah:
+            item.langkah = [
+                f"Siapkan bahan utama yang tersedia: {', '.join(item.bahan_tersedia)}.",
+                "Cuci bersih bahan segar dan potong sesuai selera.",
+                "Panaskan sedikit minyak goreng atau margarin di atas wajan dengan api sedang.",
+                f"Masak dan olah {item.nama.lower()} hingga matang merata dan harum.",
+                "Bumbui dengan bumbu pelengkap secukupnya, cicipi rasa, lalu angkat dan sajikan selagi hangat.",
+            ]
+        if not item.porsi:
+            item.porsi = "1-2 porsi"
 
     logger.info(
         "Workflow Langflow find_meals BERHASIL menghasilkan %d rekomendasi masakan",

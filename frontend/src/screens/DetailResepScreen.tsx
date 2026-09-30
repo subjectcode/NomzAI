@@ -1,22 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { RecipeRecommendation } from '../types';
 import { colors } from '../theme';
+import { isRecipeSaved, saveRecipe, removeSavedRecipe } from '../services/savedStorage';
+import { openYouTubeTutorial } from '../services/youtube';
 
 interface DetailResepScreenProps {
   recipe: RecipeRecommendation;
   onBack: () => void;
+  onStartCooking: (recipe: RecipeRecommendation) => void;
 }
 
-export function DetailResepScreen({ recipe, onBack }: DetailResepScreenProps) {
-  const [cookingStarted, setCookingStarted] = useState<boolean>(false);
+export function DetailResepScreen({
+  recipe,
+  onBack,
+  onStartCooking,
+}: DetailResepScreenProps) {
+  const [saved, setSaved] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+
+  useEffect(() => {
+    isRecipeSaved(recipe.id, recipe.nama).then(setSaved);
+  }, [recipe.id, recipe.nama]);
+
+  const handleToggleSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      if (saved) {
+        await removeSavedRecipe(recipe.id);
+        setSaved(false);
+      } else {
+        await saveRecipe(recipe);
+        setSaved(true);
+        Alert.alert('Resep Disimpan', 'Resep berhasil ditambahkan ke koleksi Tersimpan.');
+      }
+    } catch {
+      Alert.alert('Gagal', 'Terjadi kesalahan saat memperbarui resep tersimpan.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleOpenTutorial = async () => {
+    await openYouTubeTutorial(recipe.nama);
+  };
+
+  const steps = recipe.langkah && recipe.langkah.length > 0
+    ? recipe.langkah
+    : [
+        `Siapkan bahan utama yang tersedia: ${recipe.bahan_tersedia.join(', ')}.`,
+        'Cuci bersih bahan segar dan potong sesuai selera.',
+        'Panaskan sedikit minyak goreng atau margarin di atas wajan dengan api sedang.',
+        `Masak dan olah ${recipe.nama.toLowerCase()} hingga matang merata dan harum.`,
+        'Bumbui dengan bumbu pelengkap secukupnya, cicipi rasa, lalu angkat dan sajikan selagi hangat.',
+      ];
+
+  const porsi = recipe.porsi || '1-2 porsi';
 
   return (
     <View style={styles.container}>
@@ -29,11 +77,24 @@ export function DetailResepScreen({ recipe, onBack }: DetailResepScreenProps) {
           <Text style={styles.topBarTitle} numberOfLines={1}>
             Detail Masakan
           </Text>
-          <Text style={styles.topBarSubtitle}>Nomz Food Assistant</Text>
+          <Text style={styles.topBarSubtitle}>Nomz Food Rescue</Text>
         </View>
+
+        {/* Tombol Bookmark / Save */}
+        <TouchableOpacity
+          style={[styles.saveBtn, saved && styles.saveBtnActive]}
+          onPress={handleToggleSave}
+          activeOpacity={0.75}
+        >
+          <Feather
+            name="bookmark"
+            size={18}
+            color={saved ? '#FFFFFF' : colors.textPrimary}
+          />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header Masakan */}
         <View style={styles.heroCard}>
           <Text style={styles.recipeTitle}>{recipe.nama}</Text>
@@ -58,9 +119,9 @@ export function DetailResepScreen({ recipe, onBack }: DetailResepScreenProps) {
             <View style={styles.metricDivider} />
 
             <View style={styles.metricItem}>
-              <Feather name="check-circle" size={16} color="#2563eb" style={{ marginBottom: 4 }} />
-              <Text style={styles.metricLabel}>Bahan Siap</Text>
-              <Text style={styles.metricValue}>{recipe.bahan_tersedia.length} Macam</Text>
+              <Feather name="users" size={16} color="#d97706" style={{ marginBottom: 4 }} />
+              <Text style={styles.metricLabel}>Porsi</Text>
+              <Text style={styles.metricValue}>{porsi}</Text>
             </View>
           </View>
         </View>
@@ -118,7 +179,33 @@ export function DetailResepScreen({ recipe, onBack }: DetailResepScreenProps) {
           </View>
         )}
 
-        {/* SECTION: Alasan & Catatan Masak */}
+        {/* SECTION: Langkah-langkah Memasak */}
+        <View style={styles.card}>
+          <View style={styles.cardTitleRow}>
+            <View style={[styles.iconCircle, { backgroundColor: '#EFF3EF' }]}>
+              <Feather name="list" size={14} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>Langkah Memasak ({steps.length})</Text>
+              <Text style={styles.cardSubtitle}>
+                Panduan praktis berurutan untuk memasak di rumah
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.stepList}>
+            {steps.map((stepText, idx) => (
+              <View key={idx} style={styles.stepItemRow}>
+                <View style={styles.stepNumberBadge}>
+                  <Text style={styles.stepNumberText}>{idx + 1}</Text>
+                </View>
+                <Text style={styles.stepInstructionText}>{stepText}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* SECTION: Mengapa Hidangan Ini Tepat */}
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
             <View style={[styles.iconCircle, { backgroundColor: '#fef3c7' }]}>
@@ -129,21 +216,25 @@ export function DetailResepScreen({ recipe, onBack }: DetailResepScreenProps) {
           <Text style={styles.rationaleBody}>{recipe.alasan}</Text>
         </View>
 
-        {/* Action Button */}
+        {/* Button: Lihat Tutorial YouTube (Real deep-link search) */}
         <TouchableOpacity
-          style={[styles.primaryActionBtn, cookingStarted && styles.primaryActionBtnDone]}
-          onPress={() => setCookingStarted(true)}
+          style={styles.youtubeTutorialBtn}
+          onPress={handleOpenTutorial}
           activeOpacity={0.85}
         >
-          <Feather
-            name={cookingStarted ? "check" : "play"}
-            size={16}
-            color="#ffffff"
-            style={{ marginRight: 8 }}
-          />
-          <Text style={styles.primaryActionBtnText}>
-            {cookingStarted ? "Selamat Memasak!" : "Siap Mulai Memasak"}
-          </Text>
+          <Feather name="video" size={17} color="#dc2626" style={{ marginRight: 8 }} />
+          <Text style={styles.youtubeTutorialBtnText}>Lihat Tutorial di YouTube</Text>
+          <Feather name="external-link" size={14} color="#dc2626" style={{ marginLeft: 6 }} />
+        </TouchableOpacity>
+
+        {/* Action Button: Mulai Memasak (Guided Cooking) */}
+        <TouchableOpacity
+          style={styles.primaryActionBtn}
+          onPress={() => onStartCooking(recipe)}
+          activeOpacity={0.85}
+        >
+          <Feather name="play" size={17} color="#ffffff" style={{ marginRight: 8 }} />
+          <Text style={styles.primaryActionBtnText}>Mulai Panduan Memasak</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.secondaryActionBtn} onPress={onBack} activeOpacity={0.7}>
@@ -177,6 +268,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#f5f5f4',
     marginRight: 12,
+  },
+  saveBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f5f5f4',
+    marginRight: 60,
+  },
+  saveBtnActive: {
+    backgroundColor: colors.primary,
   },
   topBarTextWrap: {
     flex: 1,
@@ -328,10 +431,59 @@ const styles = StyleSheet.create({
     color: '#44403c',
     textTransform: 'capitalize',
   },
+  stepList: {
+    gap: 12,
+  },
+  stepItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FAF8F3',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E7E5DE',
+  },
+  stepNumberBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    marginTop: 1,
+  },
+  stepNumberText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  stepInstructionText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#242622',
+    lineHeight: 19,
+  },
   rationaleBody: {
     fontSize: 13,
     color: '#57534e',
     lineHeight: 20,
+  },
+  youtubeTutorialBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    paddingVertical: 13,
+    borderRadius: 14,
+    marginBottom: 10,
+  },
+  youtubeTutorialBtnText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '600',
   },
   primaryActionBtn: {
     flexDirection: 'row',
@@ -340,10 +492,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingVertical: 15,
     borderRadius: 14,
-    marginTop: 8,
-  },
-  primaryActionBtnDone: {
-    backgroundColor: colors.primaryDark,
+    marginTop: 4,
   },
   primaryActionBtnText: {
     color: '#ffffff',
@@ -354,7 +503,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   secondaryActionBtnText: {
     color: '#78716c',

@@ -160,7 +160,9 @@ export async function detectIngredientsFromImage(
  */
 export async function getRecipeRecommendations(
   ingredients: string[],
-  timeoutMs: number = 45000
+  mode: string = 'rescue',
+  constraint?: string,
+  timeoutMs: number = 55000
 ): Promise<RecipeRecommendation[]> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -172,7 +174,11 @@ export async function getRecipeRecommendations(
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body: JSON.stringify({ ingredients }),
+      body: JSON.stringify({
+        ingredients,
+        mode,
+        constraint: constraint || undefined,
+      }),
       signal: controller.signal,
     });
 

@@ -108,7 +108,11 @@ def _generate_recommendations_gemini_fallback(cleaned_ingredients: List[str]) ->
     )
 
 
-def generate_recommendations(ingredients: List[str]) -> RecommendationResponse:
+def generate_recommendations(
+    ingredients: List[str],
+    mode: str = "rescue",
+    constraint: str | None = None,
+) -> RecommendationResponse:
     """Menghasilkan rekomendasi masakan terstruktur.
 
     Jalur utama: Langflow Workflow (find_meals).
@@ -121,18 +125,20 @@ def generate_recommendations(ingredients: List[str]) -> RecommendationResponse:
             detail="Daftar bahan makanan tidak boleh kosong.",
         )
 
-    # 1. Jalur Utama M3: Langflow find_meals workflow
+    # 1. Jalur Utama: Langflow find_meals workflow
     if settings.LANGFLOW_BASE_URL and settings.LANGFLOW_FLOW_ID:
         try:
             logger.info(
-                "M3: Menjalankan Langflow Workflow find_meals (Base URL: %s, Flow ID: %s)",
+                "Menjalankan Langflow Workflow find_meals (Base URL: %s, Flow ID: %s, Mode: %s, Constraint: %s)",
                 settings.LANGFLOW_BASE_URL,
                 settings.LANGFLOW_FLOW_ID,
+                mode,
+                constraint,
             )
-            response = run_find_meals_flow(cleaned_ingredients)
+            response = run_find_meals_flow(cleaned_ingredients, mode=mode, constraint=constraint)
             response.source = "langflow"
             response.flow_id = settings.LANGFLOW_FLOW_ID
-            logger.info("M3: Berhasil mendapatkan respon terverifikasi dari Langflow")
+            logger.info("Berhasil mendapatkan respon terverifikasi dari Langflow")
             return response
         except HTTPException as http_exc:
             # Jika 400 bad request, jangan fallback ke Gemini

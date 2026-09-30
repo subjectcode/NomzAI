@@ -1,5 +1,5 @@
 import uuid
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -8,6 +8,14 @@ class RecommendationRequest(BaseModel):
         ...,
         description="Daftar bahan makanan yang dimiliki/dikonfirmasi pengguna",
         min_length=1,
+    )
+    mode: Optional[str] = Field(
+        default="rescue",
+        description="Mode rekomendasi: rescue, no_shopping, quick, simple, free",
+    )
+    constraint: Optional[str] = Field(
+        default=None,
+        description="Kendala atau preferensi khusus masakan (contoh: 'tanpa belanja', 'lebih cepat')",
     )
 
 
@@ -46,6 +54,14 @@ class RecipeRecommendationItem(BaseModel):
     alasan: str = Field(
         ...,
         description="Alasan singkat mengapa hidangan ini sangat cocok dengan kombinasi bahan yang dimiliki pengguna",
+    )
+    langkah: List[str] = Field(
+        default_factory=list,
+        description="Langkah-langkah memasak praktis dan berurutan",
+    )
+    porsi: str = Field(
+        default="1-2 porsi",
+        description="Estimasi porsi sajian",
     )
 
 

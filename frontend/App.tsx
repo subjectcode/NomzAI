@@ -11,6 +11,13 @@ import {
   ScanBahanScreen,
   RekomendasiScreen,
   DetailResepScreen,
+  GuidedCookingScreen,
+  TersimpanScreen,
+  JelajahiScreen,
+  PantryScreen,
+  HistoryScreen,
+  PlannerScreen,
+  ProfileScreen,
   SplashScreen,
   OnboardingScreen,
   AuthWelcomeScreen,
@@ -23,7 +30,8 @@ import { RecipeRecommendation } from './src/types';
 import { getOnboardingCompleted } from './src/services/onboardingStorage';
 import { initializeGoogleAuth } from './src/services/googleAuth';
 
-type CookingStep = 'scan' | 'recommendations' | 'detail';
+type CookingStep = 'scan' | 'recommendations' | 'detail' | 'guided_cooking';
+type ModalSubScreen = 'none' | 'profile' | 'pantry' | 'history' | 'planner';
 type AuthSubScreen = 'welcome' | 'login' | 'register';
 
 function MainApp() {
@@ -35,10 +43,13 @@ function MainApp() {
   // Sub-layar alur autentikasi (welcome | login | register)
   const [authSubScreen, setAuthSubScreen] = useState<AuthSubScreen>('login');
 
-  // State Navigasi Tab Utama (Target: Beranda | Jelajahi | Scan | Tersimpan)
+  // State Navigasi Tab Utama (Beranda | Jelajahi | Scan | Tersimpan)
   const [activeTab, setActiveTab] = useState<TabRoute>('beranda');
 
-  // State Alur Memasak (Core Cooking Flow: Scan -> Rekomendasi -> Detail)
+  // Modal / Sub-layar tingkat atas (profile | pantry | history | planner | none)
+  const [subScreen, setSubScreen] = useState<ModalSubScreen>('none');
+
+  // State Alur Memasak (Core Cooking Flow: Scan -> Rekomendasi -> Detail -> Guided)
   const [cookingStep, setCookingStep] = useState<CookingStep>('scan');
   const [activeIngredients, setActiveIngredients] = useState<string[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeRecommendation | null>(null);
@@ -52,10 +63,8 @@ function MainApp() {
         if (isMounted) {
           setIsOnboardingCompleted(completed);
           if (!completed) {
-            // Pengguna baru pertama kali instalasi: setelah onboarding masuk ke Welcome
             setAuthSubScreen('welcome');
           } else {
-            // Pengguna lama yang belum login: langsung ke Login
             setAuthSubScreen('login');
           }
         }
@@ -110,7 +119,6 @@ function MainApp() {
       );
     }
 
-    // Default: LoginScreen
     return (
       <LoginScreen
         onNavigateToRegister={() => setAuthSubScreen('register')}
@@ -120,23 +128,45 @@ function MainApp() {
   }
 
   // 4. MAIN APP: Onboarding selesai & terautentikasi (Aplikasi Utama Nomz)
-  const handleStartScanFromHome = () => {
+  const handleStartScan = () => {
+    setSubScreen('none');
     setActiveTab('scan');
     setCookingStep('scan');
   };
 
   const handleNavigateToRecommendations = (ingredients: string[]) => {
+    setSubScreen('none');
     setActiveIngredients(ingredients);
+    setActiveTab('scan');
     setCookingStep('recommendations');
   };
 
   const handleSelectRecipe = (recipe: RecipeRecommendation) => {
     setSelectedRecipe(recipe);
     setCookingStep('detail');
+    setActiveTab('scan');
+  };
+
+  const handleStartGuidedCooking = (recipe: RecipeRecommendation) => {
+    setSelectedRecipe(recipe);
+    setCookingStep('guided_cooking');
+    setActiveTab('scan');
+  };
+
+  const handleGuidedCookingComplete = () => {
+    // Selesai memasak -> kembali ke beranda
+    setCookingStep('scan');
+    setActiveTab('beranda');
+    setSubScreen('none');
   };
 
   const handleBackToRecommendations = () => {
-    setCookingStep('recommendations');
+    if (activeIngredients && activeIngredients.length > 0) {
+      setCookingStep('recommendations');
+    } else {
+      setCookingStep('scan');
+      setActiveTab('beranda');
+    }
   };
 
   const handleBackToScan = () => {
@@ -144,43 +174,137 @@ function MainApp() {
   };
 
   const handleSelectTab = (tab: TabRoute) => {
+    setSubScreen('none');
     setActiveTab(tab);
-    if (tab === 'scan') {
+    if (tab === 'scan' && cookingStep === 'guided_cooking') {
       setCookingStep('scan');
     }
   };
 
+  // Navigasi Sub-layar (Profile / Pantry / History / Planner)
+  const handleOpenProfile = () => setSubScreen('profile');
+  const handleOpenPantry = () => setSubScreen('pantry');
+  const handleOpenHistory = () => setSubScreen('history');
+  const handleOpenPlanner = () => setSubScreen('planner');
+  const handleCloseSubScreen = () => setSubScreen('none');
+
+  // Menentukan apakah BottomNavBar harus tampil
   const shouldShowBottomNav =
-    activeTab === 'beranda' || (activeTab === 'scan' && cookingStep === 'scan');
+    subScreen === 'none' &&
+    cookingStep !== 'guided_cooking' &&
+    !(activeTab === 'scan' && (cookingStep === 'detail' || cookingStep === 'recommendations'));
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.mainContent}>
-        {/* TAB: Beranda */}
-        {activeTab === 'beranda' && (
-          <BerandaScreen onStartScan={handleStartScanFromHome} />
+        {/* SUB-SCREENS (Full modal stack) */}
+        {subScreen === 'profile' && (
+          <ProfileScreen
+            onBack={handleCloseSubScreen}
+            onNavigateToPantry={handleOpenPantry}
+            onNavigateToHistory={handleOpenHistory}
+            onNavigateToPlanner={handleOpenPlanner}
+          />
         )}
 
-        {/* TAB: Scan & Core Cooking Flow */}
-        {activeTab === 'scan' && (
+        {subScreen === 'pantry' && (
+          <PantryScreen
+            onBack={handleCloseSubScreen}
+            onRescueFromPantry={(ingredients) => {
+              handleCloseSubScreen();
+              handleNavigateToRecommendations(ingredients);
+            }}
+          />
+        )}
+
+        {subScreen === 'history' && (
+          <HistoryScreen
+            onBack={handleCloseSubScreen}
+            onCookAgain={(recipe) => {
+              handleCloseSubScreen();
+              handleStartGuidedCooking(recipe);
+            }}
+            onStartScan={handleStartScan}
+          />
+        )}
+
+        {subScreen === 'planner' && (
+          <PlannerScreen
+            onBack={handleCloseSubScreen}
+            onSelectRecipe={(recipe) => {
+              handleCloseSubScreen();
+              handleSelectRecipe(recipe);
+            }}
+            onExploreRecipes={() => {
+              handleCloseSubScreen();
+              setActiveTab('jelajahi');
+            }}
+          />
+        )}
+
+        {/* MAIN TABS (When no subscreen is active) */}
+        {subScreen === 'none' && (
           <>
-            {cookingStep === 'scan' && (
-              <ScanBahanScreen
-                onNavigateToRecommendations={handleNavigateToRecommendations}
-              />
-            )}
-            {cookingStep === 'recommendations' && (
-              <RekomendasiScreen
-                ingredients={activeIngredients}
+            {/* TAB: Beranda */}
+            {activeTab === 'beranda' && (
+              <BerandaScreen
+                onStartScan={handleStartScan}
+                onOpenProfile={handleOpenProfile}
+                onOpenPantry={handleOpenPantry}
+                onOpenExplore={() => setActiveTab('jelajahi')}
                 onSelectRecipe={handleSelectRecipe}
-                onBack={handleBackToScan}
               />
             )}
-            {cookingStep === 'detail' && selectedRecipe && (
-              <DetailResepScreen
-                recipe={selectedRecipe}
-                onBack={handleBackToRecommendations}
+
+            {/* TAB: Jelajahi */}
+            {activeTab === 'jelajahi' && (
+              <JelajahiScreen
+                onSelectCategoryIngredients={(ingredients) => {
+                  handleNavigateToRecommendations(ingredients);
+                }}
+                onStartScan={handleStartScan}
               />
+            )}
+
+            {/* TAB: Tersimpan */}
+            {activeTab === 'tersimpan' && (
+              <TersimpanScreen
+                isActive={activeTab === 'tersimpan'}
+                onSelectRecipe={handleSelectRecipe}
+                onExplore={() => setActiveTab('jelajahi')}
+              />
+            )}
+
+            {/* TAB: Scan & Core Cooking Flow */}
+            {activeTab === 'scan' && (
+              <>
+                {cookingStep === 'scan' && (
+                  <ScanBahanScreen
+                    onNavigateToRecommendations={handleNavigateToRecommendations}
+                  />
+                )}
+                {cookingStep === 'recommendations' && (
+                  <RekomendasiScreen
+                    ingredients={activeIngredients}
+                    onSelectRecipe={handleSelectRecipe}
+                    onBack={handleBackToScan}
+                  />
+                )}
+                {cookingStep === 'detail' && selectedRecipe && (
+                  <DetailResepScreen
+                    recipe={selectedRecipe}
+                    onBack={handleBackToRecommendations}
+                    onStartCooking={handleStartGuidedCooking}
+                  />
+                )}
+                {cookingStep === 'guided_cooking' && selectedRecipe && (
+                  <GuidedCookingScreen
+                    recipe={selectedRecipe}
+                    onBack={() => setCookingStep('detail')}
+                    onComplete={handleGuidedCookingComplete}
+                  />
+                )}
+              </>
             )}
           </>
         )}

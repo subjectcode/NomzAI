@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,25 +9,35 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { colors } from '../theme';
 import { RecipeRecommendation } from '../types';
+import { getCookingHistory, HistoryItem, getImpactStats, ImpactStats } from '../services/historyStorage';
 
 interface BerandaScreenProps {
   onStartScan: () => void;
-  // Handler & data yang disiapkan untuk ekspansi M5.2 / M5.3
   onOpenProfile?: () => void;
-  onStartRescueMode?: () => void;
-  onStartLeftoverRemix?: () => void;
-  onStartManualInput?: () => void;
-  onStartCookNow?: () => void;
-  recentRecipes?: RecipeRecommendation[];
-  onSelectRecentRecipe?: (recipe: RecipeRecommendation) => void;
+  onOpenPantry?: () => void;
+  onOpenExplore?: () => void;
+  onSelectRecipe?: (recipe: RecipeRecommendation) => void;
 }
 
 export function BerandaScreen({
   onStartScan,
   onOpenProfile,
-  recentRecipes = [],
-  onSelectRecentRecipe,
+  onOpenPantry,
+  onOpenExplore,
+  onSelectRecipe,
 }: BerandaScreenProps) {
+  const [recentHistory, setRecentHistory] = useState<HistoryItem[]>([]);
+  const [impact, setImpact] = useState<ImpactStats>({
+    ingredientsRescued: 0,
+    recipesCooked: 0,
+    mealsSaved: 0,
+  });
+
+  useEffect(() => {
+    getCookingHistory().then((list) => setRecentHistory(list.slice(0, 3)));
+    getImpactStats().then(setImpact);
+  }, []);
+
   return (
     <ScrollView
       style={styles.container}
@@ -41,7 +51,7 @@ export function BerandaScreen({
           <Text style={styles.brandSubtitle}>AI Food Rescue Assistant</Text>
         </View>
 
-        {/* Profile Affordance (M5.3 target) */}
+        {/* Profile Affordance */}
         <TouchableOpacity
           style={styles.profileAvatar}
           onPress={onOpenProfile}
@@ -60,6 +70,32 @@ export function BerandaScreen({
           hidangan lezat dan praktis tanpa ada bahan yang terbuang.
         </Text>
       </View>
+
+      {/* Real Impact Summary Card */}
+      {impact.recipesCooked > 0 && (
+        <View style={styles.impactCard}>
+          <View style={styles.impactCardHeader}>
+            <Feather name="shield" size={14} color="#15803d" style={{ marginRight: 6 }} />
+            <Text style={styles.impactCardTitle}>Dampak Penyelamatan Pangan Kamu</Text>
+          </View>
+          <View style={styles.impactRow}>
+            <View style={styles.impactCol}>
+              <Text style={styles.impactNum}>{impact.ingredientsRescued}</Text>
+              <Text style={styles.impactLabel}>Bahan Diselamatkan</Text>
+            </View>
+            <View style={styles.impactDivider} />
+            <View style={styles.impactCol}>
+              <Text style={styles.impactNum}>{impact.recipesCooked}</Text>
+              <Text style={styles.impactLabel}>Masakan Selesai</Text>
+            </View>
+            <View style={styles.impactDivider} />
+            <View style={styles.impactCol}>
+              <Text style={styles.impactNum}>{impact.mealsSaved}</Text>
+              <Text style={styles.impactLabel}>Santapan Tercipta</Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Primary Action Card: Pindai Bahan */}
       <View style={styles.primaryActionCard}>
@@ -84,42 +120,62 @@ export function BerandaScreen({
         </TouchableOpacity>
       </View>
 
-      {/* Visual Area: Mulai Dari Mana? (Aksi fungsional saat ini) */}
+      {/* Visual Area: Aksi Pintas Masak */}
       <View style={styles.entrySection}>
-        <Text style={styles.sectionHeading}>Mulai Dari Mana?</Text>
-        
+        <Text style={styles.sectionHeading}>Akses Cepat Dapur</Text>
+
         <TouchableOpacity
           style={styles.entryCard}
-          onPress={onStartScan}
+          onPress={onOpenPantry}
           activeOpacity={0.8}
         >
           <View style={styles.entryIconBox}>
-            <Feather name="camera" size={20} color={colors.primary} />
+            <Feather name="archive" size={20} color={colors.primary} />
           </View>
           <View style={styles.entryTextBox}>
-            <Text style={styles.entryTitle}>Pindai Isi Dapur</Text>
+            <Text style={styles.entryTitle}>Dapur Saya (Pantry)</Text>
             <Text style={styles.entrySubtitle}>
-              Deteksi bahan dari foto dan temukan resep langsung
+              Kelola stok bahan & pantau prioritas "Gunakan Dulu"
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.entryCard, { marginTop: 10 }]}
+          onPress={onOpenExplore}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.entryIconBox, { backgroundColor: '#e0f2fe' }]}>
+            <Feather name="compass" size={20} color="#0284c7" />
+          </View>
+          <View style={styles.entryTextBox}>
+            <Text style={styles.entryTitle}>Jelajahi Inspirasi Food Rescue</Text>
+            <Text style={styles.entrySubtitle}>
+              Kategori olahan telur, kilat &lt; 15 menit, dan sisa kulkas
             </Text>
           </View>
           <Feather name="chevron-right" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
-      {/* Slot Struktur "Terakhir Dilihat" untuk M5.3 (Hanya tampil jika ada data riwayat nyata) */}
-      {recentRecipes.length > 0 && (
+      {/* Terakhir Dimasak (Real Cooking History) */}
+      {recentHistory.length > 0 && (
         <View style={styles.recentSection}>
-          <Text style={styles.sectionHeading}>Terakhir Dilihat</Text>
-          {recentRecipes.map((recipe) => (
+          <Text style={styles.sectionHeading}>Terakhir Dimasak</Text>
+          {recentHistory.map((item) => (
             <TouchableOpacity
-              key={recipe.id}
+              key={item.id}
               style={styles.recentCard}
-              onPress={() => onSelectRecentRecipe?.(recipe)}
+              onPress={() => onSelectRecipe?.(item.recipe)}
               activeOpacity={0.75}
             >
-              <Text style={styles.recentRecipeName}>{recipe.nama}</Text>
+              <View style={styles.recentCardHeader}>
+                <Text style={styles.recentRecipeName}>{item.recipe.nama}</Text>
+                <Text style={styles.recentRecipeDate}>{item.formattedDate}</Text>
+              </View>
               <Text style={styles.recentRecipeTime}>
-                {recipe.estimasi_waktu} • {recipe.tingkat_kesulitan}
+                {item.recipe.estimasi_waktu} • {item.recipe.tingkat_kesulitan} • {item.ingredientsRescuedCount} bahan diselamatkan
               </Text>
             </TouchableOpacity>
           ))}
@@ -190,13 +246,57 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: 8,
   },
+  impactCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E7E5DE',
+    padding: 14,
+    marginTop: 14,
+  },
+  impactCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  impactCardTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#15803d',
+    textTransform: 'uppercase',
+  },
+  impactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  impactCol: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  impactNum: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  impactLabel: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  impactDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E7E5DE',
+  },
   primaryActionCard: {
     backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 18,
-    marginTop: 18,
+    marginTop: 16,
   },
   cardBadge: {
     backgroundColor: '#EFF3EF',
@@ -239,7 +339,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   entrySection: {
-    marginTop: 24,
+    marginTop: 22,
   },
   sectionHeading: {
     fontSize: 16,
@@ -279,7 +379,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   recentSection: {
-    marginTop: 24,
+    marginTop: 22,
   },
   recentCard: {
     backgroundColor: colors.surface,
@@ -289,14 +389,24 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
   },
+  recentCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   recentRecipeName: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.textPrimary,
+    flex: 1,
+  },
+  recentRecipeDate: {
+    fontSize: 11,
+    color: colors.textSecondary,
   },
   recentRecipeTime: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 4,
   },
 });

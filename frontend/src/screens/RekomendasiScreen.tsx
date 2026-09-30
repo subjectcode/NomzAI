@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { getRecipeRecommendations } from '../services/api';
@@ -18,20 +19,49 @@ interface RekomendasiScreenProps {
   onBack: () => void;
 }
 
+interface ConstraintOption {
+  id: string;
+  label: string;
+  mode: string;
+  icon: keyof typeof Feather.glyphMap;
+}
+
+const CONSTRAINTS: ConstraintOption[] = [
+  { id: 'rescue', label: 'Maksimalkan Bahan', mode: 'rescue', icon: 'shield' },
+  { id: 'no_shopping', label: 'Tanpa Belanja', mode: 'no_shopping', icon: 'shopping-bag' },
+  { id: 'quick', label: 'Lebih Cepat', mode: 'quick', icon: 'zap' },
+  { id: 'simple', label: 'Lebih Sederhana', mode: 'simple', icon: 'check-circle' },
+  { id: 'free', label: 'Bebas', mode: 'free', icon: 'compass' },
+];
+
 export function RekomendasiScreen({
-  ingredients,
+  ingredients: initialIngredients,
   onSelectRecipe,
   onBack,
 }: RekomendasiScreenProps) {
+  const [currentIngredients, setCurrentIngredients] = useState<string[]>(initialIngredients);
+  const [activeConstraint, setActiveConstraint] = useState<string>('rescue');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<RecipeRecommendation[]>([]);
 
-  const fetchRecommendations = async () => {
+  // State untuk "Tambah 1 Bahan"
+  const [showAddOneInput, setShowAddOneInput] = useState<boolean>(false);
+  const [newIngredientInput, setNewIngredientInput] = useState<string>('');
+
+  const fetchRecommendations = async (
+    targetIngredients: string[] = currentIngredients,
+    constraintId: string = activeConstraint
+  ) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getRecipeRecommendations(ingredients);
+      const selected = CONSTRAINTS.find((c) => c.id === constraintId);
+      const data = await getRecipeRecommendations(
+        targetIngredients,
+        selected?.mode || 'rescue',
+        selected?.label
+      );
       setRecommendations(data);
     } catch (err: any) {
       setError(err?.message || 'Gagal memuat rekomendasi masakan.');
@@ -41,8 +71,36 @@ export function RekomendasiScreen({
   };
 
   useEffect(() => {
-    fetchRecommendations();
+    fetchRecommendations(currentIngredients, activeConstraint);
   }, []);
+
+  const handleSelectConstraint = (constraintId: string) => {
+    setActiveConstraint(constraintId);
+    fetchRecommendations(currentIngredients, constraintId);
+  };
+
+  const handleAddOneIngredient = () => {
+    const trimmed = newIngredientInput.trim().toLowerCase();
+    if (!trimmed) return;
+    if (currentIngredients.includes(trimmed)) {
+      setNewIngredientInput('');
+      setShowAddOneInput(false);
+      return;
+    }
+
+    const updated = [...currentIngredients, trimmed];
+    setCurrentIngredients(updated);
+    setNewIngredientInput('');
+    setShowAddOneInput(false);
+    fetchRecommendations(updated, activeConstraint);
+  };
+
+  const handleLeftoverRemix = () => {
+    // Mode remix sisa bahan: beralih ke Tanpa Belanja / Maksimalkan Bahan
+    const nextMode = activeConstraint === 'no_shopping' ? 'rescue' : 'no_shopping';
+    setActiveConstraint(nextMode);
+    fetchRecommendations(currentIngredients, nextMode);
+  };
 
   return (
     <View style={styles.container}>
@@ -54,12 +112,12 @@ export function RekomendasiScreen({
         <View style={styles.topBarTextWrap}>
           <Text style={styles.topBarTitle}>Rekomendasi Masakan</Text>
           <Text style={styles.topBarSubtitle}>
-            Dari {ingredients.length} bahan yang kamu miliki
+            Food Rescue dari {currentIngredients.length} bahan yang kamu miliki
           </Text>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Ringkasan Bahan Tersedia */}
         <View style={styles.pantrySummaryCard}>
           <View style={styles.pantrySummaryHeader}>
@@ -67,21 +125,84 @@ export function RekomendasiScreen({
             <Text style={styles.pantrySummaryTitle}>Bahan Siap Pakai:</Text>
           </View>
           <View style={styles.tagWrap}>
-            {ingredients.map((ing, idx) => (
+            {currentIngredients.map((ing, idx) => (
               <View key={idx} style={styles.ingredientPill}>
                 <Text style={styles.ingredientPillText}>{ing}</Text>
               </View>
             ))}
+
+            {/* Tombol Tambah 1 Bahan */}
+            <TouchableOpacity
+              style={styles.addOnePill}
+              onPress={() => setShowAddOneInput((prev) => !prev)}
+              activeOpacity={0.7}
+            >
+              <Feather name={showAddOneInput ? "x" : "plus"} size={13} color={colors.primary} style={{ marginRight: 4 }} />
+              <Text style={styles.addOnePillText}>
+                {showAddOneInput ? "Tutup" : "Tambah 1 Bahan"}
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {/* Form Input Tambah 1 Bahan */}
+          {showAddOneInput && (
+            <View style={styles.addInputRow}>
+              <TextInput
+                style={styles.addInput}
+                placeholder="Contoh: tahu, kecap manis, bayam..."
+                placeholderTextColor="#a8a29e"
+                value={newIngredientInput}
+                onChangeText={setNewIngredientInput}
+                onSubmitEditing={handleAddOneIngredient}
+                returnKeyType="done"
+                autoFocus
+              />
+              <TouchableOpacity
+                style={styles.addInputBtn}
+                onPress={handleAddOneIngredient}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.addInputBtnText}>Racik Ulang</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Section Constraint / Mode Food Rescue */}
+        <View style={styles.constraintSection}>
+          <Text style={styles.constraintHeader}>Mode Food Rescue:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.constraintScroll}>
+            {CONSTRAINTS.map((c) => {
+              const isActive = activeConstraint === c.id;
+              return (
+                <TouchableOpacity
+                  key={c.id}
+                  style={[styles.constraintChip, isActive && styles.constraintChipActive]}
+                  onPress={() => handleSelectConstraint(c.id)}
+                  activeOpacity={0.75}
+                >
+                  <Feather
+                    name={c.icon}
+                    size={13}
+                    color={isActive ? '#FFFFFF' : colors.textSecondary}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={[styles.constraintChipText, isActive && styles.constraintChipTextActive]}>
+                    {c.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
 
         {/* State Memuat */}
         {loading && (
           <View style={styles.centerBox}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingTitle}>Meracik Ide Masakan...</Text>
+            <Text style={styles.loadingTitle}>Meracik Rekomendasi Food Rescue...</Text>
             <Text style={styles.loadingSubtitle}>
-              Menyelaraskan bahan masakanmu dengan ide hidangan rumahan terbaik.
+              Menyelaraskan bahan dengan model AI Langflow sesuai mode pilihanmu.
             </Text>
           </View>
         )}
@@ -92,7 +213,10 @@ export function RekomendasiScreen({
             <Feather name="alert-circle" size={24} color="#dc2626" style={{ marginBottom: 8 }} />
             <Text style={styles.errorTitle}>Kendala Rekomendasi</Text>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={fetchRecommendations}>
+            <TouchableOpacity
+              style={styles.retryBtn}
+              onPress={() => fetchRecommendations(currentIngredients, activeConstraint)}
+            >
               <Feather name="refresh-cw" size={14} color="#ffffff" style={{ marginRight: 6 }} />
               <Text style={styles.retryBtnText}>Coba Lagi</Text>
             </TouchableOpacity>
@@ -102,98 +226,125 @@ export function RekomendasiScreen({
         {/* State Daftar Rekomendasi */}
         {!loading && !error && recommendations.length > 0 && (
           <View style={styles.recommendationList}>
-            <Text style={styles.sectionHeader}>
-              Pilihan Hidangan Untukmu ({recommendations.length})
-            </Text>
-
-            {recommendations.map((recipe) => (
+            <View style={styles.resultHeaderRow}>
+              <Text style={styles.sectionHeader}>
+                Pilihan Hidangan Untukmu ({recommendations.length})
+              </Text>
               <TouchableOpacity
-                key={recipe.id}
-                style={styles.recipeCard}
-                onPress={() => onSelectRecipe(recipe)}
-                activeOpacity={0.88}
+                style={styles.remixBtn}
+                onPress={handleLeftoverRemix}
+                activeOpacity={0.75}
               >
-                {/* Header Kartu */}
-                <View style={styles.cardHeader}>
-                  <Text style={styles.recipeTitle}>{recipe.nama}</Text>
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaItem}>
-                      <Feather name="clock" size={12} color="#64748b" style={{ marginRight: 4 }} />
-                      <Text style={styles.metaText}>{recipe.estimasi_waktu}</Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.difficultyBadge,
-                        recipe.tingkat_kesulitan.toLowerCase() === 'mudah'
-                          ? styles.difficultyEasy
-                          : styles.difficultyMedium,
-                      ]}
-                    >
-                      <Text
+                <Feather name="shuffle" size={12} color={colors.primary} style={{ marginRight: 4 }} />
+                <Text style={styles.remixBtnText}>Remix Bahan Sisa</Text>
+              </TouchableOpacity>
+            </View>
+
+            {recommendations.map((recipe) => {
+              // Deterministic rescue / utilization score
+              const availableUsed = recipe.bahan_tersedia.length;
+              const totalConsidered = currentIngredients.length;
+              const utilizationPct = totalConsidered > 0
+                ? Math.min(100, Math.round((availableUsed / totalConsidered) * 100))
+                : 100;
+
+              return (
+                <TouchableOpacity
+                  key={recipe.id}
+                  style={styles.recipeCard}
+                  onPress={() => onSelectRecipe(recipe)}
+                  activeOpacity={0.88}
+                >
+                  {/* Header Kartu */}
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.recipeTitle}>{recipe.nama}</Text>
+                    <View style={styles.metaRow}>
+                      <View style={styles.metaItem}>
+                        <Feather name="clock" size={12} color="#64748b" style={{ marginRight: 4 }} />
+                        <Text style={styles.metaText}>{recipe.estimasi_waktu}</Text>
+                      </View>
+                      <View
                         style={[
-                          styles.difficultyText,
+                          styles.difficultyBadge,
                           recipe.tingkat_kesulitan.toLowerCase() === 'mudah'
-                            ? styles.difficultyEasyText
-                            : styles.difficultyMediumText,
+                            ? styles.difficultyEasy
+                            : styles.difficultyMedium,
                         ]}
                       >
-                        {recipe.tingkat_kesulitan}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.difficultyText,
+                            recipe.tingkat_kesulitan.toLowerCase() === 'mudah'
+                              ? styles.difficultyEasyText
+                              : styles.difficultyMediumText,
+                          ]}
+                        >
+                          {recipe.tingkat_kesulitan}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
 
-                {/* Deskripsi Masakan */}
-                <Text style={styles.recipeDesc}>{recipe.deskripsi}</Text>
-
-                {/* Perbandingan Bahan */}
-                <View style={styles.ingredientsBox}>
-                  {/* Bahan Milik User */}
-                  <View style={styles.ingredientGroup}>
-                    <Text style={styles.ingredientGroupTitle}>
-                      Bahan Tersedia ({recipe.bahan_tersedia.length}):
+                  {/* Deterministic Rescue Score Badge */}
+                  <View style={styles.rescueScoreBadge}>
+                    <Feather name="shield" size={12} color="#15803d" style={{ marginRight: 5 }} />
+                    <Text style={styles.rescueScoreText}>
+                      {availableUsed} dari {totalConsidered} bahan kamu digunakan ({utilizationPct}%)
                     </Text>
-                    <View style={styles.tagWrap}>
-                      {recipe.bahan_tersedia.map((b, i) => (
-                        <View key={i} style={styles.availableTag}>
-                          <Feather name="check" size={10} color="#15803d" style={{ marginRight: 3 }} />
-                          <Text style={styles.availableTagText}>{b}</Text>
-                        </View>
-                      ))}
-                    </View>
                   </View>
 
-                  {/* Bahan Tambahan */}
-                  {recipe.bahan_tambahan && recipe.bahan_tambahan.length > 0 && (
-                    <View style={[styles.ingredientGroup, { marginTop: 8 }]}>
-                      <Text style={styles.ingredientGroupTitleSecondary}>
-                        Bahan Tambahan / Bumbu ({recipe.bahan_tambahan.length}):
+                  {/* Deskripsi Masakan */}
+                  <Text style={styles.recipeDesc}>{recipe.deskripsi}</Text>
+
+                  {/* Perbandingan Bahan */}
+                  <View style={styles.ingredientsBox}>
+                    {/* Bahan Milik User */}
+                    <View style={styles.ingredientGroup}>
+                      <Text style={styles.ingredientGroupTitle}>
+                        Bahan Tersedia ({recipe.bahan_tersedia.length}):
                       </Text>
                       <View style={styles.tagWrap}>
-                        {recipe.bahan_tambahan.map((b, i) => (
-                          <View key={i} style={styles.additionalTag}>
-                            <Feather name="plus" size={10} color="#64748b" style={{ marginRight: 3 }} />
-                            <Text style={styles.additionalTagText}>{b}</Text>
+                        {recipe.bahan_tersedia.map((b, i) => (
+                          <View key={i} style={styles.availableTag}>
+                            <Feather name="check" size={10} color="#15803d" style={{ marginRight: 3 }} />
+                            <Text style={styles.availableTagText}>{b}</Text>
                           </View>
                         ))}
                       </View>
                     </View>
-                  )}
-                </View>
 
-                {/* Mengapa Cocok */}
-                <View style={styles.rationaleBox}>
-                  <Text style={styles.rationaleLabel}>Kecocokan:</Text>
-                  <Text style={styles.rationaleText}>{recipe.alasan}</Text>
-                </View>
+                    {/* Bahan Tambahan */}
+                    {recipe.bahan_tambahan && recipe.bahan_tambahan.length > 0 && (
+                      <View style={[styles.ingredientGroup, { marginTop: 8 }]}>
+                        <Text style={styles.ingredientGroupTitleSecondary}>
+                          Bahan Tambahan / Bumbu ({recipe.bahan_tambahan.length}):
+                        </Text>
+                        <View style={styles.tagWrap}>
+                          {recipe.bahan_tambahan.map((b, i) => (
+                            <View key={i} style={styles.additionalTag}>
+                              <Feather name="plus" size={10} color="#64748b" style={{ marginRight: 3 }} />
+                              <Text style={styles.additionalTagText}>{b}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                  </View>
 
-                {/* Tombol Lihat Detail */}
-                <View style={styles.cardFooter}>
-                  <Text style={styles.cardFooterText}>Lihat Detail Masakan</Text>
-                  <Feather name="chevron-right" size={16} color="#ea580c" />
-                </View>
-              </TouchableOpacity>
-            ))}
+                  {/* Mengapa Cocok */}
+                  <View style={styles.rationaleBox}>
+                    <Text style={styles.rationaleLabel}>Kecocokan:</Text>
+                    <Text style={styles.rationaleText}>{recipe.alasan}</Text>
+                  </View>
+
+                  {/* Tombol Lihat Detail */}
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.cardFooterText}>Lihat Detail & Langkah Masak</Text>
+                    <Feather name="chevron-right" size={16} color={colors.primary} />
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -246,7 +397,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 14,
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#e7e5e4',
   },
@@ -280,6 +431,88 @@ const styles = StyleSheet.create({
     color: '#292524',
     fontWeight: '500',
     textTransform: 'capitalize',
+  },
+  addOnePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF3EF',
+    borderColor: colors.primary,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  addOnePillText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  addInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 8,
+  },
+  addInput: {
+    flex: 1,
+    backgroundColor: '#FAF8F3',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: colors.textPrimary,
+  },
+  addInputBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  addInputBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  constraintSection: {
+    marginBottom: 14,
+  },
+  constraintHeader: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  constraintScroll: {
+    gap: 8,
+    paddingRight: 8,
+  },
+  constraintChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 18,
+  },
+  constraintChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  constraintChipText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  constraintChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   centerBox: {
     alignItems: 'center',
@@ -334,11 +567,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  resultHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   sectionHeader: {
     fontSize: 15,
     fontWeight: '700',
     color: '#44403c',
-    marginBottom: 12,
+  },
+  remixBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF3EF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  remixBtnText: {
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '600',
   },
   recommendationList: {
     gap: 14,
@@ -405,6 +656,23 @@ const styles = StyleSheet.create({
   difficultyMediumText: {
     color: '#a16207',
     fontSize: 11,
+    fontWeight: '600',
+  },
+  rescueScoreBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#dcfce7',
+    borderColor: '#bbf7d0',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+  },
+  rescueScoreText: {
+    fontSize: 11,
+    color: '#166534',
     fontWeight: '600',
   },
   recipeDesc: {
@@ -500,7 +768,7 @@ const styles = StyleSheet.create({
   cardFooterText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#ea580c',
+    color: colors.primary,
     marginRight: 4,
   },
 });
