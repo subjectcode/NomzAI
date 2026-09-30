@@ -8,33 +8,21 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
 import { colors } from '../theme';
 
 interface AuthWelcomeScreenProps {
   onNavigateToLogin: () => void;
   onNavigateToRegister: () => void;
-  onGoogleSignIn?: () => void;
+  onGoogleSignInSuccess?: () => void;
 }
 
 export function AuthWelcomeScreen({
   onNavigateToLogin,
   onNavigateToRegister,
-  onGoogleSignIn,
+  onGoogleSignInSuccess,
 }: AuthWelcomeScreenProps) {
   const insets = useSafeAreaInsets();
-
-  // Handler terisolasi untuk Google Sign-In (akan dihubungkan ke OAuth nyata di M5.2E)
-  const handleGooglePress = () => {
-    if (onGoogleSignIn) {
-      onGoogleSignIn();
-      return;
-    }
-    // M5.2D: Jangan buat sesi palsu. Berikan feedback pengguna yang ramah.
-    Alert.alert(
-      'Masuk dengan Google',
-      'Fitur masuk dengan akun Google akan segera tersedia pada pembaruan berikutnya.'
-    );
-  };
 
   return (
     <View
@@ -89,17 +77,8 @@ export function AuthWelcomeScreen({
             <View style={styles.dividerLine} />
           </View>
 
-          {/* Prepared Google Sign-In Button (M5.2E isolation) */}
-          <TouchableOpacity
-            style={styles.googleBtn}
-            onPress={handleGooglePress}
-            activeOpacity={0.8}
-          >
-            <View style={styles.googleIconPlaceholder}>
-              <Text style={styles.googleGLetter}>G</Text>
-            </View>
-            <Text style={styles.googleBtnText}>Lanjutkan dengan Google</Text>
-          </TouchableOpacity>
+          {/* Real Google Sign-In Button */}
+          <GoogleSignInButton onSuccess={onGoogleSignInSuccess} />
         </View>
       </View>
     </View>

@@ -18,5 +18,16 @@ class IngredientItem(BaseModel):
     )
 
 
+class Base64IngredientDetectionRequest(BaseModel):
+    image_base64: str = Field(
+        ...,
+        description="Base64 encoded image string (with or without data:image/... prefix)",
+    )
+    mime_type: str = Field(
+        default="image/jpeg",
+        description="MIME type of the image, e.g. image/jpeg, image/png, image/webp",
+    )
+
+
 class IngredientDetectionResponse(BaseModel):
     ingredients: List[IngredientItem]

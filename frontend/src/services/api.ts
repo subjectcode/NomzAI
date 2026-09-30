@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import {
   HEALTH_ENDPOINT,
   DETECT_INGREDIENTS_ENDPOINT,
+  DETECT_INGREDIENTS_BASE64_ENDPOINT,
   RECOMMENDATIONS_ENDPOINT,
 } from '../config';
 import {
@@ -64,99 +65,89 @@ export async function detectIngredientsFromImage(
   imageUri: string,
   mimeType: string = 'image/jpeg',
   fileName: string = 'food_image.jpg',
-  timeoutMs: number = 45000
+  timeoutMs: number = 90000
 ): Promise<Ingredient[]> {
   return new Promise(async (resolve, reject) => {
     try {
-      const formData = new FormData();
+      let res: Response;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-      if (Platform.OS === 'web') {
-        // Lingkungan Web: konversi URI/blob/dataURL menjadi objek Blob standar
-        const blobResponse = await fetch(imageUri);
-        const blob = await blobResponse.blob();
-        formData.append('file', blob, fileName);
-      } else {
-        // Lingkungan Native (Android / iOS):
+      try {
         if (imageUri.startsWith('data:')) {
-          try {
-            const blobResponse = await fetch(imageUri);
-            const blob = await blobResponse.blob();
-            formData.append('file', blob, fileName);
-          } catch {
-            formData.append('file', {
-              uri: imageUri,
-              name: fileName,
-              type: mimeType || 'image/jpeg',
-            } as any);
-          }
+          const bodyPayload = JSON.stringify({
+            image_base64: imageUri,
+            mime_type: mimeType || 'image/jpeg',
+          });
+          res = await fetch(DETECT_INGREDIENTS_BASE64_ENDPOINT, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: bodyPayload,
+            signal: controller.signal,
+          });
         } else {
-          // File langsung dari galeri Expo ImagePicker
+          const formData = new FormData();
           formData.append('file', {
             uri: imageUri,
             name: fileName,
             type: mimeType || 'image/jpeg',
           } as any);
+
+          res = await fetch(DETECT_INGREDIENTS_ENDPOINT, {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+            },
+            body: formData,
+            signal: controller.signal,
+          });
         }
+      } catch (networkErr: any) {
+        clearTimeout(timeoutId);
+        console.error('[API] detectIngredients networkErr:', networkErr);
+        if (networkErr.name === 'AbortError') {
+          throw new Error(`Waktu analisis habis (${timeoutMs / 1000} detik). Model AI sedang sibuk atau koneksi lambat, silakan coba lagi.`);
+        }
+        throw new Error(
+          `Koneksi gagal ke server: ${networkErr?.message || networkErr}. Pastikan backend aktif.`
+        );
+      }
+      clearTimeout(timeoutId);
+
+      let responseJson: any = null;
+      try {
+        responseJson = await res.json();
+      } catch {
+        // Respons bukan JSON
       }
 
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', DETECT_INGREDIENTS_ENDPOINT);
-      xhr.timeout = timeoutMs;
-      xhr.setRequestHeader('Accept', 'application/json');
-
-      xhr.onload = () => {
-        let responseJson: any = null;
-        try {
-          responseJson = JSON.parse(xhr.responseText);
-        } catch {
-          // Respons bukan JSON
-        }
-
-        if (xhr.status >= 200 && xhr.status < 300) {
-          if (responseJson && Array.isArray(responseJson.ingredients)) {
-            const list: DetectedIngredientItem[] = responseJson.ingredients;
-            const mapped: Ingredient[] = list.map((item, index) => ({
-              id: `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`,
-              name: item.name,
-              confidence: item.confidence,
-            }));
-            resolve(mapped);
-          } else {
-            reject(
-              new Error('Format data dari server tidak valid (daftar ingredients tidak ditemukan).')
-            );
-          }
+      if (res.ok) {
+        if (responseJson && Array.isArray(responseJson.ingredients)) {
+          const list: DetectedIngredientItem[] = responseJson.ingredients;
+          const mapped: Ingredient[] = list.map((item, index) => ({
+            id: `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`,
+            name: item.name,
+            confidence: item.confidence,
+          }));
+          resolve(mapped);
         } else {
-          let errorMsg = `HTTP ${xhr.status}`;
-          if (responseJson && responseJson.detail) {
-            errorMsg =
-              typeof responseJson.detail === 'string'
-                ? responseJson.detail
-                : JSON.stringify(responseJson.detail);
-          } else if (xhr.responseText) {
-            errorMsg += `: ${xhr.responseText}`;
-          }
-          reject(new Error(`Gagal mendeteksi bahan: ${errorMsg}`));
+          reject(
+            new Error('Format data dari server tidak valid (daftar ingredients tidak ditemukan).')
+          );
         }
-      };
-
-      xhr.onerror = () => {
-        reject(
-          new Error(
-            `Koneksi gagal ke server (${DETECT_INGREDIENTS_ENDPOINT}). Pastikan backend aktif dan HP berada di jaringan WiFi yang sama.`
-          )
-        );
-      };
-
-      xhr.ontimeout = () => {
-        reject(
-          new Error(
-            `Waktu analisis habis (${timeoutMs / 1000} detik). Model AI sedang sibuk atau koneksi lambat, silakan coba lagi.`
-          )
-        );
-      };
-
-      xhr.send(formData);
+      } else {
+        let errorMsg = `HTTP ${res.status}`;
+        if (responseJson && responseJson.detail) {
+          errorMsg =
+            typeof responseJson.detail === 'string'
+              ? responseJson.detail
+              : JSON.stringify(responseJson.detail);
+        }
+        reject(new Error(`Gagal mendeteksi bahan: ${errorMsg}`));
+      }
     } catch (err: any) {
       reject(new Error(err?.message || 'Terjadi kesalahan saat menyiapkan unggahan foto.'));
     }
@@ -209,7 +200,7 @@ export async function getRecipeRecommendations(
 
     return list.map((item, index) => ({
       ...item,
-      id: `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 6)}`,
+      id: item.id || `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 6)}`,
     }));
   } catch (error: any) {
     clearTimeout(timeoutId);

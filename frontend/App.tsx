@@ -21,6 +21,7 @@ import { BottomNavBar, TabRoute } from './src/components';
 import { colors } from './src/theme';
 import { RecipeRecommendation } from './src/types';
 import { getOnboardingCompleted } from './src/services/onboardingStorage';
+import { initializeGoogleAuth } from './src/services/googleAuth';
 
 type CookingStep = 'scan' | 'recommendations' | 'detail';
 type AuthSubScreen = 'welcome' | 'login' | 'register';
@@ -44,6 +45,7 @@ function MainApp() {
 
   // Periksa status onboarding lokal saat startup
   useEffect(() => {
+    initializeGoogleAuth();
     let isMounted = true;
     getOnboardingCompleted()
       .then((completed) => {

@@ -172,7 +172,9 @@ export async function googleAuth(input: GoogleAuthInput): Promise<AuthResponse> 
 
     if (!response.ok) {
       const errorMessage = await parseErrorResponse(response);
-      throw new Error(errorMessage);
+      const error: any = new Error(errorMessage);
+      error.status = response.status;
+      throw error;
     }
 
     return await response.json();

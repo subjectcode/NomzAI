@@ -10,5 +10,7 @@ export interface RecipeRecommendation {
 }
 
 export interface RecommendationResponse {
-  recommendations: Omit<RecipeRecommendation, 'id'>[];
+  recommendations: RecipeRecommendation[];
+  source?: string;
+  flow_id?: string | null;
 }

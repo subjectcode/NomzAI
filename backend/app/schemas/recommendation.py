@@ -1,3 +1,4 @@
+import uuid
 from typing import List
 from pydantic import BaseModel, Field
 
@@ -11,6 +12,10 @@ class RecommendationRequest(BaseModel):
 
 
 class RecipeRecommendationItem(BaseModel):
+    id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Identifikasi unik rekomendasi resep",
+    )
     nama: str = Field(
         ...,
         description="Nama hidangan masakan dalam Bahasa Indonesia (contoh: Telur Dadar Tomat Basil)",

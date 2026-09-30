@@ -15,6 +15,7 @@ import {
   loginUser,
   registerUser,
   getCurrentUser,
+  googleAuth,
 } from '../services/authApi';
 import {
   saveAuthToken,
@@ -29,6 +30,7 @@ export interface AuthContextType {
   isLoading: boolean;
   register: (input: RegisterInput) => Promise<User>;
   login: (input: LoginInput, rememberMe?: boolean) => Promise<User>;
+  loginWithGoogle: (idToken: string) => Promise<User>;
   logout: () => Promise<void>;
   restoreSession: () => Promise<void>;
 }
@@ -145,6 +147,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   /**
+   * Login pengguna via Google Sign-In.
+   * Token JWT Nomz disimpan ke SecureStore secara persisten.
+   */
+  const handleGoogleLogin = async (idToken: string): Promise<User> => {
+    setIsLoading(true);
+    try {
+      const response = await googleAuth({ idToken });
+      await saveAuthToken(response.access_token);
+      setToken(response.access_token);
+      setUser(response.user);
+      return response.user;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
    * Logout pengguna: menghapus token dari SecureStore dan mereset user state.
    */
   const handleLogout = async (): Promise<void> => {
@@ -165,6 +184,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isLoading,
     register: handleRegister,
     login: handleLogin,
+    loginWithGoogle: handleGoogleLogin,
     logout: handleLogout,
     restoreSession,
   };

@@ -13,19 +13,20 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
 import { colors } from '../theme';
 import { useAuth } from '../context';
 
 interface RegisterScreenProps {
   onNavigateToLogin: () => void;
   onNavigateToWelcome?: () => void;
-  onGoogleSignIn?: () => void;
+  onGoogleSignInSuccess?: () => void;
 }
 
 export function RegisterScreen({
   onNavigateToLogin,
   onNavigateToWelcome,
-  onGoogleSignIn,
+  onGoogleSignInSuccess,
 }: RegisterScreenProps) {
   const insets = useSafeAreaInsets();
   const { register } = useAuth();
@@ -119,18 +120,6 @@ export function RegisterScreen({
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // Handler terisolasi untuk Google Sign-In (M5.2E)
-  const handleGooglePress = () => {
-    if (onGoogleSignIn) {
-      onGoogleSignIn();
-      return;
-    }
-    Alert.alert(
-      'Masuk dengan Google',
-      'Fitur masuk dengan akun Google akan segera tersedia pada pembaruan berikutnya.'
-    );
   };
 
   return (
@@ -317,18 +306,12 @@ export function RegisterScreen({
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Google Sign-In Button (M5.2E isolation) */}
-            <TouchableOpacity
-              style={styles.googleBtn}
-              onPress={handleGooglePress}
+            {/* Real Google Sign-In Button */}
+            <GoogleSignInButton
               disabled={isSubmitting}
-              activeOpacity={0.8}
-            >
-              <View style={styles.googleIconPlaceholder}>
-                <Text style={styles.googleGLetter}>G</Text>
-              </View>
-              <Text style={styles.googleBtnText}>Lanjutkan dengan Google</Text>
-            </TouchableOpacity>
+              onError={(msg) => setErrorMessage(msg)}
+              onSuccess={onGoogleSignInSuccess}
+            />
           </View>
 
           {/* Switch to Login */}
