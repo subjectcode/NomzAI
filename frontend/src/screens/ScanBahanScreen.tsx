@@ -56,6 +56,37 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
     }
   };
 
+  // Mengambil foto langsung menggunakan kamera perangkat
+  const handleTakePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Izin Kamera Diperlukan',
+          'Nomz memerlukan akses ke kamera untuk memindai bahan makanan langsung. Silakan aktifkan izin kamera pada Pengaturan perangkat Anda.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 0.85,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setSelectedImage(asset.uri);
+        setImageMime(asset.mimeType || 'image/jpeg');
+        setImageFileName(asset.fileName || 'camera_food.jpg');
+        setIngredients([]);
+        setDetectionError(null);
+        setConfirmedIngredients(null);
+      }
+    } catch (err: any) {
+      Alert.alert('Gagal Mengambil Foto', err.message || 'Tidak dapat membuka kamera.');
+    }
+  };
+
   // Memilih foto dari galeri perangkat
   const handlePickImage = async () => {
     try {
@@ -215,9 +246,13 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
           <View style={styles.previewContainer}>
             <Image source={{ uri: selectedImage }} style={styles.imagePreview} resizeMode="cover" />
             <View style={styles.imageActionRow}>
+              <TouchableOpacity style={styles.secondaryButton} onPress={handleTakePhoto}>
+                <Feather name="camera" size={14} color="#44403c" style={{ marginRight: 6 }} />
+                <Text style={styles.secondaryButtonText}>Foto Ulang</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.secondaryButton} onPress={handlePickImage}>
                 <Feather name="image" size={14} color="#44403c" style={{ marginRight: 6 }} />
-                <Text style={styles.secondaryButtonText}>Ganti Foto</Text>
+                <Text style={styles.secondaryButtonText}>Galeri</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.primaryButton, isDetecting && styles.buttonDisabled]}
@@ -240,13 +275,31 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
           </View>
         ) : (
           <View>
-            <TouchableOpacity style={styles.uploadBox} onPress={handlePickImage} activeOpacity={0.8}>
-              <View style={styles.uploadIconContainer}>
-                <Feather name="camera" size={26} color={colors.primary} />
-              </View>
-              <Text style={styles.uploadBoxTitle}>Pilih dari Galeri</Text>
-              <Text style={styles.uploadBoxHint}>Ketuk untuk memilih foto bahan makanan</Text>
-            </TouchableOpacity>
+            <View style={styles.uploadOptionsRow}>
+              <TouchableOpacity
+                style={[styles.uploadBox, styles.uploadBoxHalf]}
+                onPress={handleTakePhoto}
+                activeOpacity={0.8}
+              >
+                <View style={styles.uploadIconContainer}>
+                  <Feather name="camera" size={24} color={colors.primary} />
+                </View>
+                <Text style={styles.uploadBoxTitle}>Ambil Foto</Text>
+                <Text style={styles.uploadBoxHint}>Kamera ponsel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.uploadBox, styles.uploadBoxHalf]}
+                onPress={handlePickImage}
+                activeOpacity={0.8}
+              >
+                <View style={styles.uploadIconContainer}>
+                  <Feather name="image" size={24} color={colors.primary} />
+                </View>
+                <Text style={styles.uploadBoxTitle}>Dari Galeri</Text>
+                <Text style={styles.uploadBoxHint}>Pilih foto yang ada</Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Tombol Contoh Foto Cepat */}
             <View style={styles.sampleRow}>
@@ -565,6 +618,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  uploadOptionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   uploadBox: {
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -574,6 +631,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FAF8F3',
+  },
+  uploadBoxHalf: {
+    flex: 1,
+    paddingVertical: 20,
   },
   uploadIconContainer: {
     width: 48,

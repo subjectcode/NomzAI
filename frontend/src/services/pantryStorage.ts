@@ -55,7 +55,9 @@ export async function getPantryItems(): Promise<PantryItem[]> {
       return DEFAULT_PANTRY_ITEMS;
     }
     const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item) => item && typeof item === 'object' && item.id && item.name)
+      : DEFAULT_PANTRY_ITEMS;
   } catch (error) {
     console.error('Gagal membaca dapur pantry:', error);
     return DEFAULT_PANTRY_ITEMS;
@@ -79,7 +81,21 @@ export async function addPantryItem(
 
   try {
     const items = await getPantryItems();
-    const updated = [newItem, ...items];
+    const existingIndex = items.findIndex(
+      (i) => i.name.toLowerCase() === newItem.name.toLowerCase()
+    );
+    let updated: PantryItem[];
+    if (existingIndex >= 0) {
+      updated = [...items];
+      updated[existingIndex] = {
+        ...updated[existingIndex],
+        quantity: newItem.quantity || updated[existingIndex].quantity,
+        useFirst: newItem.useFirst || updated[existingIndex].useFirst,
+        expiryDate: newItem.expiryDate || updated[existingIndex].expiryDate,
+      };
+    } else {
+      updated = [newItem, ...items];
+    }
     await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
     console.error('Gagal menambah bahan ke dapur:', error);

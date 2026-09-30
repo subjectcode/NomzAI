@@ -12,12 +12,16 @@ export function initializeGoogleAuth(): void {
   if (isConfigured) return;
 
   if (GOOGLE_WEB_CLIENT_ID) {
-    GoogleSignin.configure({
-      webClientId: GOOGLE_WEB_CLIENT_ID,
-      scopes: ['profile', 'email'],
-      offlineAccess: false,
-    });
-    isConfigured = true;
+    try {
+      GoogleSignin.configure({
+        webClientId: GOOGLE_WEB_CLIENT_ID,
+        scopes: ['profile', 'email'],
+        offlineAccess: false,
+      });
+      isConfigured = true;
+    } catch {
+      // Ignore if native TurboModule is missing in standard Expo Go client
+    }
   }
 }
 
@@ -26,9 +30,9 @@ export function initializeGoogleAuth(): void {
  * Mengembalikan ID token string jika sukses, atau null jika dibatalkan oleh pengguna.
  */
 export async function promptGoogleSignIn(): Promise<string | null> {
-  initializeGoogleAuth();
-
   try {
+    initializeGoogleAuth();
+
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
     const response = await GoogleSignin.signIn();
 
@@ -46,26 +50,37 @@ export async function promptGoogleSignIn(): Promise<string | null> {
 
     return null;
   } catch (error: any) {
+    const rawMessage = error.message || '';
+
     if (
-      error.code === statusCodes.SIGN_IN_CANCELLED ||
-      error.message?.includes('cancelled') ||
-      error.message?.includes('12501') // Google Sign In CANCELED code
+      rawMessage.includes('RNGoogleSignin') ||
+      rawMessage.includes('TurboModuleRegistry') ||
+      rawMessage.includes('native module')
+    ) {
+      throw new Error(
+        'Google Sign-In memerlukan build native (APK/Development Client) dan tidak dapat dijalankan di Expo Go standar.'
+      );
+    }
+
+    if (
+      error.code === statusCodes?.SIGN_IN_CANCELLED ||
+      rawMessage.includes('cancelled') ||
+      rawMessage.includes('12501') // Google Sign In CANCELED code
     ) {
       // User membatalkan dialog secara sengaja — senyap
       return null;
     }
 
-    if (error.code === statusCodes.IN_PROGRESS) {
+    if (error.code === statusCodes?.IN_PROGRESS) {
       // Sedang dalam proses
       return null;
     }
 
-    if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+    if (error.code === statusCodes?.PLAY_SERVICES_NOT_AVAILABLE) {
       throw new Error('Layanan Google Play tidak tersedia atau perlu diperbarui.');
     }
 
     // Format error ramah pengguna dalam Bahasa Indonesia
-    const rawMessage = error.message || '';
     if (rawMessage.includes('NETWORK_ERROR') || rawMessage.includes('7')) {
       throw new Error('Koneksi ke Google bermasalah. Periksa jaringan internet Anda.');
     }

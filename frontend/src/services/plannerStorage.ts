@@ -27,7 +27,9 @@ export async function getMealPlans(): Promise<MealPlan[]> {
     const json = await AsyncStorage.getItem(PLANNER_STORAGE_KEY);
     if (!json) return [];
     const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((p) => p && typeof p === 'object' && p.id && p.dayKey && p.recipe)
+      : [];
   } catch (error) {
     console.error('Gagal membaca rencana masak:', error);
     return [];

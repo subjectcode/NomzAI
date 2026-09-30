@@ -35,7 +35,9 @@ export async function getCookingHistory(): Promise<HistoryItem[]> {
     const json = await AsyncStorage.getItem(COOKING_HISTORY_KEY);
     if (!json) return [];
     const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item) => item && typeof item === 'object' && item.id && item.recipe)
+      : [];
   } catch (error) {
     console.error('Gagal membaca riwayat memasak:', error);
     return [];
@@ -54,6 +56,13 @@ export async function addCookingHistory(recipe: RecipeRecommendation): Promise<H
 
   try {
     const list = await getCookingHistory();
+    // Cegah duplikasi jika resep yang sama baru saja tercatat dalam rentang 3 detik
+    if (list.length > 0 && list[0].recipe?.id === recipe.id) {
+      const lastCookedTime = new Date(list[0].cookedAt).getTime();
+      if (now.getTime() - lastCookedTime < 3000) {
+        return list[0];
+      }
+    }
     const updated = [newItem, ...list];
     await AsyncStorage.setItem(COOKING_HISTORY_KEY, JSON.stringify(updated));
   } catch (error) {

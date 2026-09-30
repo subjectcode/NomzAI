@@ -11,7 +11,9 @@ export async function getSavedRecipes(): Promise<RecipeRecommendation[]> {
     const json = await AsyncStorage.getItem(SAVED_RECIPES_KEY);
     if (!json) return [];
     const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((r) => r && typeof r === 'object' && r.id && r.nama)
+      : [];
   } catch (error) {
     console.error('Gagal membaca resep tersimpan:', error);
     return [];
