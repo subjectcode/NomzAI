@@ -9,6 +9,8 @@ export * from './PantryScreen';
 export * from './HistoryScreen';
 export * from './PlannerScreen';
 export * from './ProfileScreen';
+export * from './EditProfileScreen';
+export * from './SettingsScreen';
 export * from './SplashScreen';
 export * from './OnboardingScreen';
 export * from './AuthWelcomeScreen';

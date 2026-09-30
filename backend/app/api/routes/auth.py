@@ -14,6 +14,7 @@ from app.schemas.auth import (
     UserCreate,
     UserLogin,
     UserPublic,
+    UserUpdate,
 )
 from app.services.auth import (
     create_email_user,
@@ -139,3 +140,45 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
 def get_me(current_user: User = Depends(get_current_user)):
     """Mengembalikan data profil pengguna berdasarkan token yang aktif."""
     return UserPublic.model_validate(current_user)
+
+
+@router.patch(
+    "/me",
+    response_model=UserPublic,
+    summary="Memperbarui profil pengguna yang sedang login",
+)
+def update_me(
+    payload: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Memperbarui data display_name atau avatar_url pengguna."""
+    if payload.display_name is not None:
+        trimmed = payload.display_name.strip()
+        if not trimmed:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Nama tampilan tidak boleh kosong.",
+            )
+        current_user.display_name = trimmed
+    if payload.avatar_url is not None:
+        current_user.avatar_url = payload.avatar_url.strip()
+
+    db.commit()
+    db.refresh(current_user)
+    return UserPublic.model_validate(current_user)
+
+
+@router.delete(
+    "/me",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Menghapus akun pengguna yang sedang login secara permanen",
+)
+def delete_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Menghapus record akun pengguna saat ini dari database."""
+    db.delete(current_user)
+    db.commit()
+    return None

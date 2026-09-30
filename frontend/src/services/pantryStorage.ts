@@ -127,3 +127,14 @@ export async function getPantryIngredientsForRescue(): Promise<string[]> {
   });
   return sorted.map((i) => i.name.toLowerCase());
 }
+
+/**
+ * Mengosongkan inventaris dapur (pantry).
+ */
+export async function clearPantryItems(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify([]));
+  } catch (error) {
+    console.error('Gagal mengosongkan dapur pantry:', error);
+  }
+}

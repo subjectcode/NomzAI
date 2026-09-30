@@ -75,3 +75,14 @@ export async function removeMealPlan(id: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Menghapus semua rencana menu mingguan.
+ */
+export async function clearMealPlans(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(PLANNER_STORAGE_KEY);
+  } catch (error) {
+    console.error('Gagal mengosongkan rencana makan:', error);
+  }
+}

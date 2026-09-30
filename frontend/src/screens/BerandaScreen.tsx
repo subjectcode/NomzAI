@@ -228,6 +228,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 60,
   },
   heroSection: {
     marginTop: 18,

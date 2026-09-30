@@ -186,3 +186,81 @@ export async function googleAuth(input: GoogleAuthInput): Promise<AuthResponse> 
     throw error;
   }
 }
+
+/**
+ * Memperbarui profil pengguna saat ini (PATCH /api/auth/me).
+ */
+export async function updateUserProfile(
+  token: string,
+  data: { displayName?: string; avatarUrl?: string }
+): Promise<User> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(AUTH_ME_ENDPOINT, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        display_name: data.displayName ? data.displayName.trim() : undefined,
+        avatar_url: data.avatarUrl ? data.avatarUrl.trim() : undefined,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorMessage = await parseErrorResponse(response);
+      const error: any = new Error(errorMessage);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Koneksi pembaruan profil kehabisan waktu.');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Menghapus akun pengguna saat ini (DELETE /api/auth/me).
+ */
+export async function deleteUserAccount(token: string): Promise<void> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(AUTH_ME_ENDPOINT, {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorMessage = await parseErrorResponse(response);
+      const error: any = new Error(errorMessage);
+      error.status = response.status;
+      throw error;
+    }
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Koneksi penghapusan akun kehabisan waktu.');
+    }
+    throw error;
+  }
+}

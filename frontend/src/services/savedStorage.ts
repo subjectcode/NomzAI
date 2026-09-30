@@ -64,3 +64,14 @@ export async function isRecipeSaved(recipeId: string, recipeName?: string): Prom
     return false;
   }
 }
+
+/**
+ * Menghapus seluruh resep yang tersimpan.
+ */
+export async function clearSavedRecipes(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(SAVED_RECIPES_KEY);
+  } catch (error) {
+    console.error('Gagal menghapus resep tersimpan:', error);
+  }
+}

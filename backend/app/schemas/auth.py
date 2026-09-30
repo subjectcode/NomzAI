@@ -20,6 +20,17 @@ class UserLogin(BaseModel):
     password: str
 
 
+class UserUpdate(BaseModel):
+    """Schema untuk memperbarui profil pengguna."""
+
+    display_name: str | None = Field(
+        None, min_length=1, max_length=100, description="Nama tampilan baru"
+    )
+    avatar_url: str | None = Field(
+        None, description="URL atau identifier avatar pengguna"
+    )
+
+
 class GoogleAuthRequest(BaseModel):
     """Schema untuk autentikasi via Google id_token dari expo-auth-session."""
 

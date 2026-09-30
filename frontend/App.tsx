@@ -18,6 +18,8 @@ import {
   HistoryScreen,
   PlannerScreen,
   ProfileScreen,
+  EditProfileScreen,
+  SettingsScreen,
   SplashScreen,
   OnboardingScreen,
   AuthWelcomeScreen,
@@ -31,7 +33,7 @@ import { getOnboardingCompleted } from './src/services/onboardingStorage';
 import { initializeGoogleAuth } from './src/services/googleAuth';
 
 type CookingStep = 'scan' | 'recommendations' | 'detail' | 'guided_cooking';
-type ModalSubScreen = 'none' | 'profile' | 'pantry' | 'history' | 'planner';
+type ModalSubScreen = 'none' | 'profile' | 'pantry' | 'history' | 'planner' | 'edit_profile' | 'settings';
 type AuthSubScreen = 'welcome' | 'login' | 'register';
 
 function MainApp() {
@@ -201,9 +203,31 @@ function MainApp() {
         {subScreen === 'profile' && (
           <ProfileScreen
             onBack={handleCloseSubScreen}
+            onNavigateToEditProfile={() => setSubScreen('edit_profile')}
             onNavigateToPantry={handleOpenPantry}
             onNavigateToHistory={handleOpenHistory}
             onNavigateToPlanner={handleOpenPlanner}
+            onNavigateToSaved={() => {
+              handleCloseSubScreen();
+              setActiveTab('tersimpan');
+            }}
+            onNavigateToSettings={() => setSubScreen('settings')}
+          />
+        )}
+
+        {subScreen === 'edit_profile' && (
+          <EditProfileScreen
+            onBack={() => setSubScreen('profile')}
+            onProfileUpdated={() => {
+              // Context user is updated reactively
+            }}
+          />
+        )}
+
+        {subScreen === 'settings' && (
+          <SettingsScreen
+            onBack={() => setSubScreen('profile')}
+            onNavigateToEditProfile={() => setSubScreen('edit_profile')}
           />
         )}
 

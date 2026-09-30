@@ -14,16 +14,22 @@ import { ImpactStats, getImpactStats } from '../services/historyStorage';
 
 interface ProfileScreenProps {
   onBack: () => void;
+  onNavigateToEditProfile: () => void;
   onNavigateToPantry: () => void;
   onNavigateToHistory: () => void;
   onNavigateToPlanner: () => void;
+  onNavigateToSaved: () => void;
+  onNavigateToSettings: () => void;
 }
 
 export function ProfileScreen({
   onBack,
+  onNavigateToEditProfile,
   onNavigateToPantry,
   onNavigateToHistory,
   onNavigateToPlanner,
+  onNavigateToSaved,
+  onNavigateToSettings,
 }: ProfileScreenProps) {
   const { user, logout } = useAuth();
   const [stats, setStats] = useState<ImpactStats>({
@@ -32,8 +38,12 @@ export function ProfileScreen({
     mealsSaved: 0,
   });
 
-  useEffect(() => {
+  const loadStats = () => {
     getImpactStats().then(setStats);
+  };
+
+  useEffect(() => {
+    loadStats();
   }, []);
 
   const handleLogout = () => {
@@ -45,6 +55,13 @@ export function ProfileScreen({
         onPress: () => logout(),
       },
     ]);
+  };
+
+  const handleAbout = () => {
+    Alert.alert(
+      'Tentang Nomz',
+      'Nomz v1.0.0 (Hackathon MVP)\n\nNomz adalah Asisten Penyelamat Pangan cerdas bertenaga AI yang membantu Anda mengidentifikasi bahan makanan yang ada, memaksimalkan penggunaan bahan tanpa perlu belanja berlebih, dan memasak langkah demi langkah untuk mengurangi limbah makanan rumah tangga.'
+    );
   };
 
   const displayName = (user as any)?.display_name || (user as any)?.displayName || 'Pengguna Nomz';
@@ -59,9 +76,16 @@ export function ProfileScreen({
           <Feather name="arrow-left" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.topBarTextWrap}>
-          <Text style={styles.topBarTitle}>Profil & Pengaturan</Text>
+          <Text style={styles.topBarTitle}>Profil Pengguna</Text>
           <Text style={styles.topBarSubtitle}>Nomz Food Rescue Assistant</Text>
         </View>
+        <TouchableOpacity
+          style={styles.settingsHeaderBtn}
+          onPress={onNavigateToSettings}
+          activeOpacity={0.7}
+        >
+          <Feather name="settings" size={20} color={colors.textPrimary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -73,6 +97,14 @@ export function ProfileScreen({
           <View style={styles.userInfoWrap}>
             <Text style={styles.userName}>{displayName}</Text>
             <Text style={styles.userEmail}>{email}</Text>
+            <TouchableOpacity
+              style={styles.editProfileBtn}
+              onPress={onNavigateToEditProfile}
+              activeOpacity={0.7}
+            >
+              <Feather name="edit-2" size={13} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.editProfileBtnText}>Edit Profil</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -146,6 +178,56 @@ export function ProfileScreen({
             <View style={styles.menuTextWrap}>
               <Text style={styles.menuTitle}>Rencana Menu Mingguan</Text>
               <Text style={styles.menuSubtitle}>Jadwalkan masakan untuk hari Senin - Minggu</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={onNavigateToSaved}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: '#fdf2f8' }]}>
+              <Feather name="bookmark" size={18} color="#db2777" />
+            </View>
+            <View style={styles.menuTextWrap}>
+              <Text style={styles.menuTitle}>Resep Tersimpan</Text>
+              <Text style={styles.menuSubtitle}>Koleksi masakan yang Anda simpan</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Settings & Info Menu List */}
+        <Text style={styles.menuHeading}>Preferensi & Informasi</Text>
+
+        <View style={styles.menuWrap}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={onNavigateToSettings}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: '#f3f4f6' }]}>
+              <Feather name="sliders" size={18} color={colors.textPrimary} />
+            </View>
+            <View style={styles.menuTextWrap}>
+              <Text style={styles.menuTitle}>Pengaturan Aplikasi</Text>
+              <Text style={styles.menuSubtitle}>Preferensi resep, kelola data, dan akun</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={handleAbout}
+            activeOpacity={0.75}
+          >
+            <View style={[styles.menuIcon, { backgroundColor: '#fef3c7' }]}>
+              <Feather name="info" size={18} color="#b45309" />
+            </View>
+            <View style={styles.menuTextWrap}>
+              <Text style={styles.menuTitle}>Tentang Nomz</Text>
+              <Text style={styles.menuSubtitle}>Versi 1.0.0 (Hackathon MVP)</Text>
             </View>
             <Feather name="chevron-right" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -226,6 +308,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
   },
+  settingsHeaderBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f5f5f4',
+    marginRight: 60,
+  },
   userInfoWrap: {
     flex: 1,
   },
@@ -238,6 +329,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  editProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#EFF3EF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  editProfileBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
   },
   impactCard: {
     backgroundColor: '#FFFFFF',

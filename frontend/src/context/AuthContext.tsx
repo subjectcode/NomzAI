@@ -16,6 +16,8 @@ import {
   registerUser,
   getCurrentUser,
   googleAuth,
+  updateUserProfile,
+  deleteUserAccount,
 } from '../services/authApi';
 import {
   saveAuthToken,
@@ -32,6 +34,8 @@ export interface AuthContextType {
   login: (input: LoginInput, rememberMe?: boolean) => Promise<User>;
   loginWithGoogle: (idToken: string) => Promise<User>;
   logout: () => Promise<void>;
+  updateProfile: (data: { displayName?: string; avatarUrl?: string }) => Promise<User>;
+  deleteAccount: () => Promise<void>;
   restoreSession: () => Promise<void>;
 }
 
@@ -177,6 +181,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  /**
+   * Memperbarui display name dan avatar pengguna pada server dan state lokal.
+   */
+  const handleUpdateProfile = async (data: { displayName?: string; avatarUrl?: string }): Promise<User> => {
+    if (!token) throw new Error('Pengguna belum terautentikasi.');
+    setIsLoading(true);
+    try {
+      const updated = await updateUserProfile(token, data);
+      setUser(updated);
+      return updated;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Menghapus akun pengguna secara permanen dari server dan membersihkan sesi lokal.
+   */
+  const handleDeleteAccount = async (): Promise<void> => {
+    if (!token) throw new Error('Pengguna belum terautentikasi.');
+    setIsLoading(true);
+    try {
+      await deleteUserAccount(token);
+      await deleteAuthToken();
+      setToken(null);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     token,
@@ -186,6 +221,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login: handleLogin,
     loginWithGoogle: handleGoogleLogin,
     logout: handleLogout,
+    updateProfile: handleUpdateProfile,
+    deleteAccount: handleDeleteAccount,
     restoreSession,
   };
 

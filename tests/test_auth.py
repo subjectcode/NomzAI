@@ -339,3 +339,39 @@ def test_google_auth_conflict_with_email_account():
 
     assert response.status_code == 409
     assert "terdaftar dengan metode login lain" in response.json()["detail"]
+
+
+def test_update_me_profile():
+    """Menguji update display_name dan avatar_url via PATCH /api/auth/me."""
+    reg = client.post("/api/auth/register", json=_test_user)
+    token = reg.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    update_res = client.patch(
+        "/api/auth/me",
+        headers=headers,
+        json={"display_name": "Chef Nomz Indonesia", "avatar_url": "https://example.com/avatar.png"},
+    )
+    assert update_res.status_code == 200
+    data = update_res.json()
+    assert data["display_name"] == "Chef Nomz Indonesia"
+    assert data["avatar_url"] == "https://example.com/avatar.png"
+
+    # Verifikasi via GET /me
+    me_res = client.get("/api/auth/me", headers=headers)
+    assert me_res.status_code == 200
+    assert me_res.json()["display_name"] == "Chef Nomz Indonesia"
+
+
+def test_delete_me_account():
+    """Menguji penghapusan akun via DELETE /api/auth/me."""
+    reg = client.post("/api/auth/register", json=_test_user)
+    token = reg.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    del_res = client.delete("/api/auth/me", headers=headers)
+    assert del_res.status_code == 204
+
+    # GET /me harus 401 karena user sudah dihapus
+    me_res = client.get("/api/auth/me", headers=headers)
+    assert me_res.status_code == 401

@@ -78,3 +78,11 @@ export async function getImpactStats(): Promise<ImpactStats> {
     mealsSaved,
   };
 }
+
+export async function clearCookingHistory(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(COOKING_HISTORY_KEY);
+  } catch (error) {
+    console.error('Gagal menghapus riwayat memasak:', error);
+  }
+}
