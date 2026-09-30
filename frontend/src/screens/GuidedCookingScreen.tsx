@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { RecipeRecommendation } from '../types';
-import { colors } from '../theme';
+import { colors, radius, shadows, spacing } from '../theme';
 import { addCookingHistory } from '../services/historyStorage';
 
 interface GuidedCookingScreenProps {
@@ -22,28 +22,33 @@ export function GuidedCookingScreen({
   onBack,
   onComplete,
 }: GuidedCookingScreenProps) {
-  const steps = recipe.langkah && recipe.langkah.length > 0
-    ? recipe.langkah
-    : [
-        `Siapkan bahan utama yang tersedia: ${recipe.bahan_tersedia.join(', ')}.`,
-        'Cuci bersih bahan segar dan potong sesuai selera.',
-        'Panaskan sedikit minyak goreng atau margarin di atas wajan dengan api sedang.',
-        `Masak dan olah ${recipe.nama.toLowerCase()} hingga matang merata dan harum.`,
-        'Bumbui dengan bumbu pelengkap secukupnya, cicipi rasa, lalu angkat dan sajikan selagi hangat.',
-      ];
+  const steps =
+    recipe.langkah_memasak && recipe.langkah_memasak.length > 0
+      ? recipe.langkah_memasak
+      : recipe.langkah && recipe.langkah.length > 0
+      ? recipe.langkah
+      : [
+          `Siapkan bahan utama yang tersedia: ${recipe.bahan_tersedia.join(', ')}.`,
+          'Cuci bersih bahan segar dan potong sesuai kebutuhan.',
+          'Panaskan sedikit minyak goreng atau margarin di atas wajan dengan api sedang.',
+          `Masak dan tumis ${recipe.nama.toLowerCase()} hingga matang merata dan harum.`,
+          'Bumbui secukupnya, cicipi rasa, lalu angkat dan sajikan selagi hangat.',
+        ];
 
   const totalSteps = steps.length;
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
 
-  // Deteksi estimasi waktu di teks instruksi langkah (misal "5 menit", "10 menit")
+  // Deteksi durasi waktu di teks instruksi langkah (misal "5 menit", "10 menit")
   const currentStepText = steps[currentStepIndex];
   const timeMatch = currentStepText.match(/(\d+)\s*(menit|detik)/i);
   const detectedDuration = timeMatch ? `${timeMatch[1]} ${timeMatch[2]}` : null;
 
   // Timer interaktif jika ada durasi
   const initialSeconds = timeMatch
-    ? (timeMatch[2].toLowerCase().startsWith('menit') ? parseInt(timeMatch[1], 10) * 60 : parseInt(timeMatch[1], 10))
+    ? timeMatch[2].toLowerCase().startsWith('menit')
+      ? parseInt(timeMatch[1], 10) * 60
+      : parseInt(timeMatch[1], 10)
     : 0;
 
   const [timerSeconds, setTimerSeconds] = useState<number>(initialSeconds);
@@ -116,7 +121,7 @@ export function GuidedCookingScreen({
           </Text>
 
           <View style={styles.impactBadge}>
-            <Feather name="shield" size={14} color="#15803d" style={{ marginRight: 6 }} />
+            <Feather name="shield" size={14} color={colors.success} style={{ marginRight: 6 }} />
             <Text style={styles.impactBadgeText}>
               {recipe.bahan_tersedia.length} Bahan Berhasil Diselamatkan
             </Text>
@@ -145,105 +150,116 @@ export function GuidedCookingScreen({
 
   return (
     <View style={styles.container}>
-      {/* Top Bar Navigasi */}
+      {/* 1. TOP BAR */}
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <Feather name="arrow-left" size={22} color={colors.textPrimary} />
+        <TouchableOpacity style={styles.closeBtn} onPress={onBack} activeOpacity={0.7}>
+          <Feather name="x" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
-        <View style={styles.topBarTextWrap}>
+        <View style={styles.topBarCenter}>
           <Text style={styles.topBarTitle} numberOfLines={1}>
-            Panduan Memasak
+            {recipe.nama}
           </Text>
-          <Text style={styles.topBarSubtitle}>{recipe.nama}</Text>
+          <Text style={styles.topBarStepCount}>
+            Langkah {currentStepIndex + 1} dari {totalSteps}
+          </Text>
         </View>
+        <View style={{ width: 36 }} />
       </View>
 
-      {/* Progress Bar */}
-      <View style={styles.progressBarTrack}>
-        <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+      {/* 2. PROGRESS BAR (DESIGN.md Section 30) */}
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Step Indicator */}
-        <View style={styles.stepHeaderRow}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 3. CURRENT STEP CARD */}
+        <View style={styles.stepCard}>
           <View style={styles.stepBadge}>
-            <Text style={styles.stepBadgeText}>
-              Langkah {currentStepIndex + 1} dari {totalSteps}
-            </Text>
+            <Text style={styles.stepBadgeText}>LANGKAH {currentStepIndex + 1}</Text>
           </View>
-          <Text style={styles.stepPercentText}>{progressPercent}% Selesai</Text>
-        </View>
 
-        {/* Main Step Instruction Card */}
-        <View style={styles.instructionCard}>
-          <Text style={styles.instructionText}>{currentStepText}</Text>
+          <Text style={styles.stepInstructionText}>{currentStepText}</Text>
 
-          {/* Timer Interaktif Jika Ada Waktu */}
-          {detectedDuration && initialSeconds > 0 && (
-            <View style={styles.timerBox}>
+          {/* TIMER INTERAKTIF (Jika instruksi mengandung durasi waktu) */}
+          {detectedDuration && (
+            <View style={styles.timerCard}>
               <View style={styles.timerHeader}>
-                <Feather name="clock" size={15} color={colors.primary} style={{ marginRight: 6 }} />
-                <Text style={styles.timerLabel}>Timer Waktu Masak ({detectedDuration}):</Text>
+                <Feather name="clock" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                <Text style={styles.timerTitle}>Pengatur Waktu: {detectedDuration}</Text>
               </View>
               <Text style={styles.timerDigits}>{formatTimer(timerSeconds)}</Text>
-              <TouchableOpacity
-                style={[styles.timerControlBtn, timerRunning && styles.timerControlBtnPause]}
-                onPress={() => setTimerRunning((prev) => !prev)}
-                activeOpacity={0.8}
-              >
-                <Feather
-                  name={timerRunning ? "pause" : "play"}
-                  size={14}
-                  color="#FFFFFF"
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={styles.timerControlBtnText}>
-                  {timerRunning ? "Jeda Timer" : timerSeconds === 0 ? "Ulangi Timer" : "Mulai Timer"}
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.timerActionsRow}>
+                <TouchableOpacity
+                  style={[styles.timerBtn, timerRunning ? styles.timerBtnPause : styles.timerBtnStart]}
+                  onPress={() => setTimerRunning(!timerRunning)}
+                  activeOpacity={0.8}
+                >
+                  <Feather
+                    name={timerRunning ? 'pause' : 'play'}
+                    size={14}
+                    color="#FFFFFF"
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={styles.timerBtnText}>{timerRunning ? 'Jeda' : 'Mulai Timer'}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.timerResetBtn}
+                  onPress={() => {
+                    setTimerRunning(false);
+                    setTimerSeconds(initialSeconds);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="rotate-ccw" size={14} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>
 
-        {/* Bahan yang Digunakan di Langkah Ini */}
-        <View style={styles.ingredientReferenceCard}>
-          <Text style={styles.ingredientReferenceTitle}>Bahan Tersedia yang Disiapkan:</Text>
-          <View style={styles.tagWrap}>
+        {/* Bahan yang Digunakan dalam Resep */}
+        <View style={styles.ingredientsReminderCard}>
+          <Text style={styles.reminderTitle}>Bahan Resep Ini:</Text>
+          <View style={styles.chipsWrap}>
             {recipe.bahan_tersedia.map((b, i) => (
-              <View key={i} style={styles.ingPill}>
-                <Feather name="check" size={11} color="#15803d" style={{ marginRight: 4 }} />
-                <Text style={styles.ingPillText}>{b}</Text>
+              <View key={i} style={styles.reminderChip}>
+                <Text style={styles.reminderChipText}>{b}</Text>
               </View>
             ))}
           </View>
         </View>
       </ScrollView>
 
-      {/* Navigation Footer */}
-      <View style={styles.footerBar}>
-        <TouchableOpacity
-          style={[styles.navBtn, currentStepIndex === 0 && styles.navBtnDisabled]}
-          onPress={handlePrev}
-          disabled={currentStepIndex === 0}
-          activeOpacity={0.7}
-        >
-          <Feather name="arrow-left" size={16} color={currentStepIndex === 0 ? '#a8a29e' : colors.textPrimary} />
-          <Text style={[styles.navBtnText, currentStepIndex === 0 && styles.navBtnTextDisabled]}>
-            Sebelumnya
-          </Text>
-        </TouchableOpacity>
+      {/* 4. BOTTOM NAVIGATION ACTIONS */}
+      <View style={styles.bottomBar}>
+        {currentStepIndex > 0 ? (
+          <TouchableOpacity
+            style={styles.prevBtn}
+            onPress={handlePrev}
+            activeOpacity={0.75}
+          >
+            <Feather name="arrow-left" size={18} color={colors.textSecondary} />
+            <Text style={styles.prevBtnText}>Sebelumnya</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 100 }} />
+        )}
 
         <TouchableOpacity
-          style={[styles.primaryNextBtn, currentStepIndex === totalSteps - 1 && styles.finishBtn]}
+          style={styles.nextBtn}
           onPress={handleNext}
-          activeOpacity={0.85}
+          activeOpacity={0.88}
         >
-          <Text style={styles.primaryNextBtnText}>
-            {currentStepIndex === totalSteps - 1 ? "Selesai Memasak" : "Langkah Berikutnya"}
+          <Text style={styles.nextBtnText}>
+            {currentStepIndex < totalSteps - 1 ? 'Langkah Berikutnya' : 'Selesai Memasak'}
           </Text>
           <Feather
-            name={currentStepIndex === totalSteps - 1 ? "check" : "arrow-right"}
-            size={16}
+            name={currentStepIndex < totalSteps - 1 ? 'arrow-right' : 'check'}
+            size={18}
             color="#FFFFFF"
             style={{ marginLeft: 6 }}
           />
@@ -256,233 +272,234 @@ export function GuidedCookingScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f4',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: colors.surface,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f5f4',
-    marginRight: 12,
   },
-  topBarTextWrap: {
+  topBarCenter: {
     flex: 1,
+    alignItems: 'center',
   },
   topBarTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#1c1917',
+    color: colors.textPrimary,
   },
-  topBarSubtitle: {
+  topBarStepCount: {
     fontSize: 12,
-    color: '#78716c',
+    color: colors.textMuted,
     marginTop: 1,
   },
-  progressBarTrack: {
+  progressTrack: {
     height: 4,
-    backgroundColor: '#E7E5DE',
+    backgroundColor: colors.borderSubtle,
     width: '100%',
   },
-  progressBarFill: {
-    height: 4,
+  progressFill: {
+    height: '100%',
     backgroundColor: colors.primary,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 30,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 96,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
-  stepHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  stepCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
     marginBottom: 16,
+    ...shadows.level1,
   },
   stepBadge: {
-    backgroundColor: '#EFF3EF',
-    paddingHorizontal: 10,
+    backgroundColor: colors.mintSoft,
     paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    borderRadius: radius.xs,
+    alignSelf: 'flex-start',
+    marginBottom: 14,
   },
   stepBadgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.primaryDark,
+    color: colors.primary,
+    letterSpacing: 0.5,
   },
-  stepPercentText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  instructionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#E7E5DE',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  instructionText: {
-    fontSize: 18,
+  stepInstructionText: {
+    fontSize: 17,
     fontWeight: '600',
     color: colors.textPrimary,
-    lineHeight: 28,
+    lineHeight: 26,
+    marginBottom: 16,
   },
-  timerBox: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f5f5f4',
+  timerCard: {
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    padding: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
   },
   timerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
   },
-  timerLabel: {
+  timerTitle: {
     fontSize: 13,
-    color: colors.textSecondary,
     fontWeight: '600',
+    color: colors.textSecondary,
   },
   timerDigits: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '800',
-    color: colors.primaryDark,
+    color: colors.primary,
+    letterSpacing: 2,
     marginBottom: 12,
-    letterSpacing: 1,
   },
-  timerControlBtn: {
+  timerActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
+    gap: 10,
+  },
+  timerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 9,
-    borderRadius: 10,
+    paddingHorizontal: 18,
+    borderRadius: radius.full,
   },
-  timerControlBtnPause: {
-    backgroundColor: '#d97706',
+  timerBtnStart: {
+    backgroundColor: colors.primary,
   },
-  timerControlBtnText: {
+  timerBtnPause: {
+    backgroundColor: colors.orangeDark,
+  },
+  timerBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  ingredientReferenceCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+  timerResetBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ingredientsReminderCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
+    borderColor: colors.borderSubtle,
+    ...shadows.level1,
   },
-  ingredientReferenceTitle: {
-    fontSize: 12,
+  reminderTitle: {
+    fontSize: 13,
     fontWeight: '700',
-    color: colors.textSecondary,
-    marginBottom: 8,
-    textTransform: 'uppercase',
+    color: colors.textPrimary,
+    marginBottom: 10,
   },
-  tagWrap: {
+  chipsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
   },
-  ingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+  reminderChip: {
+    backgroundColor: colors.background,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
   },
-  ingPillText: {
-    fontSize: 11,
-    color: '#15803d',
-    fontWeight: '600',
+  reminderChipText: {
+    fontSize: 12,
+    color: colors.textSecondary,
     textTransform: 'capitalize',
   },
-  footerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.surface,
     paddingHorizontal: 20,
-    paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    paddingTop: 12,
+    paddingBottom: 24,
     borderTopWidth: 1,
-    borderTopColor: '#E7E5DE',
-    gap: 12,
-  },
-  navBtn: {
+    borderTopColor: colors.borderSubtle,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E7E5DE',
-    backgroundColor: '#FAF8F3',
+    justifyContent: 'space-between',
+    ...shadows.level2,
   },
-  navBtnDisabled: {
-    opacity: 0.5,
+  prevBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
-  navBtnText: {
-    fontSize: 13,
+  prevBtnText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     marginLeft: 6,
   },
-  navBtnTextDisabled: {
-    color: '#a8a29e',
-  },
-  primaryNextBtn: {
-    flex: 1,
+  nextBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: radius.full,
+    paddingVertical: 13,
+    paddingHorizontal: 22,
+    minHeight: 48,
+    ...shadows.level1,
   },
-  finishBtn: {
-    backgroundColor: '#15803d',
-  },
-  primaryNextBtnText: {
+  nextBtnText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
   },
   completedContainer: {
     flex: 1,
-    backgroundColor: '#FAF8F3',
-    alignItems: 'center',
+    backgroundColor: colors.background,
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 24,
   },
   celebrationCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 28,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: 24,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E7E5DE',
+    maxWidth: 400,
     width: '100%',
-    maxWidth: 420,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    ...shadows.level2,
   },
   celebrationIconWrap: {
     width: 64,
@@ -492,6 +509,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    ...shadows.level1,
   },
   celebrationTitle: {
     fontSize: 22,
@@ -502,53 +520,57 @@ const styles = StyleSheet.create({
   celebrationDish: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.primaryDark,
+    color: colors.primary,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   celebrationSubtext: {
     fontSize: 13,
     color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 19,
+    lineHeight: 18,
     marginBottom: 16,
   },
   impactBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 24,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: radius.full,
+    marginBottom: 20,
   },
   impactBadgeText: {
     fontSize: 12,
-    color: '#15803d',
     fontWeight: '700',
+    color: colors.success,
   },
   donePrimaryBtn: {
     backgroundColor: colors.primary,
-    width: '100%',
+    borderRadius: radius.full,
     paddingVertical: 14,
-    borderRadius: 12,
+    width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 10,
+    minHeight: 48,
+    ...shadows.level1,
   },
   donePrimaryBtnText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
   },
   doneSecondaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   doneSecondaryBtnText: {
     color: colors.primary,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

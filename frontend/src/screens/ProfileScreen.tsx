@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors } from '../theme';
+import { colors, radius, shadows, spacing } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import { ImpactStats, getImpactStats } from '../services/historyStorage';
 
@@ -57,39 +57,36 @@ export function ProfileScreen({
     ]);
   };
 
-  const handleAbout = () => {
-    Alert.alert(
-      'Tentang Nomz',
-      'Nomz v1.0.0 (Hackathon MVP)\n\nNomz adalah Asisten Penyelamat Pangan cerdas bertenaga AI yang membantu Anda mengidentifikasi bahan makanan yang ada, memaksimalkan penggunaan bahan tanpa perlu belanja berlebih, dan memasak langkah demi langkah untuk mengurangi limbah makanan rumah tangga.'
-    );
-  };
-
   const displayName = (user as any)?.display_name || (user as any)?.displayName || 'Pengguna Nomz';
   const email = user?.email || 'user@nomz.id';
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <View style={styles.container}>
-      {/* Top Bar */}
+      {/* 1. TOP BAR */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <Feather name="arrow-left" size={22} color={colors.textPrimary} />
+          <Feather name="arrow-left" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.topBarTextWrap}>
-          <Text style={styles.topBarTitle}>Profil Pengguna</Text>
+          <Text style={styles.topBarTitle}>Profil Saya</Text>
           <Text style={styles.topBarSubtitle}>Nomz Food Rescue Assistant</Text>
         </View>
         <TouchableOpacity
           style={styles.settingsHeaderBtn}
           onPress={onNavigateToSettings}
           activeOpacity={0.7}
+          accessibilityLabel="Pengaturan"
         >
           <Feather name="settings" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* User Card */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 2. USER CARD */}
         <View style={styles.userCard}>
           <View style={styles.avatarWrap}>
             <Text style={styles.avatarText}>{initial}</Text>
@@ -102,23 +99,22 @@ export function ProfileScreen({
               onPress={onNavigateToEditProfile}
               activeOpacity={0.7}
             >
-              <Feather name="edit-2" size={13} color={colors.primary} style={{ marginRight: 6 }} />
+              <Feather name="edit-2" size={12} color={colors.primary} style={{ marginRight: 5 }} />
               <Text style={styles.editProfileBtnText}>Edit Profil</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Impact Section */}
+        {/* 3. REAL FOOD RESCUE IMPACT */}
         <View style={styles.impactCard}>
-          <Text style={styles.impactTitle}>Dampak Penyelamatan Pangan</Text>
-          <Text style={styles.impactDesc}>
-            Statistik nyata dari setiap resep yang berhasil kamu selesaikan.
-          </Text>
-
+          <View style={styles.impactHeaderRow}>
+            <Feather name="award" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+            <Text style={styles.impactTitle}>Dampak Penyelamatan Pangan</Text>
+          </View>
           <View style={styles.impactRow}>
             <View style={styles.impactCol}>
               <Text style={styles.impactNum}>{stats.ingredientsRescued}</Text>
-              <Text style={styles.impactLbl}>Bahan Diselamatkan</Text>
+              <Text style={styles.impactLbl}>Bahan Selamat</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.impactCol}>
@@ -128,116 +124,114 @@ export function ProfileScreen({
             <View style={styles.divider} />
             <View style={styles.impactCol}>
               <Text style={styles.impactNum}>{stats.mealsSaved}</Text>
-              <Text style={styles.impactLbl}>Porsi Dihidangkan</Text>
+              <Text style={styles.impactLbl}>Porsi Santapan</Text>
             </View>
           </View>
         </View>
 
-        {/* Feature Menu List */}
+        {/* 4. FEATURE MENU LIST */}
         <Text style={styles.menuHeading}>Fitur Dapur & Rencana</Text>
 
         <View style={styles.menuWrap}>
+          {/* Pantry */}
           <TouchableOpacity
-            style={styles.menuItem}
+            style={styles.menuRow}
             onPress={onNavigateToPantry}
             activeOpacity={0.75}
           >
-            <View style={[styles.menuIcon, { backgroundColor: '#EFF3EF' }]}>
+            <View style={[styles.menuIconBox, { backgroundColor: colors.mintSoft }]}>
               <Feather name="archive" size={18} color={colors.primary} />
             </View>
-            <View style={styles.menuTextWrap}>
+            <View style={styles.menuTextBox}>
               <Text style={styles.menuTitle}>Dapur Saya (Pantry)</Text>
-              <Text style={styles.menuSubtitle}>Inventaris bahan & prioritasi "Gunakan Dulu"</Text>
+              <Text style={styles.menuSubtitle}>Kelola stok bahan & pantau tanggal kadaluarsa</Text>
             </View>
-            <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+            <Feather name="chevron-right" size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
+          {/* History */}
           <TouchableOpacity
-            style={styles.menuItem}
+            style={styles.menuRow}
             onPress={onNavigateToHistory}
             activeOpacity={0.75}
           >
-            <View style={[styles.menuIcon, { backgroundColor: '#fef3c7' }]}>
-              <Feather name="clock" size={18} color="#b45309" />
+            <View style={[styles.menuIconBox, { backgroundColor: '#F0FDF4' }]}>
+              <Feather name="clock" size={18} color={colors.success} />
             </View>
-            <View style={styles.menuTextWrap}>
+            <View style={styles.menuTextBox}>
               <Text style={styles.menuTitle}>Riwayat Memasak</Text>
-              <Text style={styles.menuSubtitle}>Catatan masakan yang telah selesai dimasak</Text>
+              <Text style={styles.menuSubtitle}>Catatan masakan yang berhasil kamu selesaikan</Text>
             </View>
-            <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+            <Feather name="chevron-right" size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
+          {/* Planner */}
           <TouchableOpacity
-            style={styles.menuItem}
+            style={styles.menuRow}
             onPress={onNavigateToPlanner}
             activeOpacity={0.75}
           >
-            <View style={[styles.menuIcon, { backgroundColor: '#e0f2fe' }]}>
-              <Feather name="calendar" size={18} color="#0284c7" />
+            <View style={[styles.menuIconBox, { backgroundColor: '#F0F9FF' }]}>
+              <Feather name="calendar" size={18} color="#0284C7" />
             </View>
-            <View style={styles.menuTextWrap}>
-              <Text style={styles.menuTitle}>Rencana Menu Mingguan</Text>
-              <Text style={styles.menuSubtitle}>Jadwalkan masakan untuk hari Senin - Minggu</Text>
+            <View style={styles.menuTextBox}>
+              <Text style={styles.menuTitle}>Rencana Menu</Text>
+              <Text style={styles.menuSubtitle}>Jadwalkan menu harian dari bahan yang ada</Text>
             </View>
-            <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+            <Feather name="chevron-right" size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
+          {/* Saved */}
           <TouchableOpacity
-            style={styles.menuItem}
+            style={styles.menuRow}
             onPress={onNavigateToSaved}
             activeOpacity={0.75}
           >
-            <View style={[styles.menuIcon, { backgroundColor: '#fdf2f8' }]}>
-              <Feather name="bookmark" size={18} color="#db2777" />
+            <View style={[styles.menuIconBox, { backgroundColor: '#FFF7ED' }]}>
+              <Feather name="bookmark" size={18} color={colors.orangeDark} />
             </View>
-            <View style={styles.menuTextWrap}>
+            <View style={styles.menuTextBox}>
               <Text style={styles.menuTitle}>Resep Tersimpan</Text>
-              <Text style={styles.menuSubtitle}>Koleksi masakan yang Anda simpan</Text>
+              <Text style={styles.menuSubtitle}>Koleksi masakan favorit yang kamu simpan</Text>
             </View>
-            <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+            <Feather name="chevron-right" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
-        {/* Settings & Info Menu List */}
-        <Text style={styles.menuHeading}>Preferensi & Informasi</Text>
+        {/* 5. ACCOUNT ACTIONS */}
+        <Text style={styles.menuHeading}>Akun</Text>
 
         <View style={styles.menuWrap}>
           <TouchableOpacity
-            style={styles.menuItem}
+            style={styles.menuRow}
             onPress={onNavigateToSettings}
             activeOpacity={0.75}
           >
-            <View style={[styles.menuIcon, { backgroundColor: '#f3f4f6' }]}>
-              <Feather name="sliders" size={18} color={colors.textPrimary} />
+            <View style={[styles.menuIconBox, { backgroundColor: '#F3F4F6' }]}>
+              <Feather name="sliders" size={18} color={colors.textSecondary} />
             </View>
-            <View style={styles.menuTextWrap}>
+            <View style={styles.menuTextBox}>
               <Text style={styles.menuTitle}>Pengaturan Aplikasi</Text>
-              <Text style={styles.menuSubtitle}>Preferensi resep, kelola data, dan akun</Text>
+              <Text style={styles.menuSubtitle}>Preferensi, preferensi data, & akun</Text>
             </View>
-            <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+            <Feather name="chevron-right" size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleAbout}
+            style={styles.menuRow}
+            onPress={handleLogout}
             activeOpacity={0.75}
           >
-            <View style={[styles.menuIcon, { backgroundColor: '#fef3c7' }]}>
-              <Feather name="info" size={18} color="#b45309" />
+            <View style={[styles.menuIconBox, { backgroundColor: '#FEF2F2' }]}>
+              <Feather name="log-out" size={18} color={colors.error} />
             </View>
-            <View style={styles.menuTextWrap}>
-              <Text style={styles.menuTitle}>Tentang Nomz</Text>
-              <Text style={styles.menuSubtitle}>Versi 1.0.0 (Hackathon MVP)</Text>
+            <View style={styles.menuTextBox}>
+              <Text style={[styles.menuTitle, { color: colors.error }]}>Keluar dari Akun</Text>
+              <Text style={styles.menuSubtitle}>Akhiri sesi masuk di perangkat ini</Text>
             </View>
-            <Feather name="chevron-right" size={18} color={colors.textSecondary} />
+            <Feather name="chevron-right" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
-
-        {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-          <Feather name="log-out" size={16} color="#ef4444" style={{ marginRight: 8 }} />
-          <Text style={styles.logoutText}>Keluar dari Akun</Text>
-        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -246,26 +240,25 @@ export function ProfileScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E7E5DE',
+    borderBottomColor: colors.borderSubtle,
   },
   backBtn: {
     width: 38,
     height: 38,
-    borderRadius: 8,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f5f4',
-    marginRight: 12,
+    marginRight: 10,
   },
   topBarTextWrap: {
     flex: 1,
@@ -277,45 +270,49 @@ const styles = StyleSheet.create({
   },
   topBarSubtitle: {
     fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  userCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E7E5DE',
-    padding: 18,
-    marginBottom: 16,
-  },
-  avatarWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  avatarText: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.textMuted,
   },
   settingsHeaderBtn: {
     width: 38,
     height: 38,
-    borderRadius: 8,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f5f4',
-    marginRight: 60,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  userCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    ...shadows.level1,
+  },
+  avatarWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: colors.mintSoft,
+    borderWidth: 2,
+    borderColor: colors.lightMint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  avatarText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.primary,
   },
   userInfoWrap: {
     flex: 1,
@@ -324,134 +321,114 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: colors.textPrimary,
+    marginBottom: 2,
   },
   userEmail: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 2,
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: 8,
   },
   editProfileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: '#EFF3EF',
+    backgroundColor: colors.mintSoft,
+    paddingVertical: 4,
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    marginTop: 8,
+    borderRadius: radius.full,
   },
   editProfileBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: colors.primary,
   },
   impactCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
-    padding: 18,
+    borderColor: colors.borderSubtle,
     marginBottom: 20,
+    ...shadows.level1,
+  },
+  impactHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   impactTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.primaryDark,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  impactDesc: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-    marginBottom: 16,
+    color: colors.primary,
   },
   impactRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: '#FAF8F3',
-    borderRadius: 12,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: '#E7E5DE',
   },
   impactCol: {
     alignItems: 'center',
-    flex: 1,
   },
   impactNum: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     color: colors.textPrimary,
   },
   impactLbl: {
-    fontSize: 10,
+    fontSize: 11,
     color: colors.textSecondary,
     marginTop: 2,
-    textAlign: 'center',
+    fontWeight: '500',
   },
   divider: {
     width: 1,
-    height: 30,
-    backgroundColor: '#E7E5DE',
+    height: 32,
+    backgroundColor: colors.borderSubtle,
   },
   menuHeading: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 10,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    marginLeft: 4,
   },
   menuWrap: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
+    borderColor: colors.borderSubtle,
+    marginBottom: 20,
     overflow: 'hidden',
-    marginBottom: 24,
+    ...shadows.level1,
   },
-  menuItem: {
+  menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#FAF8F3',
+    borderBottomColor: colors.borderSubtle,
   },
-  menuIcon: {
+  menuIconBox: {
     width: 38,
     height: 38,
-    borderRadius: 10,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
-  menuTextWrap: {
+  menuTextBox: {
     flex: 1,
+    marginRight: 8,
   },
   menuTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textPrimary,
   },
   menuSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    fontSize: 11,
+    color: colors.textMuted,
     marginTop: 2,
-  },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#fee2e2',
-    paddingVertical: 14,
-  },
-  logoutText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ef4444',
   },
 });

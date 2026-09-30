@@ -1,5 +1,17 @@
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { GOOGLE_WEB_CLIENT_ID } from '../config';
+
+let GoogleSignin: any = null;
+let statusCodes: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const gAuth = require('@react-native-google-signin/google-signin');
+  GoogleSignin = gAuth?.GoogleSignin;
+  statusCodes = gAuth?.statusCodes;
+} catch {
+  // TurboModuleRegistry throws Invariant Violation if not in custom dev client/APK
+  GoogleSignin = null;
+  statusCodes = null;
+}
 
 let isConfigured = false;
 
@@ -9,7 +21,7 @@ let isConfigured = false;
  * yang dapat diverifikasi oleh backend FastAPI server-side.
  */
 export function initializeGoogleAuth(): void {
-  if (isConfigured) return;
+  if (isConfigured || !GoogleSignin) return;
 
   if (GOOGLE_WEB_CLIENT_ID) {
     try {
@@ -31,6 +43,11 @@ export function initializeGoogleAuth(): void {
  */
 export async function promptGoogleSignIn(): Promise<string | null> {
   try {
+    if (!GoogleSignin) {
+      throw new Error(
+        'Google Sign-In memerlukan build native (APK/Development Client) dan tidak dapat dijalankan di Expo Go standar.'
+      );
+    }
     initializeGoogleAuth();
 
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });

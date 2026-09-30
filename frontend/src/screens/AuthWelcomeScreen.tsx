@@ -4,12 +4,12 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
-import { colors } from '../theme';
+import { NomzLogo } from '../components/NomzLogo';
+import { colors, radius, shadows, spacing } from '../theme';
 
 interface AuthWelcomeScreenProps {
   onNavigateToLogin: () => void;
@@ -35,12 +35,10 @@ export function AuthWelcomeScreen({
       ]}
     >
       <View style={styles.container}>
-        {/* Brand & Hero Section */}
+        {/* Brand & Hero Section with Official Nomz Logo */}
         <View style={styles.heroSection}>
-          <View style={styles.logoBadge}>
-            <Feather name="check" size={28} color={colors.primary} />
-          </View>
-          <Text style={styles.brandTitle}>Nomz</Text>
+          <NomzLogo size="lg" variant="full" showSubtitle={true} style={styles.logoStyle} />
+
           <Text style={styles.valuePropTitle}>
             Masak lezat dari bahan yang kamu miliki
           </Text>
@@ -104,30 +102,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
   },
-  logoBadge: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#EFF3EF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  brandTitle: {
-    fontSize: 34,
-    fontWeight: '700',
-    color: colors.primaryDark,
-    letterSpacing: -0.5,
+  logoStyle: {
+    marginBottom: 24,
   },
   valuePropTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: colors.textPrimary,
     textAlign: 'center',
-    marginTop: 14,
-    lineHeight: 25,
+    marginTop: 10,
+    lineHeight: 28,
   },
   valuePropDesc: {
     fontSize: 14,
@@ -138,79 +122,51 @@ const styles = StyleSheet.create({
     maxWidth: 320,
   },
   actionSection: {
-    paddingBottom: 4,
+    gap: 12,
+    paddingBottom: 8,
   },
   primaryBtn: {
     backgroundColor: colors.primary,
-    borderRadius: 14,
+    borderRadius: radius.full,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    minHeight: 48,
+    ...shadows.level1,
   },
   primaryBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   secondaryBtn: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: 14,
-    paddingVertical: 14,
+    borderRadius: radius.full,
+    paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    minHeight: 48,
   },
   secondaryBtnText: {
-    color: colors.primaryDark,
-    fontSize: 15,
-    fontWeight: '600',
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 12,
+    marginVertical: 4,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderSubtle,
   },
   dividerText: {
-    paddingHorizontal: 12,
+    marginHorizontal: 12,
     fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  googleBtn: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    paddingVertical: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleIconPlaceholder: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#EFF3EF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  googleGLetter: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primaryDark,
-  },
-  googleBtnText: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.textMuted,
   },
 });

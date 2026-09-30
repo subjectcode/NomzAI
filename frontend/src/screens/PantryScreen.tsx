@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors } from '../theme';
+import { colors, radius, shadows, spacing } from '../theme';
 import {
   PantryItem,
   getPantryItems,
@@ -76,50 +76,54 @@ export function PantryScreen({ onBack, onRescueFromPantry }: PantryScreenProps) 
 
   return (
     <View style={styles.container}>
-      {/* Top Bar */}
+      {/* 1. TOP BAR */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <Feather name="arrow-left" size={22} color={colors.textPrimary} />
+          <Feather name="arrow-left" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.topBarTextWrap}>
           <Text style={styles.topBarTitle}>Dapur Saya (Pantry)</Text>
-          <Text style={styles.topBarSubtitle}>Inventaris bahan & prioritasi tanggal kadaluarsa</Text>
+          <Text style={styles.topBarSubtitle}>Kelola stok & prioritas bahan kulkas</Text>
         </View>
         <TouchableOpacity
           style={styles.addBtn}
           onPress={() => setShowAddForm((p) => !p)}
           activeOpacity={0.8}
+          accessibilityLabel={showAddForm ? 'Tutup Form' : 'Tambah Bahan'}
         >
-          <Feather name={showAddForm ? "x" : "plus"} size={18} color="#FFFFFF" />
+          <Feather name={showAddForm ? 'x' : 'plus'} size={18} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Info Banner */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 2. URGENCY AWARENESS BANNER (DESIGN.md Section 32) */}
         <View style={styles.infoBanner}>
-          <Feather name="shield" size={16} color={colors.primary} style={{ marginRight: 8 }} />
+          <Feather name="clock" size={16} color={colors.orangeDark} style={{ marginRight: 8 }} />
           <Text style={styles.infoBannerText}>
             {useFirstCount > 0
-              ? `${useFirstCount} bahan ditandai "Gunakan Dulu" untuk diprioritaskan saat Food Rescue.`
-              : 'Tandai bahan yang hampir kadaluarsa dengan "Gunakan Dulu" agar segera dimasak.'}
+              ? `${useFirstCount} bahan ditandai "Gunakan Dulu" agar segera dimasak sebelum terbuang.`
+              : 'Tandai bahan yang mendekati kadaluarsa agar otomatis diprioritaskan oleh Nomz.'}
           </Text>
         </View>
 
-        {/* Add Form */}
+        {/* 3. ADD FORM */}
         {showAddForm && (
           <View style={styles.addCard}>
             <Text style={styles.addCardTitle}>Tambah Bahan ke Dapur</Text>
             <TextInput
               style={styles.input}
               placeholder="Nama bahan (contoh: Telur, Tahu, Tomat)..."
-              placeholderTextColor="#a8a29e"
+              placeholderTextColor={colors.textMuted}
               value={nameInput}
               onChangeText={setNameInput}
             />
             <TextInput
               style={styles.input}
               placeholder="Jumlah (opsional, contoh: 3 butir, 1 ikat)..."
-              placeholderTextColor="#a8a29e"
+              placeholderTextColor={colors.textMuted}
               value={qtyInput}
               onChangeText={setQtyInput}
             />
@@ -131,7 +135,7 @@ export function PantryScreen({ onBack, onRescueFromPantry }: PantryScreenProps) 
               <View style={[styles.checkbox, useFirstInput && styles.checkboxActive]}>
                 {useFirstInput && <Feather name="check" size={12} color="#FFFFFF" />}
               </View>
-              <Text style={styles.toggleText}>Prioritaskan "Gunakan Dulu" (Cepat busuk/kadaluarsa)</Text>
+              <Text style={styles.toggleText}>Tandai "Gunakan Dulu" (Cepat busuk)</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.submitBtn} onPress={handleAdd} activeOpacity={0.85}>
@@ -140,50 +144,70 @@ export function PantryScreen({ onBack, onRescueFromPantry }: PantryScreenProps) 
           </View>
         )}
 
-        {/* Items List */}
-        <View style={styles.itemsWrap}>
-          {items.map((item) => (
-            <View key={item.id} style={styles.itemRow}>
-              <TouchableOpacity
-                style={styles.itemMain}
-                onPress={() => handleToggle(item.id)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.useFirstDot, item.useFirst && styles.useFirstDotActive]} />
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    {item.useFirst && (
-                      <View style={styles.useFirstBadge}>
-                        <Text style={styles.useFirstBadgeText}>Gunakan Dulu</Text>
-                      </View>
-                    )}
-                  </View>
-                  {item.quantity && <Text style={styles.itemQty}>{item.quantity}</Text>}
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.deleteBtn}
-                onPress={() => handleRemove(item.id)}
-                activeOpacity={0.7}
-              >
-                <Feather name="trash-2" size={15} color="#ef4444" />
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-
-      {/* Footer Action */}
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.rescueBtn} onPress={handleRescue} activeOpacity={0.85}>
-          <Feather name="shield" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.rescueBtnText}>
-            Rescue Bahan Dapur ({items.length} Bahan)
-          </Text>
+        {/* 4. PRIMARY RESCUE CTA BUTTON */}
+        <TouchableOpacity style={styles.rescueCtaBtn} onPress={handleRescue} activeOpacity={0.88}>
+          <Feather name="play" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Text style={styles.rescueCtaText}>Masak dari Bahan Dapur ({items.length})</Text>
         </TouchableOpacity>
-      </View>
+
+        {/* 5. DAFTAR BAHAN DAPUR */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionHeading}>Stok Bahan Tersedia ({items.length})</Text>
+        </View>
+
+        {items.length === 0 ? (
+          <View style={styles.emptyPantryBox}>
+            <Feather name="inbox" size={32} color={colors.textMuted} style={{ marginBottom: 10 }} />
+            <Text style={styles.emptyPantryTitle}>Dapur Masih Kosong</Text>
+            <Text style={styles.emptyPantrySubtitle}>
+              Mulai tambahkan bahan yang ada di kulkas atau meja dapurmu.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.itemsList}>
+            {items.map((item) => (
+              <View key={item.id} style={styles.itemRowCard}>
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemName}>{item.name}</Text>
+                  {item.quantity ? <Text style={styles.itemQty}>{item.quantity}</Text> : null}
+                </View>
+
+                {/* Use First Toggle Pill */}
+                <TouchableOpacity
+                  style={[styles.useFirstBadge, item.useFirst && styles.useFirstBadgeActive]}
+                  onPress={() => handleToggle(item.id)}
+                  activeOpacity={0.75}
+                >
+                  <Feather
+                    name="clock"
+                    size={11}
+                    color={item.useFirst ? colors.orangeDark : colors.textMuted}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text
+                    style={[
+                      styles.useFirstBadgeText,
+                      item.useFirst && styles.useFirstBadgeTextActive,
+                    ]}
+                  >
+                    {item.useFirst ? 'Gunakan Dulu' : 'Stok Aman'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Delete Button */}
+                <TouchableOpacity
+                  style={styles.deleteItemBtn}
+                  onPress={() => handleRemove(item.id)}
+                  activeOpacity={0.7}
+                  accessibilityLabel={`Hapus ${item.name}`}
+                >
+                  <Feather name="trash-2" size={15} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -191,73 +215,79 @@ export function PantryScreen({ onBack, onRescueFromPantry }: PantryScreenProps) 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E7E5DE',
+    borderBottomColor: colors.borderSubtle,
   },
   backBtn: {
     width: 38,
     height: 38,
-    borderRadius: 8,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f5f4',
-    marginRight: 12,
-  },
-  addBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginRight: 10,
   },
   topBarTextWrap: {
     flex: 1,
   },
   topBarTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   topBarSubtitle: {
     fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 1,
+    color: colors.textMuted,
+  },
+  addBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.level1,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 90,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF3EF',
-    borderRadius: 12,
+    backgroundColor: '#FFFBEB',
+    borderRadius: radius.md,
     padding: 12,
+    borderWidth: 1,
+    borderColor: colors.warmYellow,
     marginBottom: 16,
   },
   infoBannerText: {
     flex: 1,
     fontSize: 12,
-    color: colors.primaryDark,
+    color: colors.textSecondary,
     lineHeight: 17,
   },
   addCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E7E5DE',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     padding: 16,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
     marginBottom: 16,
+    ...shadows.level1,
   },
   addCardTitle: {
     fontSize: 15,
@@ -266,12 +296,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   input: {
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 10,
     fontSize: 13,
     color: colors.textPrimary,
     marginBottom: 10,
@@ -279,115 +309,136 @@ const styles = StyleSheet.create({
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
-    marginTop: 2,
+    marginBottom: 16,
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
+    width: 18,
+    height: 18,
+    borderRadius: 4,
     borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
+    backgroundColor: colors.surface,
   },
   checkboxActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.orangeDark,
+    borderColor: colors.orangeDark,
   },
   toggleText: {
     fontSize: 12,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   submitBtn: {
     backgroundColor: colors.primary,
+    borderRadius: radius.full,
     paddingVertical: 12,
-    borderRadius: 10,
     alignItems: 'center',
   },
   submitBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  itemsWrap: {
-    gap: 10,
-  },
-  itemRow: {
+  rescueCtaBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    justifyContent: 'center',
+    marginBottom: 20,
+    minHeight: 48,
+    ...shadows.level1,
+  },
+  rescueCtaText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  sectionHeaderRow: {
+    marginBottom: 10,
+  },
+  sectionHeading: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  emptyPantryBox: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 32,
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E7E5DE',
+    borderColor: colors.borderSubtle,
+    ...shadows.level1,
+  },
+  emptyPantryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  emptyPantrySubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  itemsList: {
+    gap: 8,
+  },
+  itemRowCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     paddingVertical: 12,
     paddingHorizontal: 14,
-  },
-  itemMain: {
-    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
     flexDirection: 'row',
     alignItems: 'center',
+    ...shadows.level1,
   },
-  useFirstDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#d6d3d1',
-    marginRight: 10,
-  },
-  useFirstDotActive: {
-    backgroundColor: '#ea580c',
+  itemInfo: {
+    flex: 1,
   },
   itemName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textPrimary,
     textTransform: 'capitalize',
   },
   itemQty: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: colors.textMuted,
     marginTop: 2,
   },
   useFirstBadge: {
-    backgroundColor: '#ffedd5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  useFirstBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#ea580c',
-  },
-  deleteBtn: {
-    padding: 6,
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E7E5DE',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  rescueBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: radius.full,
+    marginRight: 10,
   },
-  rescueBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+  useFirstBadgeActive: {
+    backgroundColor: '#FFF7ED',
+    borderColor: colors.warmYellow,
+  },
+  useFirstBadgeText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '500',
+  },
+  useFirstBadgeTextActive: {
+    color: colors.orangeDark,
     fontWeight: '700',
+  },
+  deleteItemBtn: {
+    padding: 6,
   },
 });

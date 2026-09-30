@@ -7,7 +7,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors } from '../theme';
+import { colors, radius, shadows, spacing } from '../theme';
 import {
   MealPlan,
   DAYS_OF_WEEK,
@@ -49,20 +49,24 @@ export function PlannerScreen({
 
   return (
     <View style={styles.container}>
-      {/* Top Bar */}
+      {/* 1. TOP BAR */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <Feather name="arrow-left" size={22} color={colors.textPrimary} />
+          <Feather name="arrow-left" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.topBarTextWrap}>
           <Text style={styles.topBarTitle}>Rencana Menu Masak</Text>
-          <Text style={styles.topBarSubtitle}>Atur menu harian dari bahan yang dimiliki</Text>
+          <Text style={styles.topBarSubtitle}>Atur jadwal santapan dari bahan kulkas</Text>
         </View>
       </View>
 
-      {/* Days Horizontal Tab */}
+      {/* 2. DAYS HORIZONTAL BAR */}
       <View style={styles.daysScrollWrap}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.daysContainer}
+        >
           {DAYS_OF_WEEK.map((d) => {
             const isActive = activeDay === d.key;
             const hasPlan = plans.some((p) => p.dayKey === d.key);
@@ -81,7 +85,10 @@ export function PlannerScreen({
         </ScrollView>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeader}>Menu Hari {currentDayLabel}</Text>
           <TouchableOpacity style={styles.addPlanBtn} onPress={onExploreRecipes} activeOpacity={0.75}>
@@ -91,13 +98,14 @@ export function PlannerScreen({
         </View>
 
         {dayPlans.length === 0 ? (
+          /* Empty Day State */
           <View style={styles.emptyDayBox}>
             <View style={styles.emptyIconBox}>
-              <Feather name="calendar" size={28} color={colors.textSecondary} />
+              <Feather name="calendar" size={28} color={colors.textMuted} />
             </View>
             <Text style={styles.emptyTitle}>Belum Ada Menu untuk {currentDayLabel}</Text>
             <Text style={styles.emptySubtitle}>
-              Pilih hidangan dari hasil rekomendasi atau jelajahi inspirasi resep untuk hari ini.
+              Pilih hidangan dari hasil rekomendasi bahan dapurmu atau jelajahi inspirasi resep.
             </Text>
             <TouchableOpacity style={styles.findRecipeBtn} onPress={onExploreRecipes} activeOpacity={0.85}>
               <Feather name="compass" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
@@ -121,30 +129,26 @@ export function PlannerScreen({
                     style={styles.deleteBtn}
                     onPress={() => handleRemove(plan.id)}
                     activeOpacity={0.7}
+                    accessibilityLabel={`Hapus rencana ${plan.recipe.nama}`}
                   >
-                    <Feather name="trash-2" size={15} color="#ef4444" />
+                    <Feather name="trash-2" size={15} color={colors.error} />
                   </TouchableOpacity>
                 </View>
 
                 <Text style={styles.recipeTitle}>{plan.recipe.nama}</Text>
                 <Text style={styles.recipeDesc} numberOfLines={2}>
-                  {plan.recipe.deskripsi}
+                  {plan.recipe.alasan_rekomendasi || plan.recipe.deskripsi}
                 </Text>
 
                 <View style={styles.metaRow}>
                   <View style={styles.metaPill}>
-                    <Feather name="clock" size={11} color="#57534e" style={{ marginRight: 4 }} />
+                    <Feather name="clock" size={11} color={colors.textMuted} style={{ marginRight: 4 }} />
                     <Text style={styles.metaPillText}>{plan.recipe.estimasi_waktu}</Text>
                   </View>
                   <View style={styles.metaPill}>
-                    <Feather name="bar-chart-2" size={11} color="#16a34a" style={{ marginRight: 4 }} />
+                    <Feather name="bar-chart-2" size={11} color={colors.success} style={{ marginRight: 4 }} />
                     <Text style={styles.metaPillText}>{plan.recipe.tingkat_kesulitan}</Text>
                   </View>
-                </View>
-
-                <View style={styles.cardFooter}>
-                  <Text style={styles.cardFooterText}>Buka Resep & Langkah</Text>
-                  <Feather name="chevron-right" size={14} color={colors.primary} />
                 </View>
               </TouchableOpacity>
             ))}
@@ -158,26 +162,25 @@ export function PlannerScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E7E5DE',
+    borderBottomColor: colors.borderSubtle,
   },
   backBtn: {
     width: 38,
     height: 38,
-    borderRadius: 8,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f5f4',
-    marginRight: 12,
+    marginRight: 10,
   },
   topBarTextWrap: {
     flex: 1,
@@ -189,13 +192,12 @@ const styles = StyleSheet.create({
   },
   topBarSubtitle: {
     fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 1,
+    color: colors.textMuted,
   },
   daysScrollWrap: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E7E5DE',
+    borderBottomColor: colors.borderSubtle,
     paddingVertical: 10,
   },
   daysContainer: {
@@ -203,12 +205,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dayTab: {
+    paddingVertical: 7,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: '#FAF8F3',
+    borderRadius: radius.full,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
+    borderColor: colors.borderSubtle,
+    flexDirection: 'row',
     alignItems: 'center',
   },
   dayTabActive: {
@@ -216,121 +219,132 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   dayText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.textSecondary,
   },
   dayTextActive: {
     color: '#FFFFFF',
+    fontWeight: '700',
   },
   planDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: colors.primary,
-    marginTop: 3,
+    marginLeft: 6,
   },
   planDotActive: {
     backgroundColor: '#FFFFFF',
   },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 40,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    alignItems: 'center',
+    marginBottom: 12,
   },
   sectionHeader: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   addPlanBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF3EF',
+    backgroundColor: colors.mintSoft,
+    paddingVertical: 4,
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.lightMint,
   },
   addPlanBtnText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.primary,
   },
   emptyDayBox: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 32,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    marginTop: 16,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
-    padding: 30,
-    marginTop: 8,
+    borderColor: colors.borderSubtle,
+    ...shadows.level1,
   },
   emptyIconBox: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#EFF3EF',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 6,
+    textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 13,
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   findRecipeBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingVertical: 11,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
+    ...shadows.level1,
   },
   findRecipeBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   planList: {
     gap: 12,
   },
   planCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
+    borderColor: colors.borderSubtle,
+    ...shadows.level1,
   },
   planCardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
   mealTypeBadge: {
-    backgroundColor: '#EFF3EF',
-    paddingHorizontal: 8,
+    backgroundColor: colors.mintSoft,
     paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 8,
+    borderRadius: radius.xs,
   },
   mealTypeBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.primaryDark,
+    color: colors.primary,
   },
   deleteBtn: {
     padding: 4,
@@ -342,43 +356,28 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   recipeDesc: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
-    lineHeight: 18,
+    lineHeight: 16,
     marginBottom: 10,
   },
   metaRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 10,
   },
   metaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAF8F3',
-    paddingHorizontal: 8,
+    backgroundColor: colors.background,
     paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 8,
+    borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
+    borderColor: colors.borderSubtle,
   },
   metaPillText: {
     fontSize: 11,
     color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    borderTopWidth: 1,
-    borderTopColor: '#f5f5f4',
-    paddingTop: 8,
-  },
-  cardFooterText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-    marginRight: 4,
+    fontWeight: '500',
   },
 });

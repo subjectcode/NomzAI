@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { RecipeRecommendation } from '../types';
-import { colors } from '../theme';
+import { colors, radius, shadows, spacing } from '../theme';
 import { getSavedRecipes, removeSavedRecipe } from '../services/savedStorage';
 
 interface TersimpanScreenProps {
@@ -40,7 +40,7 @@ export function TersimpanScreen({ isActive, onSelectRecipe, onExplore }: Tersimp
 
   return (
     <View style={styles.container}>
-      {/* Top Bar */}
+      {/* 1. TOP BAR */}
       <View style={styles.topBar}>
         <View style={styles.brandWrap}>
           <Text style={styles.topBarTitle}>Resep Tersimpan</Text>
@@ -51,23 +51,27 @@ export function TersimpanScreen({ isActive, onSelectRecipe, onExplore }: Tersimp
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {loading ? (
           <View style={styles.centerBox}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>Memuat resep tersimpan...</Text>
           </View>
         ) : recipes.length === 0 ? (
+          /* Empty State per DESIGN.md Section 36 */
           <View style={styles.emptyBox}>
             <View style={styles.emptyIconBox}>
-              <Feather name="bookmark" size={32} color={colors.textSecondary} />
+              <Feather name="bookmark" size={32} color={colors.textMuted} />
             </View>
             <Text style={styles.emptyTitle}>Belum Ada Resep Tersimpan</Text>
             <Text style={styles.emptySubtitle}>
-              Simpan resep inspiratif yang kamu temukan dari hasil pemindaian atau jelajahi dapur.
+              Simpan resep inspiratif yang kamu sukai agar mudah dimasak kembali kapan saja.
             </Text>
             <TouchableOpacity style={styles.emptyActionBtn} onPress={onExplore} activeOpacity={0.85}>
-              <Feather name="compass" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Feather name="compass" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
               <Text style={styles.emptyActionBtnText}>Jelajahi Ide Masakan</Text>
             </TouchableOpacity>
           </View>
@@ -87,33 +91,34 @@ export function TersimpanScreen({ isActive, onSelectRecipe, onExplore }: Tersimp
                     style={styles.trashBtn}
                     onPress={() => handleRemove(recipe.id)}
                     activeOpacity={0.7}
+                    accessibilityLabel={`Hapus simpanan ${recipe.nama}`}
                   >
-                    <Feather name="trash-2" size={16} color="#ef4444" />
+                    <Feather name="trash-2" size={15} color={colors.error} />
                   </TouchableOpacity>
                 </View>
 
                 <Text style={styles.recipeDesc} numberOfLines={2}>
-                  {recipe.deskripsi}
+                  {recipe.alasan_rekomendasi || recipe.deskripsi}
                 </Text>
 
                 <View style={styles.metaRow}>
                   <View style={styles.metaPill}>
-                    <Feather name="clock" size={12} color="#57534e" style={{ marginRight: 4 }} />
+                    <Feather name="clock" size={11} color={colors.textMuted} style={{ marginRight: 4 }} />
                     <Text style={styles.metaPillText}>{recipe.estimasi_waktu}</Text>
                   </View>
                   <View style={styles.metaPill}>
-                    <Feather name="bar-chart-2" size={12} color="#16a34a" style={{ marginRight: 4 }} />
+                    <Feather name="bar-chart-2" size={11} color={colors.success} style={{ marginRight: 4 }} />
                     <Text style={styles.metaPillText}>{recipe.tingkat_kesulitan}</Text>
                   </View>
                   <View style={styles.metaPill}>
-                    <Feather name="check" size={12} color="#2563eb" style={{ marginRight: 4 }} />
-                    <Text style={styles.metaPillText}>{recipe.bahan_tersedia.length} Bahan</Text>
+                    <Feather name="check" size={11} color={colors.primary} style={{ marginRight: 4 }} />
+                    <Text style={styles.metaPillText}>{recipe.bahan_tersedia.length} Bahan Ada</Text>
                   </View>
                 </View>
 
                 <View style={styles.cardFooter}>
-                  <Text style={styles.cardFooterText}>Buka Detail Masakan</Text>
-                  <Feather name="chevron-right" size={14} color={colors.primary} />
+                  <Text style={styles.cardFooterText}>Buka Detail Resep</Text>
+                  <Feather name="chevron-right" size={15} color={colors.primary} />
                 </View>
               </TouchableOpacity>
             ))}
@@ -127,72 +132,81 @@ export function TersimpanScreen({ isActive, onSelectRecipe, onExplore }: Tersimp
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E7E5DE',
+    borderBottomColor: colors.borderSubtle,
   },
   brandWrap: {
     flex: 1,
   },
   topBarTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: colors.primaryDark,
+    color: colors.textPrimary,
   },
   topBarSubtitle: {
     fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
+    color: colors.textMuted,
+    marginTop: 1,
   },
   refreshBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#EFF3EF',
+    width: 38,
+    height: 38,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 40,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
   centerBox: {
-    alignItems: 'center',
     paddingVertical: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loadingText: {
-    marginTop: 12,
     fontSize: 13,
     color: colors.textSecondary,
+    marginTop: 12,
   },
   emptyBox: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: 32,
     alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 30,
+    marginTop: 30,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    ...shadows.level1,
   },
   emptyIconBox: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#EFF3EF',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 6,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 13,
@@ -202,54 +216,56 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   emptyActionBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 12,
+    ...shadows.level1,
   },
   emptyActionBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   listWrap: {
     gap: 12,
   },
   countText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   recipeCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
+    borderColor: colors.borderSubtle,
+    ...shadows.level1,
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 6,
   },
   recipeTitle: {
+    flex: 1,
     fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
-    flex: 1,
-    marginRight: 8,
+    marginRight: 10,
   },
   trashBtn: {
     padding: 4,
   },
   recipeDesc: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
-    lineHeight: 18,
+    lineHeight: 16,
     marginBottom: 12,
   },
   metaRow: {
@@ -260,30 +276,29 @@ const styles = StyleSheet.create({
   metaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.background,
+    paddingVertical: 3,
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
+    borderColor: colors.borderSubtle,
   },
   metaPillText: {
     fontSize: 11,
     color: colors.textSecondary,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#f5f5f4',
-    paddingTop: 8,
+    borderTopColor: colors.borderSubtle,
   },
   cardFooterText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.primary,
-    marginRight: 4,
   },
 });

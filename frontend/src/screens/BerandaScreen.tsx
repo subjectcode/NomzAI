@@ -5,11 +5,14 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors } from '../theme';
+import { colors, radius, shadows, spacing } from '../theme';
+import { NomzLogo } from '../components/NomzLogo';
 import { RecipeRecommendation } from '../types';
 import { getCookingHistory, HistoryItem, getImpactStats, ImpactStats } from '../services/historyStorage';
+import { getPantryItems, PantryItem } from '../services/pantryStorage';
 
 interface BerandaScreenProps {
   onStartScan: () => void;
@@ -19,6 +22,65 @@ interface BerandaScreenProps {
   onSelectRecipe?: (recipe: RecipeRecommendation) => void;
 }
 
+// Resep Populer Ramah Kulkas (Default Curated Recipes)
+const POPULAR_RESCUE_RECIPES: RecipeRecommendation[] = [
+  {
+    id: 'pop-1',
+    nama: 'Nasi Goreng Sayur Rumahan',
+    deskripsi: 'Memanfaatkan sisa nasi kemarin dan sayuran kulkas sebelum layu.',
+    alasan: 'Memanfaatkan sisa nasi kemarin dan sayuran kulkas sebelum layu.',
+    estimasi_waktu: '15 menit',
+    tingkat_kesulitan: 'Mudah',
+    porsi: '2 porsi',
+    alasan_rekomendasi: 'Memanfaatkan sisa nasi kemarin dan sayuran kulkas sebelum layu.',
+    bahan_tersedia: ['Nasi putih', 'Bawang putih', 'Telur', 'Bayam'],
+    bahan_tambahan: ['Kecap manis', 'Minyak goreng', 'Garam', 'Merica'],
+    langkah: [
+      'Panaskan 1 sendok makan minyak goreng di wajan.',
+      'Tumis irisan bawang putih hingga harum dan keemasan.',
+      'Masukkan telur, orak-arik hingga setengah matang.',
+      'Tambahkan sisa nasi putih dan sayur bayam, aduk merata.',
+      'Beri kecap manis, garam, dan lada. Masak 3 menit dan sajikan hangat.',
+    ],
+  },
+  {
+    id: 'pop-2',
+    nama: 'Tumis Tahu Brokoli Bawang',
+    deskripsi: 'Kombinasi kaya protein nabati dan serat, sangat cepat dimasak.',
+    alasan: 'Kombinasi kaya protein nabati dan serat, sangat cepat dimasak.',
+    estimasi_waktu: '20 menit',
+    tingkat_kesulitan: 'Mudah',
+    porsi: '2 porsi',
+    alasan_rekomendasi: 'Kombinasi kaya protein nabati dan serat, sangat cepat dimasak.',
+    bahan_tersedia: ['Tahu putih', 'Bawang putih', 'Tomat'],
+    bahan_tambahan: ['Saus tiram', 'Minyak wijen', 'Garam'],
+    langkah: [
+      'Potong tahu dadu kecil, goreng sebentar hingga berkulit.',
+      'Tumis bawang putih cincang hingga harum.',
+      'Masukkan tahu dan potongan tomat.',
+      'Beri saus tiram dan sedikit air, masak hingga bumbu meresap 5 menit.',
+    ],
+  },
+  {
+    id: 'pop-3',
+    nama: 'Omelet Tomat Bayam Segar',
+    deskripsi: 'Sarapan praktis yang menyelamatkan telur dan tomat sebelum lunak.',
+    alasan: 'Sarapan praktis yang menyelamatkan telur dan tomat sebelum lunak.',
+    estimasi_waktu: '10 menit',
+    tingkat_kesulitan: 'Mudah',
+    porsi: '1-2 porsi',
+    alasan_rekomendasi: 'Sarapan praktis yang menyelamatkan telur dan tomat sebelum lunak.',
+    bahan_tersedia: ['Telur', 'Tomat', 'Bayam'],
+    bahan_tambahan: ['Mentega atau minyak', 'Garam', 'Lada bubuk'],
+    langkah: [
+      'Kocok lepas telur bersama garam dan lada.',
+      'Cincang kasar bayam dan potong dadu tomat.',
+      'Panaskan mentega di teflon, tuang telur dan taburkan bayam serta tomat.',
+      'Lipat menjadi dua saat bagian bawah mulai kecokelatan. Angkat dan sajikan.',
+    ],
+  },
+];
+
 export function BerandaScreen({
   onStartScan,
   onOpenProfile,
@@ -27,6 +89,7 @@ export function BerandaScreen({
   onSelectRecipe,
 }: BerandaScreenProps) {
   const [recentHistory, setRecentHistory] = useState<HistoryItem[]>([]);
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [impact, setImpact] = useState<ImpactStats>({
     ingredientsRescued: 0,
     recipesCooked: 0,
@@ -36,7 +99,11 @@ export function BerandaScreen({
   useEffect(() => {
     getCookingHistory().then((list) => setRecentHistory(list.slice(0, 3)));
     getImpactStats().then(setImpact);
+    getPantryItems().then(setPantryItems);
   }, []);
+
+  // Filter bahan dapur yang ditandai "Gunakan Dulu"
+  const urgentIngredients = pantryItems.filter((i) => i.useFirst);
 
   return (
     <ScrollView
@@ -44,38 +111,168 @@ export function BerandaScreen({
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      {/* Top Header: Brand di kiri, Avatar/Profile Affordance di kanan */}
+      {/* 1. TOP HEADER: Nomz Brand & User Actions */}
       <View style={styles.topHeader}>
-        <View style={styles.brandWrap}>
-          <Text style={styles.brandTitle}>Nomz</Text>
-          <Text style={styles.brandSubtitle}>AI Food Rescue Assistant</Text>
+        <NomzLogo size="sm" variant="compact" />
+
+        <View style={styles.headerRightActions}>
+          <TouchableOpacity
+            style={styles.iconCircleButton}
+            onPress={onOpenPantry}
+            activeOpacity={0.7}
+            accessibilityLabel="Notifikasi & Dapur"
+          >
+            <Feather name="bell" size={19} color={colors.textSecondary} />
+            {urgentIngredients.length > 0 && <View style={styles.bellBadge} />}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.profileAvatar}
+            onPress={onOpenProfile}
+            activeOpacity={0.7}
+            accessibilityLabel="Profil Pengguna"
+          >
+            <Feather name="user" size={18} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* 2. NATURAL HEADLINE (DESIGN.md Section 1 & Reference UI) */}
+      <View style={styles.headlineSection}>
+        <Text style={styles.mainHeadline}>Masak Enak dari yang Ada Saja.</Text>
+      </View>
+
+      {/* 3. SOFT CAPSULE SEARCH (DESIGN.md Section 20 & Reference UI) */}
+      <TouchableOpacity
+        style={styles.searchCapsule}
+        onPress={onStartScan}
+        activeOpacity={0.8}
+        accessibilityRole="search"
+      >
+        <Feather name="camera" size={18} color={colors.primary} style={{ marginRight: 10 }} />
+        <Text style={styles.searchPlaceholder}>Pindai bahan atau cari resep...</Text>
+        <View style={styles.searchArrow}>
+          <Feather name="arrow-right" size={16} color={colors.primary} />
+        </View>
+      </TouchableOpacity>
+
+      {/* 4. SECTION: MULAI DARI SINI (Reference UI Screen 1) */}
+      <View style={styles.sectionWrap}>
+        <Text style={styles.sectionTitle}>Mulai dari sini</Text>
+        <View style={styles.actionGridRow}>
+          {/* Card 1: Scan Bahan (Primary) */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={onStartScan}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.actionIconBox, { backgroundColor: colors.mintSoft }]}>
+              <Feather name="camera" size={22} color={colors.primary} />
+            </View>
+            <Text style={styles.actionCardTitle}>Scan Bahan</Text>
+            <Text style={styles.actionCardDesc}>Deteksi otomatis dari foto dapur</Text>
+          </TouchableOpacity>
+
+          {/* Card 2: Resep dari Sisa (Pantry / Leftover Rescue) */}
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={onOpenPantry}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.actionIconBox, { backgroundColor: '#FFF7ED' }]}>
+              <Feather name="refresh-cw" size={20} color={colors.orangeDark} />
+            </View>
+            <Text style={styles.actionCardTitle}>Resep dari Sisa</Text>
+            <Text style={styles.actionCardDesc}>Gunakan bahan yang ada di kulkas</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* 5. URGENT PANTRY INGREDIENTS BANNER (DESIGN.md Section 32) */}
+      {urgentIngredients.length > 0 && (
+        <View style={styles.urgentBanner}>
+          <View style={styles.urgentHeader}>
+            <View style={styles.urgentTag}>
+              <Feather name="clock" size={12} color={colors.orangeDark} style={{ marginRight: 4 }} />
+              <Text style={styles.urgentTagText}>Gunakan Dulu</Text>
+            </View>
+            <Text style={styles.urgentNoticeTitle}>
+              {urgentIngredients.length} bahan perlu dimasak segera:
+            </Text>
+          </View>
+          <View style={styles.urgentChipRow}>
+            {urgentIngredients.slice(0, 4).map((item) => (
+              <View key={item.id} style={styles.urgentIngredientChip}>
+                <Text style={styles.urgentChipText}>{item.name}</Text>
+                {item.quantity ? <Text style={styles.urgentChipQty}>({item.quantity})</Text> : null}
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity
+            style={styles.urgentCta}
+            onPress={onOpenPantry}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.urgentCtaText}>Buka Dapur Saya</Text>
+            <Feather name="chevron-right" size={14} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* 6. SECTION: RESEP POPULER (Reference UI Screen 1) */}
+      <View style={styles.sectionWrap}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Resep Rekomendasi</Text>
+          <TouchableOpacity onPress={onOpenExplore} activeOpacity={0.7}>
+            <Text style={styles.seeAllText}>Lihat semua</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Profile Affordance */}
-        <TouchableOpacity
-          style={styles.profileAvatar}
-          onPress={onOpenProfile}
-          activeOpacity={0.7}
-          accessibilityLabel="Profil Pengguna"
-        >
-          <Feather name="user" size={18} color={colors.primary} />
-        </TouchableOpacity>
+        <View style={styles.popularList}>
+          {POPULAR_RESCUE_RECIPES.map((recipe) => (
+            <TouchableOpacity
+              key={recipe.id}
+              style={styles.recipeCard}
+              onPress={() => onSelectRecipe?.(recipe)}
+              activeOpacity={0.85}
+            >
+              {/* Recipe Illustration / Thumbnail Placeholder with soft kitchen tone */}
+              <View style={styles.recipeThumbBox}>
+                <Feather name="book-open" size={24} color={colors.primary} />
+                <View style={styles.recipeBadgePill}>
+                  <Text style={styles.recipeBadgeText}>{recipe.estimasi_waktu}</Text>
+                </View>
+              </View>
+
+              {/* Recipe Content */}
+              <View style={styles.recipeInfoBox}>
+                <Text style={styles.recipeTitle} numberOfLines={1}>
+                  {recipe.nama}
+                </Text>
+                <Text style={styles.recipeDesc} numberOfLines={2}>
+                  {recipe.alasan_rekomendasi}
+                </Text>
+                <View style={styles.recipeMetaRow}>
+                  <View style={styles.metaPill}>
+                    <Feather name="check" size={11} color={colors.success} style={{ marginRight: 3 }} />
+                    <Text style={styles.metaPillText}>
+                      {recipe.bahan_tersedia.length} bahan ada
+                    </Text>
+                  </View>
+                  <Text style={styles.metaDot}>•</Text>
+                  <Text style={styles.metaDifficulty}>{recipe.tingkat_kesulitan}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
-      {/* Hero Greeting */}
-      <View style={styles.heroSection}>
-        <Text style={styles.heroGreeting}>Mau masak apa hari ini?</Text>
-        <Text style={styles.heroSubtext}>
-          Selamatkan bahan makanan yang ada di dapurmu. Olah apa yang ada menjadi
-          hidangan lezat dan praktis tanpa ada bahan yang terbuang.
-        </Text>
-      </View>
-
-      {/* Real Impact Summary Card */}
+      {/* 7. REAL FOOD RESCUE IMPACT (DESIGN.md Section 35 — Honest Data) */}
       {impact.recipesCooked > 0 && (
         <View style={styles.impactCard}>
           <View style={styles.impactCardHeader}>
-            <Feather name="shield" size={14} color="#15803d" style={{ marginRight: 6 }} />
+            <Feather name="award" size={16} color={colors.primary} style={{ marginRight: 6 }} />
             <Text style={styles.impactCardTitle}>Dampak Penyelamatan Pangan Kamu</Text>
           </View>
           <View style={styles.impactRow}>
@@ -97,86 +294,27 @@ export function BerandaScreen({
         </View>
       )}
 
-      {/* Primary Action Card: Pindai Bahan */}
-      <View style={styles.primaryActionCard}>
-        <View style={styles.cardBadge}>
-          <Text style={styles.cardBadgeText}>REKOMENDASI CEPAT</Text>
-        </View>
-
-        <Text style={styles.actionCardTitle}>Pindai Bahan Makanan</Text>
-        <Text style={styles.actionCardDesc}>
-          Ambil foto kulkas atau meja dapurmu. Nomz akan mengenali bahan secara
-          otomatis dan meracik inspirasi resep masakan yang sesuai.
-        </Text>
-
-        <TouchableOpacity
-          style={styles.primaryCtaButton}
-          onPress={onStartScan}
-          activeOpacity={0.85}
-        >
-          <Feather name="camera" size={17} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.primaryCtaText}>Mulai Pindai Sekarang</Text>
-          <Feather name="arrow-right" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Visual Area: Aksi Pintas Masak */}
-      <View style={styles.entrySection}>
-        <Text style={styles.sectionHeading}>Akses Cepat Dapur</Text>
-
-        <TouchableOpacity
-          style={styles.entryCard}
-          onPress={onOpenPantry}
-          activeOpacity={0.8}
-        >
-          <View style={styles.entryIconBox}>
-            <Feather name="archive" size={20} color={colors.primary} />
-          </View>
-          <View style={styles.entryTextBox}>
-            <Text style={styles.entryTitle}>Dapur Saya (Pantry)</Text>
-            <Text style={styles.entrySubtitle}>
-              Kelola stok bahan & pantau prioritas "Gunakan Dulu"
-            </Text>
-          </View>
-          <Feather name="chevron-right" size={18} color={colors.textSecondary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.entryCard, { marginTop: 10 }]}
-          onPress={onOpenExplore}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.entryIconBox, { backgroundColor: '#e0f2fe' }]}>
-            <Feather name="compass" size={20} color="#0284c7" />
-          </View>
-          <View style={styles.entryTextBox}>
-            <Text style={styles.entryTitle}>Jelajahi Inspirasi Food Rescue</Text>
-            <Text style={styles.entrySubtitle}>
-              Kategori olahan telur, kilat &lt; 15 menit, dan sisa kulkas
-            </Text>
-          </View>
-          <Feather name="chevron-right" size={18} color={colors.textSecondary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Terakhir Dimasak (Real Cooking History) */}
+      {/* 8. RIWAYAT MEMASAK TERAKHIR */}
       {recentHistory.length > 0 && (
-        <View style={styles.recentSection}>
-          <Text style={styles.sectionHeading}>Terakhir Dimasak</Text>
+        <View style={styles.sectionWrap}>
+          <Text style={styles.sectionTitle}>Terakhir Dimasak</Text>
           {recentHistory.map((item) => (
             <TouchableOpacity
               key={item.id}
-              style={styles.recentCard}
+              style={styles.recentHistoryCard}
               onPress={() => onSelectRecipe?.(item.recipe)}
-              activeOpacity={0.75}
+              activeOpacity={0.8}
             >
-              <View style={styles.recentCardHeader}>
-                <Text style={styles.recentRecipeName}>{item.recipe.nama}</Text>
-                <Text style={styles.recentRecipeDate}>{item.formattedDate}</Text>
+              <View style={styles.recentIconBox}>
+                <Feather name="check-circle" size={18} color={colors.success} />
               </View>
-              <Text style={styles.recentRecipeTime}>
-                {item.recipe.estimasi_waktu} • {item.recipe.tingkat_kesulitan} • {item.ingredientsRescuedCount} bahan diselamatkan
-              </Text>
+              <View style={styles.recentTextBox}>
+                <Text style={styles.recentName}>{item.recipe.nama}</Text>
+                <Text style={styles.recentDate}>
+                  {item.formattedDate} • {item.recipe.estimasi_waktu}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           ))}
         </View>
@@ -193,8 +331,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 28,
-    maxWidth: 520,
+    paddingBottom: 36,
+    maxWidth: 480,
     width: '100%',
     alignSelf: 'center',
   },
@@ -202,69 +340,298 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    paddingVertical: 4,
+    marginBottom: 16,
   },
-  brandWrap: {
-    flex: 1,
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  brandTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.primaryDark,
-    letterSpacing: -0.5,
-  },
-  brandSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  profileAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#EFF3EF',
+  iconCircleButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 60,
+    position: 'relative',
+    ...shadows.level1,
   },
-  heroSection: {
-    marginTop: 18,
-    marginBottom: 10,
+  bellBadge: {
+    position: 'absolute',
+    top: 9,
+    right: 9,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: colors.orangeDark,
   },
-  heroGreeting: {
-    fontSize: 22,
+  profileAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+    backgroundColor: colors.mintSoft,
+    borderWidth: 1.5,
+    borderColor: colors.lightMint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.level1,
+  },
+  headlineSection: {
+    marginBottom: 16,
+  },
+  mainHeadline: {
+    fontSize: 26,
     fontWeight: '700',
     color: colors.textPrimary,
-    lineHeight: 28,
+    lineHeight: 34,
     letterSpacing: -0.3,
   },
-  heroSubtext: {
+  searchCapsule: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.full,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+    ...shadows.level1,
+    minHeight: 48,
+  },
+  searchPlaceholder: {
+    flex: 1,
     fontSize: 14,
+    color: colors.textMuted,
+    fontWeight: '500',
+  },
+  searchArrow: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.full,
+    backgroundColor: colors.mintSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionWrap: {
+    marginBottom: 24,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 12,
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  actionGridRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    ...shadows.level1,
+  },
+  actionIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  actionCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  actionCardDesc: {
+    fontSize: 12,
     color: colors.textSecondary,
-    lineHeight: 21,
-    marginTop: 8,
+    lineHeight: 16,
+  },
+  urgentBanner: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: radius.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.warmYellow,
+    marginBottom: 24,
+    ...shadows.level1,
+  },
+  urgentHeader: {
+    marginBottom: 10,
+  },
+  urgentTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  urgentTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.orangeDark,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  urgentNoticeTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  urgentChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10,
+  },
+  urgentIngredientChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.warmYellow,
+  },
+  urgentChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  urgentChipQty: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginLeft: 4,
+  },
+  urgentCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+  },
+  urgentCtaText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  popularList: {
+    gap: 12,
+  },
+  recipeCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    flexDirection: 'row',
+    alignItems: 'center',
+    ...shadows.level1,
+  },
+  recipeThumbBox: {
+    width: 80,
+    height: 80,
+    borderRadius: radius.md,
+    backgroundColor: colors.mintSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginRight: 14,
+  },
+  recipeBadgePill: {
+    position: 'absolute',
+    bottom: 4,
+    backgroundColor: 'rgba(15, 118, 110, 0.85)',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: radius.xs,
+  },
+  recipeBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  recipeInfoBox: {
+    flex: 1,
+  },
+  recipeTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 3,
+  },
+  recipeDesc: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
+    marginBottom: 6,
+  },
+  recipeMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: radius.full,
+  },
+  metaPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.success,
+  },
+  metaDot: {
+    marginHorizontal: 6,
+    color: colors.textMuted,
+    fontSize: 12,
+  },
+  metaDifficulty: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '500',
   },
   impactCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
-    padding: 14,
-    marginTop: 14,
+    borderColor: colors.borderSubtle,
+    marginBottom: 24,
+    ...shadows.level1,
   },
   impactCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   impactCardTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#15803d',
-    textTransform: 'uppercase',
+    color: colors.primary,
   },
   impactRow: {
     flexDirection: 'row',
@@ -273,141 +640,55 @@ const styles = StyleSheet.create({
   },
   impactCol: {
     alignItems: 'center',
-    flex: 1,
   },
   impactNum: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '800',
     color: colors.textPrimary,
   },
   impactLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: colors.textSecondary,
     marginTop: 2,
-    textAlign: 'center',
+    fontWeight: '500',
   },
   impactDivider: {
     width: 1,
-    height: 24,
-    backgroundColor: '#E7E5DE',
+    height: 32,
+    backgroundColor: colors.borderSubtle,
   },
-  primaryActionCard: {
+  recentHistoryCard: {
     backgroundColor: colors.surface,
-    borderRadius: 18,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: 18,
-    marginTop: 16,
-  },
-  cardBadge: {
-    backgroundColor: '#EFF3EF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-    marginBottom: 12,
-  },
-  cardBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.primaryDark,
-    letterSpacing: 0.5,
-  },
-  actionCardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  actionCardDesc: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 19,
-    marginTop: 6,
-  },
-  primaryCtaButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 13,
-    paddingHorizontal: 18,
+    borderColor: colors.borderSubtle,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 18,
+    marginBottom: 8,
+    ...shadows.level1,
   },
-  primaryCtaText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  entrySection: {
-    marginTop: 22,
-  },
-  sectionHeading: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 12,
-  },
-  entryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
+  recentIconBox: {
+    width: 32,
+    height: 32,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-  },
-  entryIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#EFF3EF',
+    backgroundColor: '#F0FDF4',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
-  entryTextBox: {
+  recentTextBox: {
     flex: 1,
   },
-  entryTitle: {
+  recentName: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.textPrimary,
   },
-  entrySubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  recentSection: {
-    marginTop: 22,
-  },
-  recentCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-    marginBottom: 10,
-  },
-  recentCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  recentRecipeName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  recentRecipeDate: {
+  recentDate: {
     fontSize: 11,
-    color: colors.textSecondary,
-  },
-  recentRecipeTime: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    color: colors.textMuted,
+    marginTop: 2,
   },
 });

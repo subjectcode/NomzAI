@@ -9,12 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
-import { colors } from '../theme';
+import { NomzLogo } from '../components/NomzLogo';
+import { colors, radius, shadows, spacing } from '../theme';
 import { useAuth } from '../context';
 
 interface RegisterScreenProps {
@@ -96,7 +96,6 @@ export function RegisterScreen({
         email: email.trim(),
         password,
       });
-      // AuthContext otomatis mengupdate user & token -> root router mengarahkan ke Home
     } catch (err: any) {
       const status = err.status;
       const message = err.message || '';
@@ -140,7 +139,7 @@ export function RegisterScreen({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Top Bar / Back button */}
+          {/* Top Bar with NomzLogo */}
           <View style={styles.topBar}>
             {onNavigateToWelcome ? (
               <TouchableOpacity
@@ -148,20 +147,20 @@ export function RegisterScreen({
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.7}
               >
-                <Feather name="arrow-left" size={22} color={colors.textPrimary} />
+                <Feather name="arrow-left" size={20} color={colors.textPrimary} />
               </TouchableOpacity>
             ) : (
-              <View style={{ width: 22 }} />
+              <View style={{ width: 20 }} />
             )}
-            <Text style={styles.brandTitle}>Nomz</Text>
-            <View style={{ width: 22 }} />
+            <NomzLogo size="sm" variant="compact" />
+            <View style={{ width: 20 }} />
           </View>
 
           {/* Heading Section */}
           <View style={styles.headerSection}>
-            <Text style={styles.screenHeading}>Buat Akun Baru</Text>
+            <Text style={styles.screenHeading}>Daftar Akun Baru</Text>
             <Text style={styles.screenSubheading}>
-              Mulai langkah cerdas mengolah bahan dapur dan kurangi sisa makanan hari ini.
+              Mulai selamatkan bahan makanan dan hemat belanja harianmu bersama Nomz.
             </Text>
           </View>
 
@@ -173,22 +172,23 @@ export function RegisterScreen({
             </View>
           )}
 
-          {/* Input Form */}
-          <View style={styles.formContainer}>
-            {/* Field: Nama */}
+          {/* Form Card */}
+          <View style={styles.formCard}>
+            {/* Field: Display Name */}
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Nama Lengkap</Text>
-              <View style={styles.inputWrapper}>
-                <Feather name="user" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+              <View style={styles.inputWrap}>
+                <Feather name="user" size={18} color={colors.primary} style={styles.fieldIcon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Contoh: Ryan Miller"
-                  placeholderTextColor="#9AA097"
+                  placeholder="Contoh: Ryan Pratama"
+                  placeholderTextColor={colors.textMuted}
                   value={displayName}
                   onChangeText={(val) => {
                     setDisplayName(val);
                     if (errorMessage) setErrorMessage(null);
                   }}
+                  autoCapitalize="words"
                   autoCorrect={false}
                   editable={!isSubmitting}
                 />
@@ -198,20 +198,20 @@ export function RegisterScreen({
             {/* Field: Email */}
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Alamat Email</Text>
-              <View style={styles.inputWrapper}>
-                <Feather name="mail" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+              <View style={styles.inputWrap}>
+                <Feather name="mail" size={18} color={colors.primary} style={styles.fieldIcon} />
                 <TextInput
                   style={styles.textInput}
                   placeholder="nama@email.com"
-                  placeholderTextColor="#9AA097"
+                  placeholderTextColor={colors.textMuted}
                   value={email}
                   onChangeText={(val) => {
                     setEmail(val);
                     if (errorMessage) setErrorMessage(null);
                   }}
+                  keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  keyboardType="email-address"
                   editable={!isSubmitting}
                 />
               </View>
@@ -219,13 +219,13 @@ export function RegisterScreen({
 
             {/* Field: Password */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Kata Sandi (minimal 8 karakter)</Text>
-              <View style={styles.inputWrapper}>
-                <Feather name="lock" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+              <Text style={styles.fieldLabel}>Kata Sandi</Text>
+              <View style={styles.inputWrap}>
+                <Feather name="lock" size={18} color={colors.primary} style={styles.fieldIcon} />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Minimal 8 karakter"
-                  placeholderTextColor="#9AA097"
+                  placeholderTextColor={colors.textMuted}
                   value={password}
                   onChangeText={(val) => {
                     setPassword(val);
@@ -237,29 +237,28 @@ export function RegisterScreen({
                   editable={!isSubmitting}
                 />
                 <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
+                  onPress={() => setShowPassword((p) => !p)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  activeOpacity={0.7}
-                  style={styles.eyeIconBtn}
+                  style={styles.eyeBtn}
                 >
                   <Feather
                     name={showPassword ? 'eye-off' : 'eye'}
                     size={18}
-                    color={colors.textSecondary}
+                    color={colors.textMuted}
                   />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Field: Konfirmasi Password */}
+            {/* Field: Confirm Password */}
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Konfirmasi Kata Sandi</Text>
-              <View style={styles.inputWrapper}>
-                <Feather name="lock" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+              <View style={styles.inputWrap}>
+                <Feather name="lock" size={18} color={colors.primary} style={styles.fieldIcon} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Ulangi kata sandi"
-                  placeholderTextColor="#9AA097"
+                  placeholder="Ketik ulang kata sandi"
+                  placeholderTextColor={colors.textMuted}
                   value={confirmPassword}
                   onChangeText={(val) => {
                     setConfirmPassword(val);
@@ -271,58 +270,53 @@ export function RegisterScreen({
                   editable={!isSubmitting}
                 />
                 <TouchableOpacity
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  onPress={() => setShowConfirmPassword((p) => !p)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  activeOpacity={0.7}
-                  style={styles.eyeIconBtn}
+                  style={styles.eyeBtn}
                 >
                   <Feather
                     name={showConfirmPassword ? 'eye-off' : 'eye'}
                     size={18}
-                    color={colors.textSecondary}
+                    color={colors.textMuted}
                   />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Primary Action Button: Daftar */}
+            {/* Submit Button */}
             <TouchableOpacity
-              style={[styles.submitBtn, isSubmitting && styles.submitBtnDisabled]}
+              style={[styles.primaryBtn, isSubmitting && styles.primaryBtnDisabled]}
               onPress={handleRegister}
               disabled={isSubmitting}
-              activeOpacity={0.85}
+              activeOpacity={0.88}
             >
               {isSubmitting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitBtnText}>Daftar</Text>
+                <Text style={styles.primaryBtnText}>Daftar Sekarang</Text>
               )}
             </TouchableOpacity>
+          </View>
 
-            {/* Divider */}
+          {/* Social Sign-In Section */}
+          <View style={styles.socialSection}>
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>atau</Text>
+              <Text style={styles.dividerText}>atau daftar dengan</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Real Google Sign-In Button */}
             <GoogleSignInButton
               disabled={isSubmitting}
-              onError={(msg) => setErrorMessage(msg)}
               onSuccess={onGoogleSignInSuccess}
             />
           </View>
 
-          {/* Switch to Login */}
+          {/* Footer: Sudah punya akun? */}
           <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Sudah punya akun? </Text>
-            <TouchableOpacity
-              onPress={onNavigateToLogin}
-              disabled={isSubmitting}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={styles.footerLink}>Masuk</Text>
+            <Text style={styles.footerText}>Sudah memiliki akun Nomz? </Text>
+            <TouchableOpacity onPress={onNavigateToLogin} disabled={isSubmitting}>
+              <Text style={styles.footerLink}>Masuk di sini</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -343,7 +337,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    flexGrow: 1,
     paddingHorizontal: 24,
     maxWidth: 480,
     width: '100%',
@@ -353,155 +346,128 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 44,
-  },
-  brandTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.primaryDark,
-    letterSpacing: -0.5,
+    marginBottom: 20,
   },
   headerSection: {
-    marginTop: 16,
     marginBottom: 18,
   },
   screenHeading: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   screenSubheading: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: 21,
     marginTop: 6,
+    lineHeight: 19,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FDEEEB',
-    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
-    borderColor: '#F5C2BC',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderColor: '#FCA5A5',
+    borderRadius: radius.md,
+    padding: 12,
     marginBottom: 16,
   },
   errorText: {
     flex: 1,
-    fontSize: 13,
     color: colors.error,
-    fontWeight: '500',
+    fontSize: 13,
+    lineHeight: 18,
   },
-  formContainer: {
-    marginTop: 2,
+  formCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    marginBottom: 20,
+    ...shadows.level1,
   },
   fieldGroup: {
     marginBottom: 14,
   },
   fieldLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 6,
   },
-  inputWrapper: {
+  inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    height: 48,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    minHeight: 48,
   },
-  inputIcon: {
+  fieldIcon: {
     marginRight: 10,
   },
   textInput: {
     flex: 1,
-    height: '100%',
     fontSize: 14,
     color: colors.textPrimary,
+    paddingVertical: 10,
   },
-  eyeIconBtn: {
-    padding: 4,
+  eyeBtn: {
+    padding: 6,
   },
-  submitBtn: {
+  primaryBtn: {
     backgroundColor: colors.primary,
-    borderRadius: 14,
+    borderRadius: radius.full,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    minHeight: 48,
+    marginTop: 6,
+    ...shadows.level1,
   },
-  submitBtnDisabled: {
+  primaryBtnDisabled: {
     opacity: 0.65,
   },
-  submitBtnText: {
+  primaryBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  socialSection: {
+    marginBottom: 24,
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 18,
+    marginBottom: 16,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderSubtle,
   },
   dividerText: {
-    paddingHorizontal: 12,
+    marginHorizontal: 12,
     fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  googleBtn: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    paddingVertical: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleIconPlaceholder: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#EFF3EF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  googleGLetter: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primaryDark,
-  },
-  googleBtnText: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.textMuted,
   },
   footerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 24,
+    alignItems: 'center',
+    paddingBottom: 8,
   },
   footerText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
   },
   footerLink: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.primary,
   },
 });

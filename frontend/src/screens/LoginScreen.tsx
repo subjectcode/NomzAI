@@ -9,12 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
-import { colors } from '../theme';
+import { NomzLogo } from '../components/NomzLogo';
+import { colors, radius, shadows, spacing } from '../theme';
 import { useAuth } from '../context';
 
 interface LoginScreenProps {
@@ -72,11 +72,13 @@ export function LoginScreen({
     setErrorMessage(null);
 
     try {
-      await login({
-        email: email.trim(),
-        password,
-      }, rememberMe);
-      // AuthContext memperbarui isAuthenticated -> root router mengarahkan ke Home
+      await login(
+        {
+          email: email.trim(),
+          password,
+        },
+        rememberMe
+      );
     } catch (err: any) {
       const status = err.status;
       const message = err.message || '';
@@ -115,7 +117,7 @@ export function LoginScreen({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Top Bar / Back button */}
+          {/* Top Bar with NomzLogo */}
           <View style={styles.topBar}>
             {onNavigateToWelcome ? (
               <TouchableOpacity
@@ -123,13 +125,13 @@ export function LoginScreen({
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.7}
               >
-                <Feather name="arrow-left" size={22} color={colors.textPrimary} />
+                <Feather name="arrow-left" size={20} color={colors.textPrimary} />
               </TouchableOpacity>
             ) : (
-              <View style={{ width: 22 }} />
+              <View style={{ width: 20 }} />
             )}
-            <Text style={styles.brandTitle}>Nomz</Text>
-            <View style={{ width: 22 }} />
+            <NomzLogo size="sm" variant="compact" />
+            <View style={{ width: 20 }} />
           </View>
 
           {/* Heading Section */}
@@ -148,25 +150,25 @@ export function LoginScreen({
             </View>
           )}
 
-          {/* Input Form */}
-          <View style={styles.formContainer}>
+          {/* Form Card */}
+          <View style={styles.formCard}>
             {/* Field: Email */}
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Alamat Email</Text>
-              <View style={styles.inputWrapper}>
-                <Feather name="mail" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+              <View style={styles.inputWrap}>
+                <Feather name="mail" size={18} color={colors.primary} style={styles.fieldIcon} />
                 <TextInput
                   style={styles.textInput}
                   placeholder="nama@email.com"
-                  placeholderTextColor="#9AA097"
+                  placeholderTextColor={colors.textMuted}
                   value={email}
                   onChangeText={(val) => {
                     setEmail(val);
                     if (errorMessage) setErrorMessage(null);
                   }}
+                  keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  keyboardType="email-address"
                   editable={!isSubmitting}
                 />
               </View>
@@ -175,12 +177,12 @@ export function LoginScreen({
             {/* Field: Password */}
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Kata Sandi</Text>
-              <View style={styles.inputWrapper}>
-                <Feather name="lock" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+              <View style={styles.inputWrap}>
+                <Feather name="lock" size={18} color={colors.primary} style={styles.fieldIcon} />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Masukkan kata sandi"
-                  placeholderTextColor="#9AA097"
+                  placeholderTextColor={colors.textMuted}
                   value={password}
                   onChangeText={(val) => {
                     setPassword(val);
@@ -192,15 +194,14 @@ export function LoginScreen({
                   editable={!isSubmitting}
                 />
                 <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
+                  onPress={() => setShowPassword((p) => !p)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  activeOpacity={0.7}
-                  style={styles.eyeIconBtn}
+                  style={styles.eyeBtn}
                 >
                   <Feather
                     name={showPassword ? 'eye-off' : 'eye'}
                     size={18}
-                    color={colors.textSecondary}
+                    color={colors.textMuted}
                   />
                 </TouchableOpacity>
               </View>
@@ -208,60 +209,51 @@ export function LoginScreen({
 
             {/* Remember Me Checkbox */}
             <TouchableOpacity
-              style={styles.rememberRow}
-              onPress={() => setRememberMe(!rememberMe)}
+              style={styles.rememberMeRow}
+              onPress={() => setRememberMe((p) => !p)}
               activeOpacity={0.7}
               disabled={isSubmitting}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: rememberMe }}
-              accessibilityLabel="Ingat saya"
             >
-              <Feather
-                name={rememberMe ? 'check-square' : 'square'}
-                size={20}
-                color={rememberMe ? colors.primary : colors.textSecondary}
-              />
-              <Text style={styles.rememberLabel}>Ingat saya</Text>
+              <View style={[styles.checkbox, rememberMe && styles.checkboxActive]}>
+                {rememberMe && <Feather name="check" size={12} color="#FFFFFF" />}
+              </View>
+              <Text style={styles.rememberMeText}>Ingat saya di perangkat ini</Text>
             </TouchableOpacity>
 
-            {/* Primary Action Button: Masuk */}
+            {/* Submit Button */}
             <TouchableOpacity
-              style={[styles.submitBtn, isSubmitting && styles.submitBtnDisabled]}
+              style={[styles.primaryBtn, isSubmitting && styles.primaryBtnDisabled]}
               onPress={handleLogin}
               disabled={isSubmitting}
-              activeOpacity={0.85}
+              activeOpacity={0.88}
             >
               {isSubmitting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.submitBtnText}>Masuk</Text>
+                <Text style={styles.primaryBtnText}>Masuk ke Akun</Text>
               )}
             </TouchableOpacity>
+          </View>
 
-            {/* Divider */}
+          {/* Social Sign-In Section */}
+          <View style={styles.socialSection}>
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>atau</Text>
+              <Text style={styles.dividerText}>atau masuk dengan</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Real Google Sign-In Button */}
             <GoogleSignInButton
               disabled={isSubmitting}
-              onError={(msg) => setErrorMessage(msg)}
               onSuccess={onGoogleSignInSuccess}
             />
           </View>
 
-          {/* Switch to Register */}
+          {/* Footer: Belum punya akun? */}
           <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Belum punya akun? </Text>
-            <TouchableOpacity
-              onPress={onNavigateToRegister}
-              disabled={isSubmitting}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={styles.footerLink}>Daftar</Text>
+            <Text style={styles.footerText}>Belum memiliki akun Nomz? </Text>
+            <TouchableOpacity onPress={onNavigateToRegister} disabled={isSubmitting}>
+              <Text style={styles.footerLink}>Daftar sekarang</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -282,7 +274,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    flexGrow: 1,
     paddingHorizontal: 24,
     maxWidth: 480,
     width: '100%',
@@ -292,168 +283,152 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 44,
-  },
-  brandTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.primaryDark,
-    letterSpacing: -0.5,
+    marginBottom: 24,
   },
   headerSection: {
-    marginTop: 18,
     marginBottom: 20,
   },
   screenHeading: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   screenSubheading: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: 21,
     marginTop: 6,
+    lineHeight: 19,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FDEEEB',
-    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
-    borderColor: '#F5C2BC',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderColor: '#FCA5A5',
+    borderRadius: radius.md,
+    padding: 12,
     marginBottom: 16,
   },
   errorText: {
     flex: 1,
-    fontSize: 13,
     color: colors.error,
-    fontWeight: '500',
+    fontSize: 13,
+    lineHeight: 18,
   },
-  formContainer: {
-    marginTop: 4,
+  formCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    marginBottom: 20,
+    ...shadows.level1,
   },
   fieldGroup: {
     marginBottom: 16,
   },
   fieldLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 6,
   },
-  inputWrapper: {
+  inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    height: 48,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    minHeight: 48,
   },
-  inputIcon: {
+  fieldIcon: {
     marginRight: 10,
   },
   textInput: {
     flex: 1,
-    height: '100%',
     fontSize: 14,
     color: colors.textPrimary,
+    paddingVertical: 10,
   },
-  eyeIconBtn: {
-    padding: 4,
+  eyeBtn: {
+    padding: 6,
   },
-  submitBtn: {
+  rememberMeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    backgroundColor: colors.surface,
+  },
+  checkboxActive: {
     backgroundColor: colors.primary,
-    borderRadius: 14,
+    borderColor: colors.primary,
+  },
+  rememberMeText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  primaryBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    minHeight: 48,
+    ...shadows.level1,
   },
-  submitBtnDisabled: {
+  primaryBtnDisabled: {
     opacity: 0.65,
   },
-  submitBtnText: {
+  primaryBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  rememberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  rememberLabel: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    marginLeft: 10,
-    fontWeight: '500',
+  socialSection: {
+    marginBottom: 24,
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 18,
+    marginBottom: 16,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderSubtle,
   },
   dividerText: {
-    paddingHorizontal: 12,
+    marginHorizontal: 12,
     fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  googleBtn: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    paddingVertical: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleIconPlaceholder: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#EFF3EF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  googleGLetter: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primaryDark,
-  },
-  googleBtnText: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.textMuted,
   },
   footerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 28,
+    alignItems: 'center',
+    paddingBottom: 8,
   },
   footerText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
   },
   footerLink: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.primary,
   },
 });

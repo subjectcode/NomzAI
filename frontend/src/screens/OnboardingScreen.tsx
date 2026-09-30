@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { colors } from '../theme';
+import { NomzLogo } from '../components/NomzLogo';
+import { colors, radius, shadows, spacing } from '../theme';
 import { setOnboardingCompleted } from '../services/onboardingStorage';
 
 interface OnboardingScreenProps {
@@ -37,17 +38,17 @@ const SLIDES: SlideItem[] = [
   },
   {
     id: 1,
-    badge: 'BEBAS SISA',
-    icon: 'shield',
+    badge: 'FOOD RESCUE',
+    icon: 'refresh-cw',
     title: 'Selamatkan bahanmu',
     description:
       'Manfaatkan bahan yang ada secara maksimal sebelum rusak atau kedaluwarsa. Kurangi sisa makanan dan lebih hemat.',
   },
   {
     id: 2,
-    badge: 'INSPIRASI DAPUR',
+    badge: 'INSPIRASI MASAK',
     icon: 'book-open',
-    title: 'Masak lebih cerdas',
+    title: 'Masak enak dari yang ada',
     description:
       'Temukan ide masakan lezat dan kreatif yang menyesuaikan bahan yang tersedia, tanpa harus belanja bahan baru.',
   },
@@ -61,7 +62,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   const isLastSlide = currentSlideIndex === SLIDES.length - 1;
 
-  // Hanya Lewati atau Mulai yang menyimpan onboarding_completed
   const handleFinish = async () => {
     await setOnboardingCompleted(true);
     onComplete();
@@ -124,9 +124,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         },
       ]}
     >
-      {/* Top Header Bar: Brand di kiri, Lewati di kanan */}
+      {/* Top Header Bar with NomzLogo */}
       <View style={styles.headerBar}>
-        <Text style={styles.brandTitle}>Nomz</Text>
+        <NomzLogo size="sm" variant="compact" />
         {!isLastSlide ? (
           <TouchableOpacity
             onPress={handleSkip}
@@ -140,7 +140,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         )}
       </View>
 
-      {/* Swipeable FlatList Slides */}
+      {/* Swipeable Slide Carousel */}
       <FlatList
         ref={flatListRef}
         data={SLIDES}
@@ -149,59 +149,40 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        bounces={false}
-        decelerationRate="fast"
         onMomentumScrollEnd={handleMomentumScrollEnd}
-        getItemLayout={(_, index) => ({
-          length: screenWidth,
-          offset: screenWidth * index,
-          index,
-        })}
-        onScrollToIndexFailed={(info) => {
-          setTimeout(() => {
-            flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
-          }, 100);
-        }}
-        style={styles.flatList}
+        bounces={false}
+        style={styles.carousel}
       />
 
-      {/* Bottom Controls: Indicator + CTA */}
-      <View style={styles.footerControls}>
-        {/* Progress Indicator Dots */}
-        <View style={styles.dotsWrap}>
-          {SLIDES.map((item, idx) => (
-            <TouchableOpacity
-              key={item.id}
-              onPress={() => {
-                flatListRef.current?.scrollToIndex({ index: idx, animated: true });
-                setCurrentSlideIndex(idx);
-              }}
-              activeOpacity={0.8}
-            >
+      {/* Footer Navigation: Dots & Next/Start CTA */}
+      <View style={styles.footerContainer}>
+        {/* Pagination Dots */}
+        <View style={styles.paginationRow}>
+          {SLIDES.map((slide) => {
+            const isActive = slide.id === currentSlideIndex;
+            return (
               <View
-                style={[
-                  styles.dot,
-                  idx === currentSlideIndex ? styles.dotActive : styles.dotInactive,
-                ]}
+                key={slide.id}
+                style={[styles.dot, isActive ? styles.dotActive : styles.dotInactive]}
               />
-            </TouchableOpacity>
-          ))}
+            );
+          })}
         </View>
 
-        {/* Action Button: Lanjut / Mulai */}
+        {/* Action Button */}
         <TouchableOpacity
           style={styles.actionBtn}
           onPress={handleNext}
-          activeOpacity={0.85}
+          activeOpacity={0.88}
         >
           <Text style={styles.actionBtnText}>
-            {isLastSlide ? 'Mulai' : 'Lanjut'}
+            {isLastSlide ? 'Mulai Sekarang' : 'Lanjutkan'}
           </Text>
           <Feather
             name={isLastSlide ? 'check' : 'arrow-right'}
             size={18}
             color="#FFFFFF"
-            style={{ marginLeft: 6 }}
+            style={{ marginLeft: 8 }}
           />
         </TouchableOpacity>
       </View>
@@ -217,24 +198,18 @@ const styles = StyleSheet.create({
   },
   headerBar: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    height: 44,
+    alignItems: 'center',
     paddingHorizontal: 24,
-  },
-  brandTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.primaryDark,
-    letterSpacing: -0.5,
+    height: 48,
   },
   skipText: {
     fontSize: 14,
-    color: colors.textSecondary,
     fontWeight: '600',
+    color: colors.textSecondary,
   },
-  flatList: {
-    flex: 1,
+  carousel: {
+    flexGrow: 1,
   },
   slideWrap: {
     flex: 1,
@@ -243,80 +218,83 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   slideCard: {
-    width: '100%',
-    maxWidth: 420,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    paddingVertical: 32,
+    paddingHorizontal: 24,
     alignItems: 'center',
-    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    ...shadows.level1,
   },
   iconContainer: {
     marginBottom: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   iconCircleOuter: {
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#EFF3EF',
+    backgroundColor: colors.mintSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   iconCircleInner: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: colors.surface,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E6E2',
+    ...shadows.level1,
   },
   badgeBox: {
-    backgroundColor: '#EFF3EF',
-    paddingHorizontal: 10,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 8,
     marginBottom: 12,
   },
   badgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.primaryDark,
-    letterSpacing: 0.6,
+    color: colors.primary,
+    letterSpacing: 0.8,
   },
   slideTitle: {
-    fontSize: 23,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
     color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
     letterSpacing: -0.3,
   },
   slideDesc: {
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: 8,
+    lineHeight: 21,
   },
-  footerControls: {
+  footerContainer: {
     paddingHorizontal: 24,
-    width: '100%',
+    paddingBottom: 8,
+    gap: 20,
     maxWidth: 480,
+    width: '100%',
     alignSelf: 'center',
   },
-  dotsWrap: {
+  paginationRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    alignItems: 'center',
+    gap: 8,
   },
   dot: {
     height: 8,
     borderRadius: 4,
-    marginHorizontal: 4,
   },
   dotActive: {
     width: 24,
@@ -328,15 +306,17 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     backgroundColor: colors.primary,
-    borderRadius: 14,
+    borderRadius: radius.full,
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 48,
+    ...shadows.level1,
   },
   actionBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

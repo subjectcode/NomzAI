@@ -12,7 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors } from '../theme';
+import { colors, radius, shadows, spacing } from '../theme';
 import { useAuth } from '../context/AuthContext';
 
 interface EditProfileScreenProps {
@@ -72,10 +72,10 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Top Bar */}
+      {/* 1. TOP BAR */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.7}>
-          <Feather name="arrow-left" size={22} color={colors.textPrimary} />
+          <Feather name="arrow-left" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.topBarTextWrap}>
           <Text style={styles.topBarTitle}>Edit Profil</Text>
@@ -88,7 +88,7 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Avatar Display Card */}
+        {/* 2. AVATAR DISPLAY CARD */}
         <View style={styles.avatarCard}>
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarText}>{initial}</Text>
@@ -98,11 +98,11 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
           </Text>
         </View>
 
-        {/* Form Section */}
+        {/* 3. FORM CARD */}
         <View style={styles.formCard}>
           {errorMessage && (
             <View style={styles.errorBanner}>
-              <Feather name="alert-circle" size={16} color="#dc2626" style={{ marginRight: 6 }} />
+              <Feather name="alert-circle" size={16} color={colors.error} style={{ marginRight: 6 }} />
               <Text style={styles.errorBannerText}>{errorMessage}</Text>
             </View>
           )}
@@ -110,7 +110,7 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
           {/* Nama Tampilan */}
           <Text style={styles.fieldLabel}>Nama Tampilan</Text>
           <View style={styles.inputWrap}>
-            <Feather name="user" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+            <Feather name="user" size={18} color={colors.primary} style={styles.inputIcon} />
             <TextInput
               style={styles.textInput}
               value={displayName}
@@ -119,7 +119,7 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
                 if (errorMessage) setErrorMessage(null);
               }}
               placeholder="Masukkan nama tampilan"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textMuted}
               maxLength={60}
               autoCapitalize="words"
             />
@@ -129,21 +129,21 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
           <View style={styles.emailHeaderRow}>
             <Text style={styles.fieldLabel}>Alamat Email</Text>
             <View style={styles.verifiedBadge}>
-              <Feather name="check-circle" size={12} color="#16a34a" style={{ marginRight: 4 }} />
+              <Feather name="check" size={11} color={colors.success} style={{ marginRight: 3 }} />
               <Text style={styles.verifiedBadgeText}>Terdaftar</Text>
             </View>
           </View>
           <View style={[styles.inputWrap, styles.readOnlyInput]}>
-            <Feather name="mail" size={18} color={colors.textSecondary} style={styles.inputIcon} />
+            <Feather name="mail" size={18} color={colors.textMuted} style={styles.inputIcon} />
             <Text style={styles.readOnlyText}>{email}</Text>
-            <Feather name="lock" size={16} color="#9ca3af" />
+            <Feather name="lock" size={15} color={colors.textMuted} />
           </View>
           <Text style={styles.readOnlyHelp}>
             Email terikat secara permanen dengan akun untuk keamanan autentikasi.
           </Text>
 
           {/* Metode Autentikasi */}
-          <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Metode Masuk</Text>
+          <Text style={[styles.fieldLabel, { marginTop: 18 }]}>Metode Masuk</Text>
           <View style={styles.providerRow}>
             <Feather
               name={authProvider === 'google' ? 'chrome' : 'key'}
@@ -159,12 +159,12 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
           </View>
         </View>
 
-        {/* Submit Button */}
+        {/* 4. SUBMIT BUTTON */}
         <TouchableOpacity
           style={[styles.saveBtn, isSubmitting && styles.saveBtnDisabled]}
           onPress={handleSave}
           disabled={isSubmitting}
-          activeOpacity={0.8}
+          activeOpacity={0.88}
         >
           {isSubmitting ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
@@ -183,26 +183,24 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E7E5DE',
+    borderBottomColor: colors.borderSubtle,
   },
   backBtn: {
     width: 38,
     height: 38,
-    borderRadius: 8,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f5f4',
-    marginRight: 12,
+    marginRight: 10,
   },
   topBarTextWrap: {
     flex: 1,
@@ -214,149 +212,159 @@ const styles = StyleSheet.create({
   },
   topBarSubtitle: {
     fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 1,
+    color: colors.textMuted,
   },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingTop: 18,
     paddingBottom: 40,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
   avatarCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 20,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
+    borderColor: colors.borderSubtle,
     marginBottom: 16,
+    ...shadows.level1,
   },
   avatarCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.primary,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: colors.mintSoft,
+    borderWidth: 2,
+    borderColor: colors.lightMint,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   avatarText: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.primary,
   },
   avatarHint: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: colors.textMuted,
     textAlign: 'center',
   },
   formCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     padding: 18,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
+    borderColor: colors.borderSubtle,
     marginBottom: 20,
+    ...shadows.level1,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fee2e2',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: radius.md,
+    padding: 10,
     marginBottom: 14,
   },
   errorBannerText: {
-    fontSize: 13,
-    color: '#b91c1c',
-    flex: 1,
+    fontSize: 12,
+    color: colors.error,
+    fontWeight: '500',
   },
   fieldLabel: {
     fontSize: 13,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAF8F3',
-    borderRadius: 10,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
+    borderColor: colors.border,
+    borderRadius: radius.md,
     paddingHorizontal: 12,
-    marginBottom: 14,
+    minHeight: 46,
   },
   inputIcon: {
     marginRight: 10,
   },
   textInput: {
     flex: 1,
-    paddingVertical: 12,
-    fontSize: 15,
+    fontSize: 14,
     color: colors.textPrimary,
   },
   emailHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 6,
   },
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 8,
+    backgroundColor: '#F0FDF4',
     paddingVertical: 2,
-    borderRadius: 6,
-    marginBottom: 8,
+    paddingHorizontal: 6,
+    borderRadius: radius.xs,
   },
   verifiedBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#15803d',
+    color: colors.success,
   },
   readOnlyInput: {
-    backgroundColor: '#f5f5f4',
-    borderColor: '#e7e5e4',
+    backgroundColor: '#F3F4F6',
+    borderColor: colors.borderSubtle,
   },
   readOnlyText: {
     flex: 1,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: '#78716c',
+    fontSize: 14,
+    color: colors.textSecondary,
   },
   readOnlyHelp: {
     fontSize: 11,
-    color: '#78716c',
-    marginTop: -8,
-    marginBottom: 12,
-    lineHeight: 16,
+    color: colors.textMuted,
+    marginTop: 4,
   },
   providerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF3EF',
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
     padding: 12,
-    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
   },
   providerText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.primaryDark,
+    color: colors.textPrimary,
   },
   saveBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
+    minHeight: 48,
+    ...shadows.level1,
   },
   saveBtnDisabled: {
-    opacity: 0.7,
+    opacity: 0.65,
   },
   saveBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
     color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

@@ -7,7 +7,9 @@ export interface RecipeRecommendation {
   estimasi_waktu: string;
   tingkat_kesulitan: string;
   alasan: string;
+  alasan_rekomendasi?: string;
   langkah?: string[];
+  langkah_memasak?: string[];
   porsi?: string;
 }
 

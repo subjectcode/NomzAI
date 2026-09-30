@@ -6,7 +6,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme';
+import { NomzLogo } from '../components/NomzLogo';
+import { colors, radius, spacing } from '../theme';
 
 export function SplashScreen() {
   const insets = useSafeAreaInsets();
@@ -22,9 +23,11 @@ export function SplashScreen() {
       ]}
     >
       <View style={styles.brandContainer}>
-        <Text style={styles.brandTitle}>Nomz</Text>
-        <Text style={styles.brandSubtitle}>AI Food Rescue Assistant</Text>
+        <NomzLogo size="lg" variant="full" showSubtitle={true} style={styles.logo} />
+        {/* Brand Tagline per DESIGN.md Section 4 */}
+        <Text style={styles.brandTagline}>Good Food Still Has a Chance.</Text>
       </View>
+
       <View style={styles.indicatorContainer}>
         <ActivityIndicator size="small" color={colors.primary} />
       </View>
@@ -42,17 +45,15 @@ const styles = StyleSheet.create({
   brandContainer: {
     alignItems: 'center',
   },
-  brandTitle: {
-    fontSize: 42,
-    fontWeight: '700',
-    color: colors.primaryDark,
-    letterSpacing: -1,
+  logo: {
+    marginBottom: 16,
   },
-  brandSubtitle: {
+  brandTagline: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginTop: 6,
     fontWeight: '500',
+    fontStyle: 'italic',
+    marginTop: 8,
   },
   indicatorContainer: {
     marginTop: 36,

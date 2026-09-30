@@ -15,32 +15,43 @@ import * as ImagePicker from 'expo-image-picker';
 import { checkBackendHealth, detectIngredientsFromImage } from '../services/api';
 import { Ingredient } from '../types';
 import { SAMPLE_INGREDIENTS_DATA_URL, SAMPLE_FRUITS_DATA_URL } from '../sampleImages';
-import { colors } from '../theme';
+import { colors, radius, shadows, spacing } from '../theme';
 
 type BackendStatus = 'idle' | 'checking' | 'connected' | 'failed';
+type ScanMode = 'camera' | 'gallery';
 
 interface ScanBahanScreenProps {
   onNavigateToRecommendations: (confirmedIngredients: string[]) => void;
+  onBack?: () => void;
 }
 
-export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreenProps) {
-  // Status Koneksi Backend
+export function ScanBahanScreen({
+  onNavigateToRecommendations,
+  onBack,
+}: ScanBahanScreenProps) {
+  // Status Backend
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('idle');
   const [backendMessage, setBackendMessage] = useState<string>('');
 
-  // Status Pemilihan Gambar & Deteksi
+  // Mode Viewfinder (Foto vs Galeri)
+  const [scanMode, setScanMode] = useState<ScanMode>('camera');
+
+  // Status Foto Terpilih
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imageMime, setImageMime] = useState<string>('image/jpeg');
   const [imageFileName, setImageFileName] = useState<string>('food.jpg');
 
+  // Status Analisis
   const [isDetecting, setIsDetecting] = useState<boolean>(false);
   const [detectionError, setDetectionError] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
 
-  // Input Tambah Bahan Manual
+  // Input Bahan Manual & Mode Edit
+  const [isManualInputOpen, setIsManualInputOpen] = useState<boolean>(false);
   const [newIngredientName, setNewIngredientName] = useState<string>('');
+  const [editingIngredientId, setEditingIngredientId] = useState<string | null>(null);
 
-  // Status Bahan yang Dikonfirmasi
+  // Status Bahan Dikonfirmasi
   const [confirmedIngredients, setConfirmedIngredients] = useState<string[] | null>(null);
 
   // Memeriksa kesehatan backend
@@ -56,7 +67,7 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
     }
   };
 
-  // Mengambil foto langsung menggunakan kamera perangkat
+  // Mengambil foto langsung dengan kamera
   const handleTakePhoto = async () => {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -87,7 +98,7 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
     }
   };
 
-  // Memilih foto dari galeri perangkat
+  // Memilih foto dari galeri
   const handlePickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -110,7 +121,7 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
     }
   };
 
-  // Memilih contoh foto bawaan (untuk pengujian instan)
+  // Memilih contoh foto cepat
   const handleSelectSample = (sampleDataUrl: string, sampleName: string) => {
     setSelectedImage(sampleDataUrl);
     setImageMime('image/jpeg');
@@ -120,7 +131,7 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
     setConfirmedIngredients(null);
   };
 
-  // Menjalankan analisis bahan
+  // Deteksi Bahan Otomatis
   const handleDetectIngredients = async () => {
     if (!selectedImage) return;
 
@@ -132,7 +143,9 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
       const detected = await detectIngredientsFromImage(selectedImage, imageMime, imageFileName);
       setIngredients(detected);
       if (detected.length === 0) {
-        setDetectionError('Tidak ada bahan makanan yang terdeteksi. Anda dapat menambahkan bahan secara manual di bawah.');
+        setDetectionError(
+          'Tidak ada bahan makanan yang terdeteksi. Anda dapat menambahkan bahan secara manual di bawah.'
+        );
       }
     } catch (err: any) {
       setDetectionError(err.message || 'Gagal mendeteksi bahan. Periksa koneksi backend.');
@@ -141,19 +154,19 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
     }
   };
 
-  // Mengubah nama bahan secara inline
+  // Inline edit bahan
   const handleEditIngredient = (id: string, newName: string) => {
     setIngredients((prev) =>
       prev.map((item) => (item.id === id ? { ...item, name: newName } : item))
     );
   };
 
-  // Menghapus bahan dari daftar
+  // Hapus bahan
   const handleDeleteIngredient = (id: string) => {
     setIngredients((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // Menambahkan bahan baru secara manual
+  // Tambah bahan baru secara manual
   const handleAddIngredient = () => {
     const trimmed = newIngredientName.trim();
     if (!trimmed) return;
@@ -161,783 +174,810 @@ export function ScanBahanScreen({ onNavigateToRecommendations }: ScanBahanScreen
     const newItem: Ingredient = {
       id: `${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name: trimmed.toLowerCase(),
-      confidence: 1.0, // diverifikasi manual oleh pengguna
+      confidence: 1.0,
     };
 
     setIngredients((prev) => [...prev, newItem]);
     setNewIngredientName('');
+    setIsManualInputOpen(false);
   };
 
-  // Mengonfirmasi seluruh bahan
-  const handleConfirmIngredients = () => {
+  // Lanjutkan ke Rekomendasi
+  const handleProceedToRecommendations = () => {
     const validList = ingredients
       .map((i) => i.name.trim())
       .filter((name) => name.length > 0);
 
     if (validList.length === 0) {
-      Alert.alert('Perhatian', 'Harap sediakan minimal satu bahan makanan untuk dikonfirmasi.');
+      Alert.alert('Perhatian', 'Harap sediakan minimal satu bahan makanan untuk mencari resep.');
       return;
     }
 
-    setConfirmedIngredients(validList);
+    onNavigateToRecommendations(validList);
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContent}>
-      {/* Top Header konsisten dengan Beranda */}
-      <View style={styles.topHeader}>
-        <View style={styles.brandWrap}>
-          <Text style={styles.brandTitle}>Nomz</Text>
-          <Text style={styles.brandSubtitle}>AI Food Rescue Assistant</Text>
-        </View>
-        <View style={styles.profileAvatar}>
-          <Feather name="user" size={18} color={colors.primary} />
-        </View>
-      </View>
-
-      {/* Page Heading & Intro */}
-      <View style={styles.pageIntro}>
-        <Text style={styles.pageTitle}>Pindai Bahan Masakan</Text>
-        <Text style={styles.pageDesc}>
-          Pilih foto bahan makanan di meja dapur atau kulkas untuk mendeteksi bahan secara otomatis.
-        </Text>
-      </View>
-
-      {/* Bar Status Backend */}
-      <View style={styles.backendBar}>
-        <View style={styles.backendBarLeft}>
-          <View
-            style={[
-              styles.statusDot,
-              backendStatus === 'connected' && styles.statusDotGreen,
-              backendStatus === 'failed' && styles.statusDotRed,
-              backendStatus === 'checking' && styles.statusDotAmber,
-            ]}
-          />
-          <Text style={styles.backendBarText} numberOfLines={1} ellipsizeMode="tail">
-            {backendStatus === 'connected'
-              ? `Terhubung • ${backendMessage}`
-              : backendStatus === 'failed'
-              ? `Terputus: ${backendMessage}`
-              : backendStatus === 'checking'
-              ? 'Menghubungkan ke server...'
-              : 'Status backend belum diperiksa'}
-          </Text>
-        </View>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* 1. TOP BAR (Reference UI Screen 2 "Pindai Bahan") */}
+      <View style={styles.topBar}>
+        {onBack ? (
+          <TouchableOpacity style={styles.topBarIconBtn} onPress={onBack} activeOpacity={0.7}>
+            <Feather name="arrow-left" size={20} color={colors.textPrimary} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 36 }} />
+        )}
+        <Text style={styles.topBarTitle}>Pindai Bahan</Text>
         <TouchableOpacity
-          style={styles.checkHealthBtn}
-          onPress={handleCheckHealth}
-          disabled={backendStatus === 'checking'}
+          style={styles.topBarIconBtn}
+          onPress={() =>
+            Alert.alert(
+              'Panduan Pindai',
+              'Arahkan kamera ke meja dapur atau kulkas Anda. Pastikan pencahayaan cukup agar bahan dapat dikenali dengan akurat.'
+            )
+          }
+          activeOpacity={0.7}
         >
-          <Text style={styles.checkHealthBtnText}>
-            {backendStatus === 'checking' ? '...' : 'Cek'}
-          </Text>
+          <Feather name="help-circle" size={19} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
-      {/* BAGIAN 1: Pemilihan & Pratinjau Foto */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>1. Foto Bahan Masakan</Text>
-        <Text style={styles.cardDesc}>
-          Pilih foto bahan makanan segar di meja dapur atau talenan Anda.
-        </Text>
-
+      {/* 2. VIEWFINDER CAMERA AREA (Reference UI Screen 2) */}
+      <View style={styles.viewfinderCard}>
         {selectedImage ? (
-          <View style={styles.previewContainer}>
-            <Image source={{ uri: selectedImage }} style={styles.imagePreview} resizeMode="cover" />
-            <View style={styles.imageActionRow}>
-              <TouchableOpacity style={styles.secondaryButton} onPress={handleTakePhoto}>
-                <Feather name="camera" size={14} color="#44403c" style={{ marginRight: 6 }} />
-                <Text style={styles.secondaryButtonText}>Foto Ulang</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryButton} onPress={handlePickImage}>
-                <Feather name="image" size={14} color="#44403c" style={{ marginRight: 6 }} />
-                <Text style={styles.secondaryButtonText}>Galeri</Text>
-              </TouchableOpacity>
+          <View style={styles.previewImageContainer}>
+            <Image
+              source={{ uri: selectedImage }}
+              style={styles.previewImage}
+              resizeMode="cover"
+            />
+            {/* Viewfinder Frame Overlay */}
+            <View style={styles.frameCornerTopLeft} />
+            <View style={styles.frameCornerTopRight} />
+            <View style={styles.frameCornerBottomLeft} />
+            <View style={styles.frameCornerBottomRight} />
+
+            {/* Retake Floating Overlay Pill */}
+            <View style={styles.retakeOverlay}>
               <TouchableOpacity
-                style={[styles.primaryButton, isDetecting && styles.buttonDisabled]}
-                onPress={handleDetectIngredients}
-                disabled={isDetecting}
+                style={styles.retakeBtn}
+                onPress={handleTakePhoto}
+                activeOpacity={0.8}
               >
-                {isDetecting ? (
-                  <View style={styles.row}>
-                    <ActivityIndicator size="small" color="#ffffff" />
-                    <Text style={[styles.primaryButtonText, { marginLeft: 8 }]}>Menganalisis...</Text>
-                  </View>
-                ) : (
-                  <View style={styles.row}>
-                    <Feather name="search" size={14} color="#ffffff" style={{ marginRight: 6 }} />
-                    <Text style={styles.primaryButtonText}>Deteksi Bahan</Text>
-                  </View>
-                )}
+                <Feather name="camera" size={13} color="#FFFFFF" style={{ marginRight: 5 }} />
+                <Text style={styles.retakeBtnText}>Foto Ulang</Text>
               </TouchableOpacity>
             </View>
           </View>
         ) : (
-          <View>
-            <View style={styles.uploadOptionsRow}>
-              <TouchableOpacity
-                style={[styles.uploadBox, styles.uploadBoxHalf]}
-                onPress={handleTakePhoto}
-                activeOpacity={0.8}
-              >
-                <View style={styles.uploadIconContainer}>
-                  <Feather name="camera" size={24} color={colors.primary} />
-                </View>
-                <Text style={styles.uploadBoxTitle}>Ambil Foto</Text>
-                <Text style={styles.uploadBoxHint}>Kamera ponsel</Text>
-              </TouchableOpacity>
+          <View style={styles.cameraPlaceholder}>
+            {/* Corner Framing Markers */}
+            <View style={styles.frameCornerTopLeft} />
+            <View style={styles.frameCornerTopRight} />
+            <View style={styles.frameCornerBottomLeft} />
+            <View style={styles.frameCornerBottomRight} />
 
-              <TouchableOpacity
-                style={[styles.uploadBox, styles.uploadBoxHalf]}
-                onPress={handlePickImage}
-                activeOpacity={0.8}
-              >
-                <View style={styles.uploadIconContainer}>
-                  <Feather name="image" size={24} color={colors.primary} />
-                </View>
-                <Text style={styles.uploadBoxTitle}>Dari Galeri</Text>
-                <Text style={styles.uploadBoxHint}>Pilih foto yang ada</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Tombol Contoh Foto Cepat */}
-            <View style={styles.sampleRow}>
-              <Text style={styles.sampleLabel}>Contoh foto cepat (pengujian):</Text>
-              <View style={styles.sampleButtons}>
-                <TouchableOpacity
-                  style={styles.sampleBtn}
-                  onPress={() => handleSelectSample(SAMPLE_INGREDIENTS_DATA_URL, 'telur_tomat')}
-                >
-                  <Text style={styles.sampleBtnText}>Telur, Tomat & Basil</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.sampleBtn}
-                  onPress={() => handleSelectSample(SAMPLE_FRUITS_DATA_URL, 'buah_segar')}
-                >
-                  <Text style={styles.sampleBtnText}>Buah-buahan Segar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Indikator Memuat */}
-        {isDetecting && (
-          <View style={styles.loadingBanner}>
-            <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 10 }} />
-            <Text style={styles.loadingBannerText}>
-              Memeriksa bahan makanan pada foto...
+            <Feather name="camera" size={38} color={colors.lightMint} style={{ marginBottom: 12 }} />
+            <Text style={styles.viewfinderInstruction}>
+              Arahkan kamera ke bahan makanan
+            </Text>
+            <Text style={styles.viewfinderSubtext}>
+              Sayuran, telur, tahu, atau bahan yang ada di kulkas
             </Text>
           </View>
         )}
 
-        {/* Kotak Pemberitahuan Error */}
-        {detectionError && (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorBoxTitle}>Pemberitahuan Analisis</Text>
-            <Text style={styles.errorBoxText}>{detectionError}</Text>
-          </View>
-        )}
+        {/* 3. SHUTTER & SELECTION CONTROLS (Reference UI Screen 2) */}
+        <View style={styles.controlsRow}>
+          {/* Gallery Button */}
+          <TouchableOpacity
+            style={styles.controlSideBtn}
+            onPress={handlePickImage}
+            activeOpacity={0.8}
+            accessibilityLabel="Pilih dari Galeri"
+          >
+            <Feather name="image" size={22} color={colors.primary} />
+          </TouchableOpacity>
+
+          {/* Big Circular Camera Shutter Button */}
+          <TouchableOpacity
+            style={styles.shutterOuterRing}
+            onPress={handleTakePhoto}
+            activeOpacity={0.85}
+            accessibilityLabel="Ambil Foto Bahan"
+          >
+            <View style={styles.shutterInnerCircle} />
+          </TouchableOpacity>
+
+          {/* Quick Sample Selector */}
+          <TouchableOpacity
+            style={styles.controlSideBtn}
+            onPress={() => handleSelectSample(SAMPLE_INGREDIENTS_DATA_URL, 'telur_tomat')}
+            activeOpacity={0.8}
+            accessibilityLabel="Contoh Foto Tes"
+          >
+            <Feather name="zap" size={20} color={colors.orangeDark} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Mode Switcher: FOTO | GALERI */}
+        <View style={styles.modeSwitchRow}>
+          <TouchableOpacity
+            style={[styles.modeTab, scanMode === 'camera' && styles.modeTabActive]}
+            onPress={() => {
+              setScanMode('camera');
+              handleTakePhoto();
+            }}
+          >
+            <Text style={[styles.modeTabText, scanMode === 'camera' && styles.modeTabTextActive]}>
+              FOTO
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeTab, scanMode === 'gallery' && styles.modeTabActive]}
+            onPress={() => {
+              setScanMode('gallery');
+              handlePickImage();
+            }}
+          >
+            <Text style={[styles.modeTabText, scanMode === 'gallery' && styles.modeTabTextActive]}>
+              GALERI
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* BAGIAN 2: Daftar & Pengeditan Bahan */}
-      {(ingredients.length > 0 || selectedImage) && (
-        <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>2. Bahan Terdeteksi</Text>
-            {ingredients.length > 0 && (
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{ingredients.length} bahan</Text>
+      {/* CTA DETEKSI BAHAN (Muncul jika foto sudah dipilih dan belum dianalisis) */}
+      {selectedImage && ingredients.length === 0 && (
+        <View style={styles.detectCtaWrap}>
+          <TouchableOpacity
+            style={[styles.primaryPillButton, isDetecting && styles.buttonDisabled]}
+            onPress={handleDetectIngredients}
+            disabled={isDetecting}
+            activeOpacity={0.85}
+          >
+            {isDetecting ? (
+              <View style={styles.btnRow}>
+                <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={styles.primaryPillBtnText}>Mengenali Bahan...</Text>
+              </View>
+            ) : (
+              <View style={styles.btnRow}>
+                <Feather name="search" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={styles.primaryPillBtnText}>Deteksi Bahan Makanan</Text>
               </View>
             )}
-          </View>
-          <Text style={styles.cardDesc}>
-            Periksa daftar bahan di bawah. Anda dapat menyunting nama, menghapus bahan, atau menambahkan bumbu lain.
-          </Text>
-
-          {/* Daftar Bahan */}
-          {ingredients.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>
-                {isDetecting
-                  ? 'Sedang memproses bahan...'
-                  : 'Belum ada bahan terdeteksi. Ketuk "Deteksi Bahan" di atas.'}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.ingredientsList}>
-              {ingredients.map((item, index) => (
-                <View key={item.id} style={styles.ingredientRow}>
-                  <Text style={styles.ingredientIndex}>{index + 1}.</Text>
-                  <TextInput
-                    style={styles.ingredientInput}
-                    value={item.name}
-                    onChangeText={(text) => handleEditIngredient(item.id, text)}
-                    placeholder="Nama bahan"
-                    placeholderTextColor="#a8a29e"
-                    autoCapitalize="none"
-                  />
-                  <View style={styles.confidenceTag}>
-                    <Text style={styles.confidenceText}>
-                      {Math.round(item.confidence * 100)}%
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteIngredient(item.id)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Feather name="trash-2" size={13} color="#dc2626" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Tambah Bahan Manual */}
-          <View style={styles.addSection}>
-            <Text style={styles.addSectionTitle}>Tambah Bahan Manual:</Text>
-            <View style={styles.addInputRow}>
-              <TextInput
-                style={styles.addInput}
-                value={newIngredientName}
-                onChangeText={setNewIngredientName}
-                placeholder="contoh: garam, minyak goreng, merica"
-                placeholderTextColor="#a8a29e"
-                onSubmitEditing={handleAddIngredient}
-                returnKeyType="done"
-              />
-              <TouchableOpacity
-                style={[styles.addButton, !newIngredientName.trim() && styles.buttonDisabled]}
-                onPress={handleAddIngredient}
-                disabled={!newIngredientName.trim()}
-              >
-                <Feather name="plus" size={14} color="#ffffff" style={{ marginRight: 4 }} />
-                <Text style={styles.addButtonText}>Tambah</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Tombol Konfirmasi Bahan */}
-          {ingredients.length > 0 && (
-            <TouchableOpacity
-              style={styles.confirmButton}
-              onPress={handleConfirmIngredients}
-              activeOpacity={0.85}
-            >
-              <Feather name="check" size={16} color="#ffffff" style={{ marginRight: 6 }} />
-              <Text style={styles.confirmButtonText}>Konfirmasi Bahan ({ingredients.length})</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* BAGIAN 3: Hasil Konfirmasi & Navigasi ke Rekomendasi */}
-      {confirmedIngredients && (
-        <View style={[styles.card, styles.confirmedCard]}>
-          <View style={styles.confirmedHeader}>
-            <View style={styles.checkCircleBadge}>
-              <Feather name="check" size={14} color="#15803d" />
-            </View>
-            <Text style={styles.confirmedTitle}>Bahan Siap Digunakan!</Text>
-          </View>
-          <Text style={styles.confirmedDesc}>
-            {confirmedIngredients.length} bahan berikut telah diverifikasi dan siap dijadikan masakan lezat:
-          </Text>
-          <View style={styles.tagGrid}>
-            {confirmedIngredients.map((ing, idx) => (
-              <View key={idx} style={styles.confirmedTag}>
-                <Text style={styles.confirmedTagText}>{ing}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* TOMBOL UTAMA M2: Beralih ke Rekomendasi */}
-          <TouchableOpacity
-            style={styles.toRecommendationsBtn}
-            onPress={() => onNavigateToRecommendations(confirmedIngredients)}
-            activeOpacity={0.88}
-          >
-            <Text style={styles.toRecommendationsBtnText}>Lihat Rekomendasi Masakan</Text>
-            <Feather name="arrow-right" size={18} color="#ffffff" />
           </TouchableOpacity>
         </View>
       )}
 
+      {/* Error Banner jika deteksi gagal */}
+      {detectionError && (
+        <View style={styles.errorNoticeBox}>
+          <Feather name="alert-circle" size={16} color={colors.error} style={{ marginRight: 8 }} />
+          <Text style={styles.errorNoticeText}>{detectionError}</Text>
+        </View>
+      )}
+
+      {/* 4. HASIL DETEKSI (Reference UI Screen 3) */}
+      {(ingredients.length > 0 || isManualInputOpen) && (
+        <View style={styles.detectionResultSection}>
+          <View style={styles.detectionHeaderRow}>
+            <View>
+              <Text style={styles.detectionTitle}>Bahan yang Terdeteksi</Text>
+              <Text style={styles.detectionSubtitle}>
+                {ingredients.length} bahan siap diolah
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.addManualPill}
+              onPress={() => setIsManualInputOpen(!isManualInputOpen)}
+              activeOpacity={0.8}
+            >
+              <Feather
+                name={isManualInputOpen ? 'x' : 'plus'}
+                size={14}
+                color={colors.primary}
+                style={{ marginRight: 4 }}
+              />
+              <Text style={styles.addManualPillText}>
+                {isManualInputOpen ? 'Tutup' : 'Tambah'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Form Tambah Bahan Manual */}
+          {isManualInputOpen && (
+            <View style={styles.manualInputCard}>
+              <TextInput
+                style={styles.manualTextInput}
+                placeholder="Contoh: telur, bayam, wortel"
+                placeholderTextColor={colors.textMuted}
+                value={newIngredientName}
+                onChangeText={setNewIngredientName}
+                onSubmitEditing={handleAddIngredient}
+                autoFocus
+              />
+              <TouchableOpacity
+                style={styles.manualAddBtn}
+                onPress={handleAddIngredient}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.manualAddBtnText}>Simpan</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Grid Bahan Makanan (3 Kolom sesuai Reference UI Screen 3) */}
+          <View style={styles.ingredientGrid}>
+            {ingredients.map((item, index) => {
+              const isEditing = editingIngredientId === item.id;
+              return (
+                <View key={item.id} style={styles.ingredientCard}>
+                  {/* Icon Avatar */}
+                  <View style={styles.ingredientIconCircle}>
+                    <Feather name="check" size={16} color={colors.primary} />
+                  </View>
+
+                  {/* Name or Inline Input */}
+                  {isEditing ? (
+                    <TextInput
+                      style={styles.inlineEditInput}
+                      value={item.name}
+                      onChangeText={(val) => handleEditIngredient(item.id, val)}
+                      onBlur={() => setEditingIngredientId(null)}
+                      autoFocus
+                    />
+                  ) : (
+                    <Text
+                      style={styles.ingredientNameText}
+                      numberOfLines={1}
+                      onPress={() => setEditingIngredientId(item.id)}
+                    >
+                      {item.name}
+                    </Text>
+                  )}
+
+                  {/* Delete Button */}
+                  <TouchableOpacity
+                    style={styles.deleteBadgeBtn}
+                    onPress={() => handleDeleteIngredient(item.id)}
+                    activeOpacity={0.7}
+                    accessibilityLabel={`Hapus ${item.name}`}
+                  >
+                    <Feather name="x" size={12} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+
+            {/* Quick Add Card Slot */}
+            <TouchableOpacity
+              style={styles.addIngredientSlot}
+              onPress={() => setIsManualInputOpen(true)}
+              activeOpacity={0.7}
+            >
+              <Feather name="plus" size={20} color={colors.primary} />
+              <Text style={styles.addSlotText}>Tambah Bahan</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 5. PRIMARY CTA: LIHAT REKOMENDASI RESEP (Reference UI Screen 3) */}
+          <TouchableOpacity
+            style={styles.primaryPillButton}
+            onPress={handleProceedToRecommendations}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.primaryPillBtnText}>Lihat Rekomendasi Resep</Text>
+            <Feather name="arrow-right" size={17} color="#FFFFFF" style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* 6. CONTOH FOTO PENGUJIAN INSTAN (Reference UI Screen 3 Bottom) */}
+      <View style={styles.sampleSection}>
+        <View style={styles.sampleHeaderRow}>
+          <Text style={styles.sampleSectionTitle}>Contoh Foto Cepat</Text>
+          <Text style={styles.sampleSubtitle}>Untuk pengujian instan</Text>
+        </View>
+        <View style={styles.sampleCardsRow}>
+          <TouchableOpacity
+            style={styles.sampleCardItem}
+            onPress={() => handleSelectSample(SAMPLE_INGREDIENTS_DATA_URL, 'telur_tomat')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.sampleThumbPlaceholder}>
+              <Feather name="image" size={18} color={colors.primary} />
+            </View>
+            <Text style={styles.sampleCardLabel}>Telur & Tomat</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.sampleCardItem}
+            onPress={() => handleSelectSample(SAMPLE_FRUITS_DATA_URL, 'buah_segar')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.sampleThumbPlaceholder, { backgroundColor: '#FFF7ED' }]}>
+              <Feather name="image" size={18} color={colors.orangeDark} />
+            </View>
+            <Text style={styles.sampleCardLabel}>Sayur & Buah</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Backend Status Bar */}
+      <View style={styles.backendFooter}>
+        <View
+          style={[
+            styles.backendDot,
+            backendStatus === 'connected' && styles.dotGreen,
+            backendStatus === 'failed' && styles.dotRed,
+          ]}
+        />
+        <Text style={styles.backendText}>
+          {backendStatus === 'connected'
+            ? `Backend aktif: ${backendMessage}`
+            : 'Nomz Vision API Siap'}
+        </Text>
+        <TouchableOpacity onPress={handleCheckHealth}>
+          <Text style={styles.backendCheckText}>
+            {backendStatus === 'checking' ? 'Cek...' : 'Cek Status'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 28,
-    maxWidth: 520,
+    paddingTop: 8,
+    paddingBottom: 40,
+    maxWidth: 480,
     width: '100%',
     alignSelf: 'center',
   },
-  topHeader: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
-    width: '100%',
+    paddingVertical: 10,
+    marginBottom: 12,
   },
-  brandWrap: {
-    flex: 1,
-  },
-  brandTitle: {
-    fontSize: 26,
+  topBarTitle: {
+    fontSize: 18,
     fontWeight: '700',
-    color: colors.primaryDark,
-    letterSpacing: -0.5,
+    color: colors.textPrimary,
   },
-  brandSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  profileAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#EFF3EF',
-    borderWidth: 1,
-    borderColor: colors.border,
+  topBarIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pageIntro: {
-    marginTop: 14,
-    marginBottom: 12,
-    width: '100%',
+  viewfinderCard: {
+    backgroundColor: '#1E2421',
+    borderRadius: radius.xl,
+    overflow: 'hidden',
+    paddingBottom: 16,
+    marginBottom: 20,
+    ...shadows.level3,
   },
-  pageTitle: {
-    fontSize: 20,
+  previewImageContainer: {
+    width: '100%',
+    height: 280,
+    position: 'relative',
+    backgroundColor: '#000000',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  cameraPlaceholder: {
+    width: '100%',
+    height: 280,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    position: 'relative',
+    backgroundColor: '#151A17',
+  },
+  viewfinderInstruction: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  viewfinderSubtext: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  frameCornerTopLeft: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    width: 28,
+    height: 28,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderColor: '#FFFFFF',
+    borderTopLeftRadius: 6,
+  },
+  frameCornerTopRight: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 28,
+    height: 28,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderColor: '#FFFFFF',
+    borderTopRightRadius: 6,
+  },
+  frameCornerBottomLeft: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    width: 28,
+    height: 28,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderColor: '#FFFFFF',
+    borderBottomLeftRadius: 6,
+  },
+  frameCornerBottomRight: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 28,
+    height: 28,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderColor: '#FFFFFF',
+    borderBottomRightRadius: 6,
+  },
+  retakeOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    alignSelf: 'center',
+  },
+  retakeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 118, 110, 0.9)',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.lightMint,
+  },
+  retakeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingTop: 16,
+    paddingHorizontal: 24,
+  },
+  controlSideBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.full,
+    backgroundColor: '#2D3531',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#3F4944',
+  },
+  shutterOuterRing: {
+    width: 68,
+    height: 68,
+    borderRadius: radius.full,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  shutterInnerCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.full,
+    backgroundColor: '#FFFFFF',
+  },
+  modeSwitchRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 24,
+    marginTop: 14,
+  },
+  modeTab: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  modeTabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: colors.freshMint,
+  },
+  modeTabText: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  modeTabTextActive: {
+    color: '#FFFFFF',
+  },
+  detectCtaWrap: {
+    marginBottom: 20,
+  },
+  primaryPillButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    ...shadows.level2,
+  },
+  primaryPillBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.65,
+  },
+  errorNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: radius.md,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorNoticeText: {
+    flex: 1,
+    color: colors.error,
+    fontSize: 13,
+  },
+  detectionResultSection: {
+    marginBottom: 24,
+  },
+  detectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  detectionTitle: {
+    fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  pageDesc: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 19,
-    marginTop: 4,
+  detectionSubtitle: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
   },
-  backendBar: {
-    width: '100%',
-    backgroundColor: '#FAF8F3',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  addManualPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    backgroundColor: colors.mintSoft,
     borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 14,
+    borderColor: colors.lightMint,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: radius.full,
   },
-  backendBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 8,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#a8a29e',
-    marginRight: 6,
-  },
-  statusDotGreen: {
-    backgroundColor: colors.success,
-  },
-  statusDotRed: {
-    backgroundColor: colors.error,
-  },
-  statusDotAmber: {
-    backgroundColor: colors.accent,
-  },
-  backendBarText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  checkHealthBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: colors.surface,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  checkHealthBtnText: {
-    fontSize: 10,
+  addManualPillText: {
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.primary,
-    fontWeight: '600',
   },
-  card: {
-    width: '100%',
+  manualInputCard: {
+    flexDirection: 'row',
     backgroundColor: colors.surface,
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: 16,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    padding: 6,
+    marginBottom: 12,
     alignItems: 'center',
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+  manualTextInput: {
+    flex: 1,
+    fontSize: 14,
     color: colors.textPrimary,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-  cardDesc: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 4,
-    marginBottom: 14,
-    lineHeight: 18,
+  manualAddBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: radius.sm,
   },
-  countBadge: {
-    backgroundColor: '#EFF3EF',
-    borderColor: colors.border,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
+  manualAddBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
-  countBadgeText: {
-    color: colors.primaryDark,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  uploadOptionsRow: {
+  ingredientGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
+    marginBottom: 20,
   },
-  uploadBox: {
+  ingredientCard: {
+    width: '31%',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    position: 'relative',
+    ...shadows.level1,
+  },
+  ingredientIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.mintSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  ingredientNameText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    textTransform: 'capitalize',
+  },
+  inlineEditInput: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.primary,
+    padding: 0,
+    minWidth: 50,
+  },
+  deleteBadgeBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addIngredientSlot: {
+    width: '31%',
+    backgroundColor: '#FAF8F3',
+    borderRadius: radius.md,
     borderWidth: 1.5,
     borderColor: colors.border,
     borderStyle: 'dashed',
-    borderRadius: 16,
-    paddingVertical: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FAF8F3',
-  },
-  uploadBoxHalf: {
-    flex: 1,
-    paddingVertical: 20,
-  },
-  uploadIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EFF3EF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  uploadBoxTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  uploadBoxHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 3,
-  },
-  sampleRow: {
-    marginTop: 12,
-  },
-  sampleLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 6,
-  },
-  sampleButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  sampleBtn: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    paddingVertical: 9,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sampleBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  previewContainer: {
-    width: '100%',
-  },
-  imagePreview: {
-    width: '100%',
-    height: 220,
-    borderRadius: 14,
-    backgroundColor: '#EFF3EF',
-  },
-  imageActionRow: {
-    flexDirection: 'row',
-    marginTop: 12,
-    gap: 8,
-  },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 13,
+  addSlotText: {
+    fontSize: 11,
     fontWeight: '600',
-  },
-  secondaryButton: {
-    flexDirection: 'row',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#FAF8F3',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  secondaryButtonText: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  loadingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF3EF',
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 12,
-  },
-  loadingBannerText: {
-    color: colors.primaryDark,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  errorBox: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FCA5A5',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 12,
-  },
-  errorBoxTitle: {
-    color: colors.error,
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  errorBoxText: {
-    color: colors.error,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  emptyState: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  emptyStateText: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    color: colors.primary,
+    marginTop: 6,
     textAlign: 'center',
   },
-  ingredientsList: {
-    marginBottom: 14,
-  },
-  ingredientRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FAF8F3',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginBottom: 6,
+  sampleSection: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSubtle,
+    marginBottom: 20,
+    ...shadows.level1,
   },
-  ingredientIndex: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '600',
-    width: 22,
-  },
-  ingredientInput: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.textPrimary,
-    fontWeight: '600',
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-  },
-  confidenceTag: {
-    backgroundColor: '#EFF3EF',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  confidenceText: {
-    color: colors.primaryDark,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  deleteButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#FEF2F2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addSection: {
-    marginTop: 6,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  addSectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 6,
-  },
-  addInputRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  addInput: {
-    flex: 1,
-    backgroundColor: '#FAF8F3',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 13,
-    color: colors.textPrimary,
-  },
-  addButton: {
-    flexDirection: 'row',
-    backgroundColor: colors.primaryDark,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  confirmButton: {
-    flexDirection: 'row',
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 14,
-  },
-  confirmButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  confirmedCard: {
-    backgroundColor: '#EFF3EF',
-    borderColor: '#C8D6C9',
-  },
-  confirmedHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  checkCircleBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#DCE8DC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  confirmedTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.primaryDark,
-  },
-  confirmedDesc: {
-    fontSize: 13,
-    color: colors.textSecondary,
+  sampleHeaderRow: {
     marginBottom: 10,
   },
-  tagGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 16,
-  },
-  confirmedTag: {
-    backgroundColor: '#ffffff',
-    borderColor: colors.primary,
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  confirmedTagText: {
-    color: colors.primaryDark,
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  toRecommendationsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
-  toRecommendationsBtnText: {
-    color: '#ffffff',
+  sampleSectionTitle: {
     fontSize: 14,
     fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  sampleSubtitle: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  sampleCardsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  sampleCardItem: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+  },
+  sampleThumbPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.sm,
+    backgroundColor: colors.mintSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  sampleCardLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  backendFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+  },
+  backendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#9CA3AF',
     marginRight: 6,
+  },
+  dotGreen: {
+    backgroundColor: colors.success,
+  },
+  dotRed: {
+    backgroundColor: colors.error,
+  },
+  backendText: {
+    flex: 1,
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  backendCheckText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary,
   },
 });

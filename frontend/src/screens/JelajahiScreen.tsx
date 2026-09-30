@@ -8,7 +8,7 @@ import {
   TextInput,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors } from '../theme';
+import { colors, radius, shadows, spacing } from '../theme';
 
 interface JelajahiScreenProps {
   onSelectCategoryIngredients: (ingredients: string[]) => void;
@@ -22,54 +22,51 @@ interface RescueCategory {
   badge: string;
   ingredients: string[];
   icon: keyof typeof Feather.glyphMap;
-  color: string;
+  themeColor: string;
+  bgTint: string;
 }
 
+// 4 Approved Themes from DESIGN.md Section 10 & Brand Board Reference
 const RESCUE_CATEGORIES: RescueCategory[] = [
   {
     id: 'cat-1',
-    title: 'Kreasi Telur Rumahan',
-    subtitle: 'Olah sisa telur jadi hidangan nikmat berprotein tinggi',
-    badge: '3 Bahan Siap',
-    ingredients: ['telur', 'daun bawang', 'bawang putih'],
-    icon: 'sun',
-    color: '#d97706',
-  },
-  {
-    id: 'cat-2',
-    title: 'Super Kilat (< 15 Menit)',
-    subtitle: 'Masak praktis tanpa repot saat lapar mendadak',
+    title: 'Makanan Praktis',
+    subtitle: 'Masak kilat < 15 menit saat waktu terbatas',
     badge: 'Cepat & Praktis',
     ingredients: ['telur', 'tomat', 'kecap manis'],
     icon: 'zap',
-    color: colors.primary,
+    themeColor: colors.primary,
+    bgTint: colors.mintSoft,
+  },
+  {
+    id: 'cat-2',
+    title: 'Sisaan Makanan (Food Rescue)',
+    subtitle: 'Selamatkan sisa nasi, tahu, dan sayuran sebelum layu',
+    badge: 'Penyelamat Dapur',
+    ingredients: ['nasi putih', 'bawang putih', 'telur', 'sayur'],
+    icon: 'refresh-cw',
+    themeColor: colors.orangeDark,
+    bgTint: '#FFF7ED',
   },
   {
     id: 'cat-3',
-    title: 'Serba Tahu & Tempe Hemat',
-    subtitle: 'Makanan harian ramah kantong penuh gizi dan bumbu rempah',
-    badge: 'Hemat Akhir Bulan',
-    ingredients: ['tahu', 'tempe', 'bawang merah', 'kecap'],
-    icon: 'box',
-    color: '#16a34a',
+    title: 'Resep Kreatif',
+    subtitle: 'Padukan bumbu dasar dapur jadi kreasi rasa baru',
+    badge: 'Kaya Rempah',
+    ingredients: ['bawang bombay', 'cabai', 'telur', 'saus tiram'],
+    icon: 'compass',
+    themeColor: colors.success,
+    bgTint: '#F0FDF4',
   },
   {
     id: 'cat-4',
-    title: 'Sayur Segar Sisa Kulkas',
-    subtitle: 'Selamatkan sayur layu sebelum membusuk di rak kulkas',
-    badge: 'Food Rescue',
-    ingredients: ['wortel', 'bayam', 'bawang putih'],
-    icon: 'shield',
-    color: '#0284c7',
-  },
-  {
-    id: 'cat-5',
-    title: 'Tumisan Rumahan Sederhana',
-    subtitle: 'Cukup iris, tumis, dan hidangkan hangat dengan nasi',
-    badge: 'Mudah Dimasak',
-    ingredients: ['bawang bombay', 'cabai merah', 'telur', 'saus tiram'],
-    icon: 'feather',
-    color: '#9333ea',
+    title: 'Lebih Sehat & Hemat',
+    subtitle: 'Nutrisi seimbang ramah kantong dari stok dapur harian',
+    badge: 'Hemat & Bernutrisi',
+    ingredients: ['tahu', 'tempe', 'bawang merah', 'tomat'],
+    icon: 'heart',
+    themeColor: '#0284C7',
+    bgTint: '#F0F9FF',
   },
 ];
 
@@ -88,49 +85,52 @@ export function JelajahiScreen({
 
   return (
     <View style={styles.container}>
-      {/* Top Bar */}
+      {/* 1. TOP BAR */}
       <View style={styles.topBar}>
         <View style={styles.brandWrap}>
-          <Text style={styles.topBarTitle}>Jelajahi Resep</Text>
-          <Text style={styles.topBarSubtitle}>Inspirasi Food Rescue Dapur Rumah</Text>
+          <Text style={styles.topBarTitle}>Jelajahi Inspirasi</Text>
+          <Text style={styles.topBarSubtitle}>Ide masakan dari bahan yang ada</Text>
         </View>
         <TouchableOpacity style={styles.scanQuickBtn} onPress={onStartScan} activeOpacity={0.8}>
-          <Feather name="camera" size={16} color="#FFFFFF" />
+          <Feather name="camera" size={17} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Search Input Bar */}
-        <View style={styles.searchBar}>
-          <Feather name="search" size={17} color={colors.textSecondary} style={{ marginRight: 10 }} />
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 2. SOFT CAPSULE SEARCH */}
+        <View style={styles.searchCapsule}>
+          <Feather name="search" size={18} color={colors.primary} style={{ marginRight: 10 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Cari ide olahan (misal: telur, tahu, tumis)..."
-            placeholderTextColor="#a8a29e"
+            placeholder="Cari ide olahan (telur, tahu, sayur)..."
+            placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Feather name="x" size={16} color={colors.textSecondary} />
+              <Feather name="x" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Hero Card Banner */}
+        {/* 3. HERO PHILOSOPHY BANNER (DESIGN.md Section 10) */}
         <View style={styles.bannerCard}>
           <View style={styles.bannerBadge}>
-            <Text style={styles.bannerBadgeText}>TIPS FOOD RESCUE</Text>
+            <Text style={styles.bannerBadgeText}>KULINER BIJAK</Text>
           </View>
-          <Text style={styles.bannerTitle}>Gunakan Apa yang Tersedia</Text>
+          <Text style={styles.bannerTitle}>Bahan yang Ada Masih Bisa Jadi Enak</Text>
           <Text style={styles.bannerDesc}>
-            Pilih kategori olahan di bawah ini untuk langsung meracik resep AI
-            berdasarkan kombinasi bahan yang biasa ada di rumah.
+            Pilih salah satu tema olahan di bawah untuk menemukan resep teruji yang
+            memaksimalkan bahan-bahan yang umum tersisa di rumah.
           </Text>
         </View>
 
-        {/* Section List */}
-        <Text style={styles.sectionHeading}>Kategori Penyelamat Bahan</Text>
+        {/* 4. SECTION: KATEGORI TEMA RESCUE */}
+        <Text style={styles.sectionHeading}>Tema Penyelamat Bahan</Text>
 
         <View style={styles.categoryList}>
           {filtered.map((cat) => (
@@ -140,31 +140,27 @@ export function JelajahiScreen({
               onPress={() => onSelectCategoryIngredients(cat.ingredients)}
               activeOpacity={0.85}
             >
-              <View style={styles.catHeader}>
-                <View style={[styles.catIconWrap, { backgroundColor: '#EFF3EF' }]}>
-                  <Feather name={cat.icon} size={20} color={cat.color} />
-                </View>
-                <View style={styles.catBadge}>
-                  <Text style={styles.catBadgeText}>{cat.badge}</Text>
-                </View>
+              <View style={[styles.categoryIconBox, { backgroundColor: cat.bgTint }]}>
+                <Feather name={cat.icon} size={22} color={cat.themeColor} />
               </View>
 
-              <Text style={styles.catTitle}>{cat.title}</Text>
-              <Text style={styles.catSubtitle}>{cat.subtitle}</Text>
-
-              {/* Tag Bahan */}
-              <View style={styles.tagWrap}>
-                {cat.ingredients.map((ing, idx) => (
-                  <View key={idx} style={styles.ingPill}>
-                    <Text style={styles.ingPillText}>{ing}</Text>
+              <View style={styles.categoryContent}>
+                <View style={styles.categoryTopRow}>
+                  <Text style={styles.categoryTitle}>{cat.title}</Text>
+                  <View style={styles.categoryBadge}>
+                    <Text style={styles.categoryBadgeText}>{cat.badge}</Text>
                   </View>
-                ))}
+                </View>
+
+                <Text style={styles.categorySubtitle}>{cat.subtitle}</Text>
+
+                <View style={styles.ingredientsRow}>
+                  <Text style={styles.ingredientsLabel}>Contoh bahan: </Text>
+                  <Text style={styles.ingredientsValue}>{cat.ingredients.join(', ')}</Text>
+                </View>
               </View>
 
-              <View style={styles.catFooter}>
-                <Text style={styles.catFooterText}>Racik Resep AI</Text>
-                <Feather name="arrow-right" size={14} color={colors.primary} />
-              </View>
+              <Feather name="chevron-right" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           ))}
         </View>
@@ -176,80 +172,88 @@ export function JelajahiScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.background,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E7E5DE',
+    borderBottomColor: colors.borderSubtle,
   },
   brandWrap: {
     flex: 1,
   },
   topBarTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: colors.primaryDark,
+    color: colors.textPrimary,
   },
   topBarSubtitle: {
     fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
+    color: colors.textMuted,
+    marginTop: 1,
   },
   scanQuickBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: radius.full,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    ...shadows.level1,
   },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 40,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
-  searchBar: {
+  searchCapsule: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.full,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E7E5DE',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 16,
+    marginBottom: 18,
+    ...shadows.level1,
+    minHeight: 48,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textPrimary,
   },
   bannerCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E7E5DE',
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     padding: 18,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
     marginBottom: 20,
+    ...shadows.level1,
   },
   bannerBadge: {
-    backgroundColor: '#EFF3EF',
-    paddingHorizontal: 8,
+    backgroundColor: colors.mintSoft,
     paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 8,
+    borderRadius: radius.xs,
     alignSelf: 'flex-start',
     marginBottom: 8,
   },
   bannerBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: colors.primaryDark,
+    color: colors.primary,
+    letterSpacing: 0.5,
   },
   bannerTitle: {
     fontSize: 16,
@@ -260,92 +264,82 @@ const styles = StyleSheet.create({
   bannerDesc: {
     fontSize: 13,
     color: colors.textSecondary,
-    lineHeight: 19,
+    lineHeight: 18,
   },
   sectionHeading: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 12,
   },
   categoryList: {
-    gap: 14,
+    gap: 12,
   },
   categoryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#E7E5DE',
-    padding: 16,
+    borderColor: colors.borderSubtle,
+    flexDirection: 'row',
+    alignItems: 'center',
+    ...shadows.level1,
   },
-  catHeader: {
+  categoryIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  categoryContent: {
+    flex: 1,
+    marginRight: 8,
+  },
+  categoryTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 3,
   },
-  catIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  catBadge: {
-    backgroundColor: '#FAF8F3',
-    borderWidth: 1,
-    borderColor: '#E7E5DE',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  catBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  catTitle: {
-    fontSize: 16,
+  categoryTitle: {
+    fontSize: 15,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 4,
   },
-  catSubtitle: {
+  categoryBadge: {
+    backgroundColor: colors.background,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: radius.xs,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+  },
+  categoryBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  categorySubtitle: {
     fontSize: 12,
     color: colors.textSecondary,
-    lineHeight: 17,
-    marginBottom: 12,
+    lineHeight: 16,
+    marginBottom: 4,
   },
-  tagWrap: {
+  ingredientsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 14,
   },
-  ingPill: {
-    backgroundColor: '#EFF3EF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  ingPillText: {
+  ingredientsLabel: {
     fontSize: 11,
-    color: colors.primaryDark,
+    color: colors.textMuted,
+    fontWeight: '600',
+  },
+  ingredientsValue: {
+    fontSize: 11,
+    color: colors.primary,
     fontWeight: '500',
     textTransform: 'capitalize',
-  },
-  catFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    borderTopWidth: 1,
-    borderTopColor: '#FAF8F3',
-    paddingTop: 10,
-  },
-  catFooterText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-    marginRight: 4,
   },
 });
