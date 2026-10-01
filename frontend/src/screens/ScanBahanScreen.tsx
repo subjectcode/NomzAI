@@ -1,150 +1,183 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
   ActivityIndicator,
-  ScrollView,
   Image,
   TextInput,
   Alert,
+  Linking,
+  AppState,
+  AppStateStatus,
+  ScrollView,
+  BackHandler,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import { checkBackendHealth, detectIngredientsFromImage } from '../services/api';
+import { detectIngredientsFromImage } from '../services/api';
 import { Ingredient } from '../types';
-import { SAMPLE_INGREDIENTS_DATA_URL, SAMPLE_FRUITS_DATA_URL } from '../sampleImages';
 import { colors, radius, shadows, spacing } from '../theme';
-
-type BackendStatus = 'idle' | 'checking' | 'connected' | 'failed';
-type ScanMode = 'camera' | 'gallery';
 
 interface ScanBahanScreenProps {
   onNavigateToRecommendations: (confirmedIngredients: string[]) => void;
   onBack?: () => void;
+  isActive?: boolean;
 }
 
 export function ScanBahanScreen({
   onNavigateToRecommendations,
   onBack,
+  isActive = true,
 }: ScanBahanScreenProps) {
-  // Status Backend
-  const [backendStatus, setBackendStatus] = useState<BackendStatus>('idle');
-  const [backendMessage, setBackendMessage] = useState<string>('');
+  // 1. Permission Kamera (Real Android Permission API via expo-camera)
+  const [permission, requestPermission] = useCameraPermissions();
 
-  // Mode Viewfinder (Foto vs Galeri)
-  const [scanMode, setScanMode] = useState<ScanMode>('camera');
+  // 2. Camera ref & Flash/Torch state
+  const cameraRef = useRef<CameraView>(null);
+  const [isTorchOn, setIsTorchOn] = useState<boolean>(false);
+  const [isCapturing, setIsCapturing] = useState<boolean>(false);
 
-  // Status Foto Terpilih
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [imageMime, setImageMime] = useState<string>('image/jpeg');
-  const [imageFileName, setImageFileName] = useState<string>('food.jpg');
+  // 3. Mode Viewfinder (Foto vs Galeri)
+  const [scanMode, setScanMode] = useState<'camera' | 'gallery'>('camera');
 
-  // Status Analisis
+  // 4. Status Foto Tertangkap (Mode Konfirmasi)
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewMime, setPreviewMime] = useState<string>('image/jpeg');
+  const [previewFileName, setPreviewFileName] = useState<string>('capture.jpg');
+
+  // 5. Status Analisis / Deteksi Bahan
   const [isDetecting, setIsDetecting] = useState<boolean>(false);
   const [detectionError, setDetectionError] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
 
-  // Input Bahan Manual & Mode Edit
+  // 6. Input Bahan Manual & Edit
   const [isManualInputOpen, setIsManualInputOpen] = useState<boolean>(false);
   const [newIngredientName, setNewIngredientName] = useState<string>('');
   const [editingIngredientId, setEditingIngredientId] = useState<string | null>(null);
 
-  // Status Bahan Dikonfirmasi
-  const [confirmedIngredients, setConfirmedIngredients] = useState<string[] | null>(null);
+  // 7. App State & Lifecycle (Release camera resources when backgrounded)
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
 
-  // Memeriksa kesehatan backend
-  const handleCheckHealth = async () => {
-    setBackendStatus('checking');
-    try {
-      const res = await checkBackendHealth();
-      setBackendStatus('connected');
-      setBackendMessage(`API: ${res.service} • DB: ${res.database}`);
-    } catch (err: any) {
-      setBackendStatus('failed');
-      setBackendMessage(err.message || 'Koneksi gagal');
-    }
-  };
-
-  // Mengambil foto langsung dengan kamera
-  const handleTakePhoto = async () => {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert(
-          'Izin Kamera Diperlukan',
-          'Nomz memerlukan akses ke kamera untuk memindai bahan makanan langsung. Silakan aktifkan izin kamera pada Pengaturan perangkat Anda.'
-        );
-        return;
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      setAppState(nextAppState);
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        setIsTorchOn(false);
       }
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
+  // Request permission saat masuk Scan jika belum diberikan
+  useEffect(() => {
+    if (isActive && permission && !permission.granted && permission.canAskAgain) {
+      requestPermission();
+    }
+  }, [isActive, permission, requestPermission]);
+
+  // Handle hardware back button
+  useEffect(() => {
+    const onBackPress = () => {
+      if (previewImage) {
+        handleCancelPreview();
+        return true;
+      }
+      if (isManualInputOpen) {
+        setIsManualInputOpen(false);
+        return true;
+      }
+      if (onBack) {
+        onBack();
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backHandler.remove();
+  }, [previewImage, isManualInputOpen, onBack]);
+
+  // Flash / Torch toggle
+  const handleToggleFlash = useCallback(() => {
+    setIsTorchOn((prev) => !prev);
+  }, []);
+
+  // Shutter Capture -> Enter Photo Confirmation
+  const handleShutterCapture = async () => {
+    if (isCapturing || !cameraRef.current) return;
+    setIsCapturing(true);
+    setDetectionError(null);
+
+    try {
+      const photo = await cameraRef.current.takePictureAsync({
         quality: 0.85,
+        skipProcessing: true,
       });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        setSelectedImage(asset.uri);
-        setImageMime(asset.mimeType || 'image/jpeg');
-        setImageFileName(asset.fileName || 'camera_food.jpg');
-        setIngredients([]);
-        setDetectionError(null);
-        setConfirmedIngredients(null);
+      if (photo && photo.uri) {
+        setPreviewImage(photo.uri);
+        setPreviewMime('image/jpeg');
+        setPreviewFileName(`nomz_scan_${Date.now()}.jpg`);
+        setIsTorchOn(false);
       }
     } catch (err: any) {
-      Alert.alert('Gagal Mengambil Foto', err.message || 'Tidak dapat membuka kamera.');
+      Alert.alert('Gagal Mengambil Foto', err.message || 'Tidak dapat mengambil foto dari kamera.');
+    } finally {
+      setIsCapturing(false);
     }
   };
 
-  // Memilih foto dari galeri
-  const handlePickImage = async () => {
+  // Gallery Picker -> Enter Photo Confirmation
+  const handleOpenGallery = async () => {
+    setDetectionError(null);
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
+        allowsEditing: false,
         quality: 0.85,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        setSelectedImage(asset.uri);
-        setImageMime(asset.mimeType || 'image/jpeg');
-        setImageFileName(asset.fileName || 'food.jpg');
-        setIngredients([]);
-        setDetectionError(null);
-        setConfirmedIngredients(null);
+        setPreviewImage(asset.uri);
+        setPreviewMime(asset.mimeType || 'image/jpeg');
+        setPreviewFileName(asset.fileName || `nomz_gallery_${Date.now()}.jpg`);
+        setScanMode('gallery');
+      } else {
+        // Safe return on cancellation
+        setScanMode('camera');
       }
     } catch (err: any) {
-      Alert.alert('Gagal Membuka Galeri', err.message || 'Tidak dapat memilih gambar.');
+      Alert.alert('Gagal Membuka Galeri', err.message || 'Tidak dapat memilih foto.');
+      setScanMode('camera');
     }
   };
 
-  // Memilih contoh foto cepat
-  const handleSelectSample = (sampleDataUrl: string, sampleName: string) => {
-    setSelectedImage(sampleDataUrl);
-    setImageMime('image/jpeg');
-    setImageFileName(`${sampleName}.jpg`);
-    setIngredients([]);
+  // Batalkan Foto / Foto Ulang
+  const handleCancelPreview = () => {
+    setPreviewImage(null);
     setDetectionError(null);
-    setConfirmedIngredients(null);
+    setIngredients([]);
+    setScanMode('camera');
   };
 
-  // Deteksi Bahan Otomatis
-  const handleDetectIngredients = async () => {
-    if (!selectedImage) return;
-
+  // Konfirmasi Foto -> Deteksi Bahan
+  const handleConfirmAndDetect = async () => {
+    if (!previewImage || isDetecting) return;
     setIsDetecting(true);
     setDetectionError(null);
-    setConfirmedIngredients(null);
 
     try {
-      const detected = await detectIngredientsFromImage(selectedImage, imageMime, imageFileName);
+      const detected = await detectIngredientsFromImage(previewImage, previewMime, previewFileName);
       setIngredients(detected);
       if (detected.length === 0) {
         setDetectionError(
-          'Tidak ada bahan makanan yang terdeteksi. Anda dapat menambahkan bahan secara manual di bawah.'
+          'Tidak ada bahan makanan yang terdeteksi. Silakan coba foto ulang dengan pencahayaan lebih jelas atau tambah bahan secara manual.'
         );
       }
     } catch (err: any) {
@@ -166,7 +199,7 @@ export function ScanBahanScreen({
     setIngredients((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // Tambah bahan baru secara manual
+  // Tambah bahan manual
   const handleAddIngredient = () => {
     const trimmed = newIngredientName.trim();
     if (!trimmed) return;
@@ -182,7 +215,7 @@ export function ScanBahanScreen({
     setIsManualInputOpen(false);
   };
 
-  // Lanjutkan ke Rekomendasi
+  // Lanjut ke Rekomendasi Resep
   const handleProceedToRecommendations = () => {
     const validList = ingredients
       .map((i) => i.name.trim())
@@ -196,176 +229,85 @@ export function ScanBahanScreen({
     onNavigateToRecommendations(validList);
   };
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* 1. TOP BAR (Reference UI Screen 2 "Pindai Bahan") */}
-      <View style={styles.topBar}>
-        {onBack ? (
-          <TouchableOpacity style={styles.topBarIconBtn} onPress={onBack} activeOpacity={0.7}>
+  // Bantuan / Panduan Pindai
+  const handleHelpGuide = () => {
+    Alert.alert(
+      'Panduan Pindai Bahan',
+      'Arahkan kamera ke bahan makanan segar, kulkas, atau meja dapur Anda.\n\nTips:\n• Pastikan pencahayaan cukup terang\n• Tata bahan agar tidak saling menumpuk\n• Anda dapat memeriksa hasil atau menambah bahan setelah foto dikonfirmasi'
+    );
+  };
+
+  // Buka pengaturan izin sistem Android
+  const handleOpenSettings = () => {
+    Linking.openSettings();
+  };
+
+  // Tentukan apakah live camera harus aktif
+  const isCameraActive =
+    isActive &&
+    appState === 'active' &&
+    scanMode === 'camera' &&
+    !previewImage &&
+    ingredients.length === 0;
+
+  // -------------------------------------------------------------------------
+  // KASUS 1: HASIL DETEKSI (Bahan Terdeteksi Siap Dikonfirmasi)
+  // -------------------------------------------------------------------------
+  if (ingredients.length > 0 || (detectionError && previewImage)) {
+    return (
+      <View style={styles.resultsContainer}>
+        {/* Top Bar Ringkas */}
+        <View style={styles.resultsTopBar}>
+          <TouchableOpacity
+            style={styles.topBarIconBtn}
+            onPress={handleCancelPreview}
+            activeOpacity={0.7}
+          >
             <Feather name="arrow-left" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
-        ) : (
-          <View style={{ width: 36 }} />
-        )}
-        <Text style={styles.topBarTitle}>Pindai Bahan</Text>
-        <TouchableOpacity
-          style={styles.topBarIconBtn}
-          onPress={() =>
-            Alert.alert(
-              'Panduan Pindai',
-              'Arahkan kamera ke meja dapur atau kulkas Anda. Pastikan pencahayaan cukup agar bahan dapat dikenali dengan akurat.'
-            )
-          }
-          activeOpacity={0.7}
+          <Text style={styles.resultsTopBarTitle}>Hasil Deteksi Bahan</Text>
+          <TouchableOpacity style={styles.topBarIconBtn} onPress={handleHelpGuide} activeOpacity={0.7}>
+            <Feather name="help-circle" size={19} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          style={styles.resultsScroll}
+          contentContainerStyle={styles.resultsScrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Feather name="help-circle" size={19} color={colors.textSecondary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* 2. VIEWFINDER CAMERA AREA (Reference UI Screen 2) */}
-      <View style={styles.viewfinderCard}>
-        {selectedImage ? (
-          <View style={styles.previewImageContainer}>
-            <Image
-              source={{ uri: selectedImage }}
-              style={styles.previewImage}
-              resizeMode="cover"
-            />
-            {/* Viewfinder Frame Overlay */}
-            <View style={styles.frameCornerTopLeft} />
-            <View style={styles.frameCornerTopRight} />
-            <View style={styles.frameCornerBottomLeft} />
-            <View style={styles.frameCornerBottomRight} />
-
-            {/* Retake Floating Overlay Pill */}
-            <View style={styles.retakeOverlay}>
-              <TouchableOpacity
-                style={styles.retakeBtn}
-                onPress={handleTakePhoto}
-                activeOpacity={0.8}
-              >
-                <Feather name="camera" size={13} color="#FFFFFF" style={{ marginRight: 5 }} />
-                <Text style={styles.retakeBtnText}>Foto Ulang</Text>
-              </TouchableOpacity>
+          {/* Header Preview Thumbnail & Retake */}
+          {previewImage && (
+            <View style={styles.thumbCardRow}>
+              <Image source={{ uri: previewImage }} style={styles.thumbImage} resizeMode="cover" />
+              <View style={styles.thumbInfoWrap}>
+                <Text style={styles.thumbTitle}>Foto Bahan Terpilih</Text>
+                <Text style={styles.thumbSubtitle}>
+                  {ingredients.length > 0
+                    ? `${ingredients.length} bahan dikenali`
+                    : 'Belum ada bahan dikenali'}
+                </Text>
+                <TouchableOpacity
+                  style={styles.retakeMiniBtn}
+                  onPress={handleCancelPreview}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="camera" size={12} color={colors.primary} style={{ marginRight: 4 }} />
+                  <Text style={styles.retakeMiniText}>Foto Ulang</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        ) : (
-          <View style={styles.cameraPlaceholder}>
-            {/* Corner Framing Markers */}
-            <View style={styles.frameCornerTopLeft} />
-            <View style={styles.frameCornerTopRight} />
-            <View style={styles.frameCornerBottomLeft} />
-            <View style={styles.frameCornerBottomRight} />
+          )}
 
-            <Feather name="camera" size={38} color={colors.lightMint} style={{ marginBottom: 12 }} />
-            <Text style={styles.viewfinderInstruction}>
-              Arahkan kamera ke bahan makanan
-            </Text>
-            <Text style={styles.viewfinderSubtext}>
-              Sayuran, telur, tahu, atau bahan yang ada di kulkas
-            </Text>
-          </View>
-        )}
+          {/* Error Banner jika ada */}
+          {detectionError && (
+            <View style={styles.errorNoticeBox}>
+              <Feather name="alert-circle" size={16} color={colors.error} style={{ marginRight: 8 }} />
+              <Text style={styles.errorNoticeText}>{detectionError}</Text>
+            </View>
+          )}
 
-        {/* 3. SHUTTER & SELECTION CONTROLS (Reference UI Screen 2) */}
-        <View style={styles.controlsRow}>
-          {/* Gallery Button */}
-          <TouchableOpacity
-            style={styles.controlSideBtn}
-            onPress={handlePickImage}
-            activeOpacity={0.8}
-            accessibilityLabel="Pilih dari Galeri"
-          >
-            <Feather name="image" size={22} color={colors.primary} />
-          </TouchableOpacity>
-
-          {/* Big Circular Camera Shutter Button */}
-          <TouchableOpacity
-            style={styles.shutterOuterRing}
-            onPress={handleTakePhoto}
-            activeOpacity={0.85}
-            accessibilityLabel="Ambil Foto Bahan"
-          >
-            <View style={styles.shutterInnerCircle} />
-          </TouchableOpacity>
-
-          {/* Quick Sample Selector */}
-          <TouchableOpacity
-            style={styles.controlSideBtn}
-            onPress={() => handleSelectSample(SAMPLE_INGREDIENTS_DATA_URL, 'telur_tomat')}
-            activeOpacity={0.8}
-            accessibilityLabel="Contoh Foto Tes"
-          >
-            <Feather name="zap" size={20} color={colors.orangeDark} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Mode Switcher: FOTO | GALERI */}
-        <View style={styles.modeSwitchRow}>
-          <TouchableOpacity
-            style={[styles.modeTab, scanMode === 'camera' && styles.modeTabActive]}
-            onPress={() => {
-              setScanMode('camera');
-              handleTakePhoto();
-            }}
-          >
-            <Text style={[styles.modeTabText, scanMode === 'camera' && styles.modeTabTextActive]}>
-              FOTO
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.modeTab, scanMode === 'gallery' && styles.modeTabActive]}
-            onPress={() => {
-              setScanMode('gallery');
-              handlePickImage();
-            }}
-          >
-            <Text style={[styles.modeTabText, scanMode === 'gallery' && styles.modeTabTextActive]}>
-              GALERI
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* CTA DETEKSI BAHAN (Muncul jika foto sudah dipilih dan belum dianalisis) */}
-      {selectedImage && ingredients.length === 0 && (
-        <View style={styles.detectCtaWrap}>
-          <TouchableOpacity
-            style={[styles.primaryPillButton, isDetecting && styles.buttonDisabled]}
-            onPress={handleDetectIngredients}
-            disabled={isDetecting}
-            activeOpacity={0.85}
-          >
-            {isDetecting ? (
-              <View style={styles.btnRow}>
-                <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.primaryPillBtnText}>Mengenali Bahan...</Text>
-              </View>
-            ) : (
-              <View style={styles.btnRow}>
-                <Feather name="search" size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.primaryPillBtnText}>Deteksi Bahan Makanan</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Error Banner jika deteksi gagal */}
-      {detectionError && (
-        <View style={styles.errorNoticeBox}>
-          <Feather name="alert-circle" size={16} color={colors.error} style={{ marginRight: 8 }} />
-          <Text style={styles.errorNoticeText}>{detectionError}</Text>
-        </View>
-      )}
-
-      {/* 4. HASIL DETEKSI (Reference UI Screen 3) */}
-      {(ingredients.length > 0 || isManualInputOpen) && (
-        <View style={styles.detectionResultSection}>
+          {/* Section Bahan Terdeteksi */}
           <View style={styles.detectionHeaderRow}>
             <View>
               <Text style={styles.detectionTitle}>Bahan yang Terdeteksi</Text>
@@ -413,18 +355,16 @@ export function ScanBahanScreen({
             </View>
           )}
 
-          {/* Grid Bahan Makanan (3 Kolom sesuai Reference UI Screen 3) */}
+          {/* Grid Bahan Makanan */}
           <View style={styles.ingredientGrid}>
-            {ingredients.map((item, index) => {
+            {ingredients.map((item) => {
               const isEditing = editingIngredientId === item.id;
               return (
                 <View key={item.id} style={styles.ingredientCard}>
-                  {/* Icon Avatar */}
                   <View style={styles.ingredientIconCircle}>
                     <Feather name="check" size={16} color={colors.primary} />
                   </View>
 
-                  {/* Name or Inline Input */}
                   {isEditing ? (
                     <TextInput
                       style={styles.inlineEditInput}
@@ -443,7 +383,6 @@ export function ScanBahanScreen({
                     </Text>
                   )}
 
-                  {/* Delete Button */}
                   <TouchableOpacity
                     style={styles.deleteBadgeBtn}
                     onPress={() => handleDeleteIngredient(item.id)}
@@ -456,7 +395,7 @@ export function ScanBahanScreen({
               );
             })}
 
-            {/* Quick Add Card Slot */}
+            {/* Slot Tambah Cepat */}
             <TouchableOpacity
               style={styles.addIngredientSlot}
               onPress={() => setIsManualInputOpen(true)}
@@ -467,7 +406,7 @@ export function ScanBahanScreen({
             </TouchableOpacity>
           </View>
 
-          {/* 5. PRIMARY CTA: LIHAT REKOMENDASI RESEP (Reference UI Screen 3) */}
+          {/* Tombol Utama: Rekomendasi Resep */}
           <TouchableOpacity
             style={styles.primaryPillButton}
             onPress={handleProceedToRecommendations}
@@ -476,86 +415,657 @@ export function ScanBahanScreen({
             <Text style={styles.primaryPillBtnText}>Lihat Rekomendasi Resep</Text>
             <Feather name="arrow-right" size={17} color="#FFFFFF" style={{ marginLeft: 8 }} />
           </TouchableOpacity>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // KASUS 2: PHOTO CONFIRMATION MODE (Setelah Shutter atau Pilih Galeri)
+  // -------------------------------------------------------------------------
+  if (previewImage) {
+    return (
+      <View style={styles.fullCameraContainer}>
+        <Image source={{ uri: previewImage }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+
+        {/* Top Header Overlay */}
+        <View style={styles.cameraHeaderOverlay}>
+          <TouchableOpacity
+            style={styles.headerGlassIconBtn}
+            onPress={handleCancelPreview}
+            activeOpacity={0.8}
+          >
+            <Feather name="x" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.confirmationPill}>
+            <Text style={styles.confirmationPillText}>Konfirmasi Foto</Text>
+          </View>
+          <TouchableOpacity style={styles.headerGlassIconBtn} onPress={handleHelpGuide} activeOpacity={0.8}>
+            <Feather name="help-circle" size={19} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
+
+        {/* Loading Overlay Saat AI Deteksi */}
+        {isDetecting && (
+          <View style={styles.detectingOverlay}>
+            <View style={styles.detectingCard}>
+              <ActivityIndicator size="large" color={colors.primary} style={{ marginBottom: 14 }} />
+              <Text style={styles.detectingTitle}>Mengenali Bahan Makanan...</Text>
+              <Text style={styles.detectingSubtitle}>
+                Nomz AI sedang mengidentifikasi bahan pada foto Anda
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Bottom Confirmation Action Sheet */}
+        {!isDetecting && (
+          <View style={styles.confirmationBottomBar}>
+            <Text style={styles.confirmationHint}>Pastikan bahan makanan terlihat jelas</Text>
+            <View style={styles.confirmationBtnRow}>
+              {/* Tombol Batal / Foto Ulang */}
+              <TouchableOpacity
+                style={styles.cancelActionBtn}
+                onPress={handleCancelPreview}
+                activeOpacity={0.85}
+              >
+                <Feather name="x" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.cancelActionText}>Foto Ulang</Text>
+              </TouchableOpacity>
+
+              {/* Tombol Konfirmasi / Gunakan Foto */}
+              <TouchableOpacity
+                style={styles.confirmActionBtn}
+                onPress={handleConfirmAndDetect}
+                activeOpacity={0.85}
+              >
+                <Feather name="check" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.confirmActionText}>Gunakan Foto</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // KASUS 3: IZIN KAMERA BELUM DIBERIKAN / DITOLAK
+  // -------------------------------------------------------------------------
+  if (!permission || !permission.granted) {
+    return (
+      <View style={styles.permissionContainer}>
+        {/* Top Header */}
+        <View style={styles.permissionTopBar}>
+          {onBack ? (
+            <TouchableOpacity style={styles.topBarIconBtn} onPress={onBack} activeOpacity={0.7}>
+              <Feather name="arrow-left" size={20} color={colors.textPrimary} />
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 36 }} />
+          )}
+          <Text style={styles.permissionTitle}>Pindai Bahan</Text>
+          <TouchableOpacity style={styles.topBarIconBtn} onPress={handleHelpGuide} activeOpacity={0.7}>
+            <Feather name="help-circle" size={19} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Kartu Izin */}
+        <View style={styles.permissionCard}>
+          <View style={styles.permissionIconCircle}>
+            <Feather name="camera" size={36} color={colors.primary} />
+          </View>
+          <Text style={styles.permissionHeading}>Izin Kamera Diperlukan</Text>
+          <Text style={styles.permissionBody}>
+            Nomz memerlukan izin akses kamera agar Anda dapat memindai bahan makanan langsung dari kulkas atau meja dapur Anda secara instan.
+          </Text>
+
+          {/* Tombol Aksi Izin */}
+          {permission && !permission.canAskAgain ? (
+            <TouchableOpacity
+              style={styles.permissionPrimaryBtn}
+              onPress={handleOpenSettings}
+              activeOpacity={0.85}
+            >
+              <Feather name="settings" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.permissionPrimaryBtnText}>Buka Pengaturan Perangkat</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.permissionPrimaryBtn}
+              onPress={requestPermission}
+              activeOpacity={0.85}
+            >
+              <Feather name="check-circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.permissionPrimaryBtnText}>Izinkan Akses Kamera</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Alternatif Galeri */}
+          <TouchableOpacity
+            style={styles.permissionSecondaryBtn}
+            onPress={handleOpenGallery}
+            activeOpacity={0.85}
+          >
+            <Feather name="image" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+            <Text style={styles.permissionSecondaryBtnText}>Pilih Foto dari Galeri</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // KASUS 4: LIVE MOBILE CAMERA EXPERIENCE (Default Hero Experience)
+  // -------------------------------------------------------------------------
+  return (
+    <View style={styles.fullCameraContainer}>
+      {/* Live Camera View (Fills entire usable area above bottom nav) */}
+      {isCameraActive && (
+        <CameraView
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          enableTorch={isTorchOn}
+          flash={isTorchOn ? 'on' : 'off'}
+        />
       )}
 
-      {/* 6. CONTOH FOTO PENGUJIAN INSTAN (Reference UI Screen 3 Bottom) */}
-      <View style={styles.sampleSection}>
-        <View style={styles.sampleHeaderRow}>
-          <Text style={styles.sampleSectionTitle}>Contoh Foto Cepat</Text>
-          <Text style={styles.sampleSubtitle}>Untuk pengujian instan</Text>
-        </View>
-        <View style={styles.sampleCardsRow}>
-          <TouchableOpacity
-            style={styles.sampleCardItem}
-            onPress={() => handleSelectSample(SAMPLE_INGREDIENTS_DATA_URL, 'telur_tomat')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.sampleThumbPlaceholder}>
-              <Feather name="image" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.sampleCardLabel}>Telur & Tomat</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.sampleCardItem}
-            onPress={() => handleSelectSample(SAMPLE_FRUITS_DATA_URL, 'buah_segar')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.sampleThumbPlaceholder, { backgroundColor: '#FFF7ED' }]}>
-              <Feather name="image" size={18} color={colors.orangeDark} />
-            </View>
-            <Text style={styles.sampleCardLabel}>Sayur & Buah</Text>
-          </TouchableOpacity>
+      {/* Viewfinder Framing Overlay (Corner Brackets) */}
+      <View style={styles.framingContainer} pointerEvents="none">
+        <View style={styles.framingBox}>
+          <View style={styles.frameCornerTopLeft} />
+          <View style={styles.frameCornerTopRight} />
+          <View style={styles.frameCornerBottomLeft} />
+          <View style={styles.frameCornerBottomRight} />
         </View>
       </View>
 
-      {/* Backend Status Bar */}
-      <View style={styles.backendFooter}>
-        <View
-          style={[
-            styles.backendDot,
-            backendStatus === 'connected' && styles.dotGreen,
-            backendStatus === 'failed' && styles.dotRed,
-          ]}
-        />
-        <Text style={styles.backendText}>
-          {backendStatus === 'connected'
-            ? `Backend aktif: ${backendMessage}`
-            : 'Nomz Vision API Siap'}
-        </Text>
-        <TouchableOpacity onPress={handleCheckHealth}>
-          <Text style={styles.backendCheckText}>
-            {backendStatus === 'checking' ? 'Cek...' : 'Cek Status'}
-          </Text>
+      {/* Top Overlay Bar */}
+      <View style={styles.cameraHeaderOverlay}>
+        {onBack ? (
+          <TouchableOpacity style={styles.headerGlassIconBtn} onPress={onBack} activeOpacity={0.8}>
+            <Feather name="arrow-left" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
+
+        <View style={styles.cameraTitlePill}>
+          <Text style={styles.cameraTitlePillText}>Pindai Bahan</Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.headerGlassIconBtn}
+          onPress={handleHelpGuide}
+          activeOpacity={0.8}
+          accessibilityLabel="Bantuan Pindai"
+        >
+          <Feather name="help-circle" size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
-    </ScrollView>
+
+      {/* Floating Guidance Badge */}
+      <View style={styles.guidancePillWrap} pointerEvents="none">
+        <View style={styles.guidancePill}>
+          <Text style={styles.guidancePillText}>Arahkan kamera ke bahan makanan</Text>
+        </View>
+      </View>
+
+      {/* Bottom Controls Area (Overlay directly above bottom nav) */}
+      <View style={styles.bottomControlsWrapper}>
+        {/* Shutter & Flash Row */}
+        <View style={styles.controlsRow}>
+          {/* Flash Button */}
+          <TouchableOpacity
+            style={[styles.controlGlassBtn, isTorchOn && styles.controlGlassBtnActive]}
+            onPress={handleToggleFlash}
+            activeOpacity={0.8}
+            accessibilityLabel={isTorchOn ? 'Matikan Lampu Flash' : 'Nyalakan Lampu Flash'}
+          >
+            <Feather
+              name={isTorchOn ? 'zap' : 'zap-off'}
+              size={22}
+              color={isTorchOn ? colors.warmYellow : '#FFFFFF'}
+            />
+          </TouchableOpacity>
+
+          {/* Big Circular Camera Shutter Button */}
+          <TouchableOpacity
+            style={[styles.shutterOuterRing, isCapturing && { opacity: 0.6 }]}
+            onPress={handleShutterCapture}
+            disabled={isCapturing}
+            activeOpacity={0.85}
+            accessibilityLabel="Ambil Foto Bahan"
+          >
+            <View style={styles.shutterInnerCircle} />
+          </TouchableOpacity>
+
+          {/* Symmetrical Balanced Spacer */}
+          <View style={{ width: 48, height: 48 }} />
+        </View>
+
+        {/* ONE Clear Gallery Entry: Mode Switcher FOTO | GALERI */}
+        <View style={styles.modeSwitchRow}>
+          <TouchableOpacity
+            style={[styles.modeTab, scanMode === 'camera' && styles.modeTabActive]}
+            onPress={() => setScanMode('camera')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.modeTabText, scanMode === 'camera' && styles.modeTabTextActive]}>
+              FOTO
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.modeTab, scanMode === 'gallery' && styles.modeTabActive]}
+            onPress={handleOpenGallery}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.modeTabText, scanMode === 'gallery' && styles.modeTabTextActive]}>
+              GALERI
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  // -------------------------------------------------------------------------
+  // FULL CAMERA STYLES
+  // -------------------------------------------------------------------------
+  fullCameraContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
+    position: 'relative',
+    overflow: 'hidden',
   },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 40,
-    maxWidth: 480,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  topBar: {
+  cameraHeaderOverlay: {
+    position: 'absolute',
+    top: 12,
+    left: 16,
+    right: 16,
+    zIndex: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+  },
+  headerGlassIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  cameraTitlePill: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: radius.full,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  cameraTitlePillText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  guidancePillWrap: {
+    position: 'absolute',
+    top: 70,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 15,
+  },
+  guidancePill: {
+    backgroundColor: 'rgba(15, 118, 110, 0.85)',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.lightMint,
+  },
+  guidancePillText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // Viewfinder Framing Guides
+  framingContainer: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  framingBox: {
+    width: '75%',
+    aspectRatio: 1,
+    position: 'relative',
+  },
+  frameCornerTopLeft: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 32,
+    height: 32,
+    borderTopWidth: 3.5,
+    borderLeftWidth: 3.5,
+    borderColor: '#FFFFFF',
+    borderTopLeftRadius: 8,
+  },
+  frameCornerTopRight: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderTopWidth: 3.5,
+    borderRightWidth: 3.5,
+    borderColor: '#FFFFFF',
+    borderTopRightRadius: 8,
+  },
+  frameCornerBottomLeft: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 32,
+    height: 32,
+    borderBottomWidth: 3.5,
+    borderLeftWidth: 3.5,
+    borderColor: '#FFFFFF',
+    borderBottomLeftRadius: 8,
+  },
+  frameCornerBottomRight: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderBottomWidth: 3.5,
+    borderRightWidth: 3.5,
+    borderColor: '#FFFFFF',
+    borderBottomRightRadius: 8,
+  },
+  // Bottom Controls
+  bottomControlsWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 25,
+    paddingBottom: 16,
+    paddingTop: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 24,
     marginBottom: 12,
   },
-  topBarTitle: {
+  controlGlassBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.full,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  controlGlassBtnActive: {
+    backgroundColor: 'rgba(255, 179, 115, 0.3)',
+    borderColor: colors.softOrange,
+  },
+  shutterOuterRing: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.full,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    ...shadows.level3,
+  },
+  shutterInnerCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.full,
+    backgroundColor: '#FFFFFF',
+  },
+  modeSwitchRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 32,
+  },
+  modeTab: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  modeTabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: colors.freshMint,
+  },
+  modeTabText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+  },
+  modeTabTextActive: {
+    color: '#FFFFFF',
+  },
+  // -------------------------------------------------------------------------
+  // CONFIRMATION OVERLAYS
+  // -------------------------------------------------------------------------
+  confirmationPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+  },
+  confirmationPillText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  confirmationBottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    zIndex: 30,
+  },
+  confirmationHint: {
+    color: '#E5E7EB',
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 14,
+    textAlign: 'center',
+  },
+  confirmationBtnRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+  },
+  cancelActionBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: radius.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelActionText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  confirmActionBtn: {
+    flex: 1.2,
+    height: 48,
+    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.level2,
+  },
+  confirmActionText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  detectingOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 40,
+    paddingHorizontal: 32,
+  },
+  detectingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.xl,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
+    ...shadows.level3,
+  },
+  detectingTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  detectingSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  // -------------------------------------------------------------------------
+  // PERMISSION SCREEN
+  // -------------------------------------------------------------------------
+  permissionContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingHorizontal: 20,
+  },
+  permissionTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  permissionTitle: {
     fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  permissionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.xl,
+    padding: 24,
+    alignItems: 'center',
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.level2,
+  },
+  permissionIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.full,
+    backgroundColor: colors.mintSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  permissionHeading: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  permissionBody: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 24,
+  },
+  permissionPrimaryBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    width: '100%',
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    ...shadows.level2,
+  },
+  permissionPrimaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  permissionSecondaryBtn: {
+    backgroundColor: colors.mintSoft,
+    borderRadius: radius.full,
+    width: '100%',
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.lightMint,
+  },
+  permissionSecondaryBtnText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  // -------------------------------------------------------------------------
+  // DETECTION RESULTS
+  // -------------------------------------------------------------------------
+  resultsContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  resultsTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  resultsTopBarTitle: {
+    fontSize: 17,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -566,190 +1076,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  viewfinderCard: {
-    backgroundColor: '#1E2421',
-    borderRadius: radius.xl,
-    overflow: 'hidden',
-    paddingBottom: 16,
-    marginBottom: 20,
-    ...shadows.level3,
+  resultsScroll: {
+    flex: 1,
   },
-  previewImageContainer: {
+  resultsScrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
+    maxWidth: 480,
     width: '100%',
-    height: 280,
-    position: 'relative',
-    backgroundColor: '#000000',
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
-  cameraPlaceholder: {
-    width: '100%',
-    height: 280,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    position: 'relative',
-    backgroundColor: '#151A17',
-  },
-  viewfinderInstruction: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  viewfinderSubtext: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  frameCornerTopLeft: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    width: 28,
-    height: 28,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-    borderColor: '#FFFFFF',
-    borderTopLeftRadius: 6,
-  },
-  frameCornerTopRight: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    width: 28,
-    height: 28,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderColor: '#FFFFFF',
-    borderTopRightRadius: 6,
-  },
-  frameCornerBottomLeft: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    width: 28,
-    height: 28,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-    borderColor: '#FFFFFF',
-    borderBottomLeftRadius: 6,
-  },
-  frameCornerBottomRight: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: 28,
-    height: 28,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    borderColor: '#FFFFFF',
-    borderBottomRightRadius: 6,
-  },
-  retakeOverlay: {
-    position: 'absolute',
-    bottom: 12,
     alignSelf: 'center',
   },
-  retakeBtn: {
+  thumbCardRow: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.lg,
+    padding: 12,
+    marginBottom: 18,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.level1,
+  },
+  thumbImage: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.md,
+    backgroundColor: '#000000',
+  },
+  thumbInfoWrap: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  thumbTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  thumbSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  retakeMiniBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(15, 118, 110, 0.9)',
-    paddingVertical: 7,
-    paddingHorizontal: 14,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.mintSoft,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.lightMint,
   },
-  retakeBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  controlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingTop: 16,
-    paddingHorizontal: 24,
-  },
-  controlSideBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.full,
-    backgroundColor: '#2D3531',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#3F4944',
-  },
-  shutterOuterRing: {
-    width: 68,
-    height: 68,
-    borderRadius: radius.full,
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  shutterInnerCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: radius.full,
-    backgroundColor: '#FFFFFF',
-  },
-  modeSwitchRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 24,
-    marginTop: 14,
-  },
-  modeTab: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  modeTabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.freshMint,
-  },
-  modeTabText: {
-    color: '#9CA3AF',
-    fontSize: 12,
+  retakeMiniText: {
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1,
-  },
-  modeTabTextActive: {
-    color: '#FFFFFF',
-  },
-  detectCtaWrap: {
-    marginBottom: 20,
-  },
-  primaryPillButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.full,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-    ...shadows.level2,
-  },
-  primaryPillBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  btnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.65,
+    color: colors.primary,
   },
   errorNoticeBox: {
     flexDirection: 'row',
@@ -765,9 +1149,6 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.error,
     fontSize: 13,
-  },
-  detectionResultSection: {
-    marginBottom: 24,
   },
   detectionHeaderRow: {
     flexDirection: 'row',
@@ -802,75 +1183,76 @@ const styles = StyleSheet.create({
   },
   manualInputCard: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.lg,
+    padding: 8,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: 6,
-    marginBottom: 12,
-    alignItems: 'center',
+    borderColor: colors.lightMint,
+    ...shadows.level1,
   },
   manualTextInput: {
     flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     fontSize: 14,
     color: colors.textPrimary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
   },
   manualAddBtn: {
     backgroundColor: colors.primary,
     paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: radius.sm,
+    paddingHorizontal: 16,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   manualAddBtnText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
   },
   ingredientGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   ingredientCard: {
     width: '31%',
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    paddingVertical: 14,
-    paddingHorizontal: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.lg,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
     position: 'relative',
+    borderWidth: 1,
+    borderColor: colors.border,
     ...shadows.level1,
   },
   ingredientIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
     backgroundColor: colors.mintSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   ingredientNameText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.textPrimary,
     textAlign: 'center',
-    textTransform: 'capitalize',
   },
   inlineEditInput: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.textPrimary,
     textAlign: 'center',
     borderBottomWidth: 1,
     borderBottomColor: colors.primary,
-    padding: 0,
-    minWidth: 50,
+    paddingVertical: 0,
+    width: '100%',
   },
   deleteBadgeBtn: {
     position: 'absolute',
@@ -878,106 +1260,43 @@ const styles = StyleSheet.create({
     right: 4,
     width: 20,
     height: 20,
-    borderRadius: 10,
-    backgroundColor: '#F3F4F6',
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addIngredientSlot: {
     width: '31%',
-    backgroundColor: '#FAF8F3',
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    paddingVertical: 14,
-    paddingHorizontal: 6,
+    backgroundColor: colors.mintSoft,
+    borderRadius: radius.lg,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.freshMint,
   },
   addSlotText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.primary,
-    marginTop: 6,
+    marginTop: 4,
     textAlign: 'center',
   },
-  sampleSection: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    marginBottom: 20,
-    ...shadows.level1,
-  },
-  sampleHeaderRow: {
-    marginBottom: 10,
-  },
-  sampleSectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  sampleSubtitle: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  sampleCardsRow: {
+  primaryPillButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     flexDirection: 'row',
-    gap: 10,
-  },
-  sampleCardItem: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
-    padding: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-  },
-  sampleThumbPlaceholder: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.sm,
-    backgroundColor: colors.mintSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    minHeight: 48,
+    ...shadows.level2,
   },
-  sampleCardLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  backendFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-  },
-  backendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#9CA3AF',
-    marginRight: 6,
-  },
-  dotGreen: {
-    backgroundColor: colors.success,
-  },
-  dotRed: {
-    backgroundColor: colors.error,
-  },
-  backendText: {
-    flex: 1,
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  backendCheckText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.primary,
+  primaryPillBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

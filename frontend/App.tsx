@@ -305,6 +305,8 @@ function MainApp() {
                 {cookingStep === 'scan' && (
                   <ScanBahanScreen
                     onNavigateToRecommendations={handleNavigateToRecommendations}
+                    isActive={activeTab === 'scan' && cookingStep === 'scan' && subScreen === 'none'}
+                    onBack={() => setActiveTab('beranda')}
                   />
                 )}
                 {cookingStep === 'recommendations' && (
