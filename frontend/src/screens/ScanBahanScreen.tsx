@@ -13,6 +13,7 @@ import {
   AppStateStatus,
   ScrollView,
   BackHandler,
+  Modal,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -20,6 +21,23 @@ import * as ImagePicker from 'expo-image-picker';
 import { detectIngredientsFromImage } from '../services/api';
 import { Ingredient } from '../types';
 import { colors, radius, shadows, spacing } from '../theme';
+
+const COMMON_UNITS = [
+  'butir',
+  'buah',
+  'siung',
+  'potong',
+  'lembar',
+  'ikat',
+  'g',
+  'kg',
+  'ml',
+  'l',
+  'sdm',
+  'sdt',
+  'porsi',
+  'secukupnya',
+];
 
 interface ScanBahanScreenProps {
   onNavigateToRecommendations: (confirmedIngredients: string[]) => void;
@@ -58,7 +76,12 @@ export function ScanBahanScreen({
   const [newIngredientName, setNewIngredientName] = useState<string>('');
   const [editingIngredientId, setEditingIngredientId] = useState<string | null>(null);
 
-  // 7. App State & Lifecycle (Release camera resources when backgrounded)
+  // 7. Modal Atur Takaran & Satuan (Requirement 4)
+  const [quantityModalItem, setQuantityModalItem] = useState<Ingredient | null>(null);
+  const [modalQuantity, setModalQuantity] = useState<string>('1');
+  const [modalUnit, setModalUnit] = useState<string>('butir');
+
+  // 8. App State & Lifecycle (Release camera resources when backgrounded)
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
 
   useEffect(() => {
@@ -83,12 +106,16 @@ export function ScanBahanScreen({
   // Handle hardware back button
   useEffect(() => {
     const onBackPress = () => {
-      if (previewImage) {
-        handleCancelPreview();
+      if (quantityModalItem) {
+        setQuantityModalItem(null);
         return true;
       }
       if (isManualInputOpen) {
         setIsManualInputOpen(false);
+        return true;
+      }
+      if (ingredients.length > 0 || previewImage) {
+        handleCancelPreview();
         return true;
       }
       if (onBack) {
@@ -100,7 +127,7 @@ export function ScanBahanScreen({
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => backHandler.remove();
-  }, [previewImage, isManualInputOpen, onBack]);
+  }, [quantityModalItem, previewImage, ingredients.length, isManualInputOpen, onBack]);
 
   // Flash / Torch toggle
   const handleToggleFlash = useCallback(() => {
@@ -199,6 +226,69 @@ export function ScanBahanScreen({
     setIngredients((prev) => prev.filter((item) => item.id !== id));
   };
 
+  // Quantity Stepper & Modal Handlers (Requirement 4)
+  const handleIncrementQuantity = (id: string) => {
+    setIngredients((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const currentQty = typeof item.quantity === 'number' ? item.quantity : item.quantity ? parseFloat(String(item.quantity)) : 0;
+        const defaultUnit = item.unit || 'butir';
+        const step = defaultUnit === 'g' || defaultUnit === 'ml' ? 50 : 1;
+        const newQty = (currentQty || 0) + step;
+        return { ...item, quantity: newQty, unit: defaultUnit };
+      })
+    );
+  };
+
+  const handleDecrementQuantity = (id: string) => {
+    setIngredients((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const currentQty = typeof item.quantity === 'number' ? item.quantity : item.quantity ? parseFloat(String(item.quantity)) : 0;
+        const step = item.unit === 'g' || item.unit === 'ml' ? 50 : 1;
+        const newQty = (currentQty || 0) - step;
+        if (newQty <= 0) {
+          return { ...item, quantity: undefined, unit: item.unit };
+        }
+        return { ...item, quantity: newQty };
+      })
+    );
+  };
+
+  const handleOpenQuantityModal = (item: Ingredient) => {
+    setQuantityModalItem(item);
+    setModalQuantity(item.quantity ? String(item.quantity) : '1');
+    setModalUnit(item.unit || 'butir');
+  };
+
+  const handleSaveQuantityModal = () => {
+    if (!quantityModalItem) return;
+    const parsed = parseFloat(modalQuantity.replace(',', '.'));
+    const qty = isNaN(parsed) || parsed <= 0 ? undefined : parsed;
+    const unit = qty ? (modalUnit || 'butir') : undefined;
+
+    setIngredients((prev) =>
+      prev.map((item) =>
+        item.id === quantityModalItem.id
+          ? { ...item, quantity: qty, unit }
+          : item
+      )
+    );
+    setQuantityModalItem(null);
+  };
+
+  const handleClearQuantityModal = () => {
+    if (!quantityModalItem) return;
+    setIngredients((prev) =>
+      prev.map((item) =>
+        item.id === quantityModalItem.id
+          ? { ...item, quantity: undefined, unit: undefined }
+          : item
+      )
+    );
+    setQuantityModalItem(null);
+  };
+
   // Tambah bahan manual
   const handleAddIngredient = () => {
     const trimmed = newIngredientName.trim();
@@ -208,6 +298,8 @@ export function ScanBahanScreen({
       id: `${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name: trimmed.toLowerCase(),
       confidence: 1.0,
+      quantity: undefined,
+      unit: undefined,
     };
 
     setIngredients((prev) => [...prev, newItem]);
@@ -215,10 +307,18 @@ export function ScanBahanScreen({
     setIsManualInputOpen(false);
   };
 
-  // Lanjut ke Rekomendasi Resep
+  // Lanjut ke Rekomendasi Resep (Membawa Takaran Bahan yang Dikonfirmasi)
   const handleProceedToRecommendations = () => {
     const validList = ingredients
-      .map((i) => i.name.trim())
+      .map((i) => {
+        const name = i.name.trim();
+        if (!name) return '';
+        if (i.quantity && Number(i.quantity) > 0) {
+          const unit = i.unit ? ` ${i.unit.trim()}` : '';
+          return `${i.quantity}${unit} ${name}`;
+        }
+        return name;
+      })
       .filter((name) => name.length > 0);
 
     if (validList.length === 0) {
@@ -355,42 +455,87 @@ export function ScanBahanScreen({
             </View>
           )}
 
-          {/* Grid Bahan Makanan */}
-          <View style={styles.ingredientGrid}>
+          {/* List Bahan Makanan dengan Takaran & Satuan (Requirement 4) */}
+          <View style={styles.ingredientListContainer}>
             {ingredients.map((item) => {
               const isEditing = editingIngredientId === item.id;
               return (
-                <View key={item.id} style={styles.ingredientCard}>
-                  <View style={styles.ingredientIconCircle}>
-                    <Feather name="check" size={16} color={colors.primary} />
+                <View key={item.id} style={styles.ingredientRowCard}>
+                  <View style={styles.ingredientRowMain}>
+                    <View style={styles.ingredientIconCircle}>
+                      <Feather name="check" size={15} color={colors.primary} />
+                    </View>
+
+                    <View style={styles.ingredientTextWrap}>
+                      {isEditing ? (
+                        <TextInput
+                          style={styles.inlineEditInput}
+                          value={item.name}
+                          onChangeText={(val) => handleEditIngredient(item.id, val)}
+                          onBlur={() => setEditingIngredientId(null)}
+                          autoFocus
+                        />
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => setEditingIngredientId(item.id)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.ingredientNameText}>{item.name}</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      <View style={styles.ingredientBadgeRow}>
+                        <Text style={styles.ingredientSourceLabel}>
+                          {item.confidence < 1.0 ? `${Math.round(item.confidence * 100)}% yakin` : 'Manual'}
+                        </Text>
+                        <Text style={styles.bulletSeparator}>•</Text>
+                        <Text style={item.quantity ? styles.quantityAssignedLabel : styles.quantityPendingLabel}>
+                          {item.quantity ? `${item.quantity} ${item.unit || ''}` : 'Jumlah belum ditentukan'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.deleteBadgeBtn}
+                      onPress={() => handleDeleteIngredient(item.id)}
+                      activeOpacity={0.7}
+                      accessibilityLabel={`Hapus ${item.name}`}
+                    >
+                      <Feather name="x" size={16} color={colors.textMuted} />
+                    </TouchableOpacity>
                   </View>
 
-                  {isEditing ? (
-                    <TextInput
-                      style={styles.inlineEditInput}
-                      value={item.name}
-                      onChangeText={(val) => handleEditIngredient(item.id, val)}
-                      onBlur={() => setEditingIngredientId(null)}
-                      autoFocus
-                    />
-                  ) : (
-                    <Text
-                      style={styles.ingredientNameText}
-                      numberOfLines={1}
-                      onPress={() => setEditingIngredientId(item.id)}
-                    >
-                      {item.name}
-                    </Text>
-                  )}
+                  {/* Quantity Control Stepper & Quick Unit (Requirement 4) */}
+                  <View style={styles.ingredientCardBottom}>
+                    <View style={styles.stepperGroup}>
+                      <TouchableOpacity
+                        style={styles.stepperMiniBtn}
+                        onPress={() => handleDecrementQuantity(item.id)}
+                        activeOpacity={0.7}
+                      >
+                        <Feather name="minus" size={12} color={colors.textSecondary} />
+                      </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.deleteBadgeBtn}
-                    onPress={() => handleDeleteIngredient(item.id)}
-                    activeOpacity={0.7}
-                    accessibilityLabel={`Hapus ${item.name}`}
-                  >
-                    <Feather name="x" size={12} color={colors.textMuted} />
-                  </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.stepperDisplayBox}
+                        onPress={() => handleOpenQuantityModal(item)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.stepperDisplayText}>
+                          {item.quantity ? `${item.quantity} ${item.unit || ''}` : 'Atur Takaran'}
+                        </Text>
+                        <Feather name="edit-2" size={10} color={colors.primary} style={{ marginLeft: 4 }} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.stepperMiniBtn}
+                        onPress={() => handleIncrementQuantity(item.id)}
+                        activeOpacity={0.7}
+                      >
+                        <Feather name="plus" size={12} color={colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 </View>
               );
             })}
@@ -401,8 +546,8 @@ export function ScanBahanScreen({
               onPress={() => setIsManualInputOpen(true)}
               activeOpacity={0.7}
             >
-              <Feather name="plus" size={20} color={colors.primary} />
-              <Text style={styles.addSlotText}>Tambah Bahan</Text>
+              <Feather name="plus" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.addSlotText}>Tambah Bahan Manual</Text>
             </TouchableOpacity>
           </View>
 
@@ -416,6 +561,83 @@ export function ScanBahanScreen({
             <Feather name="arrow-right" size={17} color="#FFFFFF" style={{ marginLeft: 8 }} />
           </TouchableOpacity>
         </ScrollView>
+
+        {/* MODAL ATUR TAKARAN & SATUAN (Requirement 4) */}
+        <Modal
+          visible={!!quantityModalItem}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setQuantityModalItem(null)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalTitle}>Atur Takaran Bahan</Text>
+                  <Text style={styles.modalSubtitle} numberOfLines={1}>
+                    {quantityModalItem?.name}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setQuantityModalItem(null)}
+                  style={styles.modalCloseBtn}
+                  activeOpacity={0.7}
+                >
+                  <Feather name="x" size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalSectionLabel}>Jumlah / Angka:</Text>
+              <View style={styles.modalInputRow}>
+                <TextInput
+                  style={styles.modalNumberInput}
+                  keyboardType="numeric"
+                  value={modalQuantity}
+                  onChangeText={setModalQuantity}
+                  placeholder="Contoh: 2 atau 150"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+
+              <Text style={styles.modalSectionLabel}>Pilih Satuan:</Text>
+              <View style={styles.unitChipsWrap}>
+                {COMMON_UNITS.map((u) => {
+                  const isSelected = modalUnit === u;
+                  return (
+                    <TouchableOpacity
+                      key={u}
+                      style={[styles.unitChip, isSelected && styles.unitChipSelected]}
+                      onPress={() => setModalUnit(u)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.unitChipText, isSelected && styles.unitChipTextSelected]}>
+                        {u}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View style={styles.modalActionsRow}>
+                <TouchableOpacity
+                  style={styles.modalClearBtn}
+                  onPress={handleClearQuantityModal}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalClearBtnText}>Hapus Takaran</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalSaveBtn}
+                  onPress={handleSaveQuantityModal}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.modalSaveBtnText}>Simpan</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }
@@ -1211,65 +1433,125 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  ingredientGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  ingredientListContainer: {
     gap: 10,
     marginBottom: 24,
   },
-  ingredientCard: {
-    width: '31%',
+  ingredientRowCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: radius.lg,
     paddingVertical: 12,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    position: 'relative',
+    paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSubtle,
     ...shadows.level1,
   },
+  ingredientRowMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   ingredientIconCircle: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     borderRadius: radius.full,
     backgroundColor: colors.mintSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginRight: 10,
+  },
+  ingredientTextWrap: {
+    flex: 1,
   },
   ingredientNameText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: colors.textPrimary,
-    textAlign: 'center',
   },
   inlineEditInput: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: colors.textPrimary,
-    textAlign: 'center',
     borderBottomWidth: 1,
     borderBottomColor: colors.primary,
-    paddingVertical: 0,
-    width: '100%',
+    paddingVertical: 2,
+  },
+  ingredientBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+  },
+  ingredientSourceLabel: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  bulletSeparator: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginHorizontal: 6,
+  },
+  quantityAssignedLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  quantityPendingLabel: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: colors.textMuted,
   },
   deleteBadgeBtn: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 20,
-    height: 20,
+    width: 28,
+    height: 28,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 6,
+  },
+  ingredientCardBottom: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  stepperGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 2,
+  },
+  stepperMiniBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.sm,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+  },
+  stepperDisplayBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  stepperDisplayText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
   addIngredientSlot: {
-    width: '31%',
+    flexDirection: 'row',
     backgroundColor: colors.mintSoft,
     borderRadius: radius.lg,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
@@ -1277,11 +1559,128 @@ const styles = StyleSheet.create({
     borderColor: colors.freshMint,
   },
   addSlotText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.primary,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.xl,
+    padding: 20,
+    ...shadows.level3,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalSectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  modalInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+  },
+  modalNumberInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  unitChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     marginTop: 4,
-    textAlign: 'center',
+    marginBottom: 16,
+  },
+  unitChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: radius.full,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+  },
+  unitChipSelected: {
+    backgroundColor: colors.mintSoft,
+    borderColor: colors.primary,
+  },
+  unitChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  unitChipTextSelected: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 8,
+  },
+  modalClearBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalClearBtnText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  modalSaveBtn: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    ...shadows.level1,
+  },
+  modalSaveBtnText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   primaryPillButton: {
     backgroundColor: colors.primary,

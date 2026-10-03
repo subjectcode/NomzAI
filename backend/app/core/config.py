@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     VISION_MODEL: str = "gemini-3.8-flash"
     MAX_IMAGE_SIZE_MB: int = 10
 
+    COMPOSIO_API_KEY: str = ""
+    YOUTUBE_API_KEY: str = ""
+
     # Langflow Workflow Configuration (Milestone 3)
     LANGFLOW_BASE_URL: str = "http://127.0.0.1:7860"
     LANGFLOW_FLOW_ID: str = "2e514b81-21d7-49b9-9fae-a981f95a8029"

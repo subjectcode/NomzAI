@@ -29,3 +29,14 @@ class User(Base):
     updated_at = Column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
+
+
+class VideoSearchCache(Base):
+    """Cache for YouTube/Composio video recommendations."""
+    __tablename__ = "video_search_cache"
+
+    query = Column(String(255), primary_key=True)
+    results = Column(Text, nullable=False) # JSON encoded
+    updated_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )

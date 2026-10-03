@@ -33,6 +33,22 @@ const CONSTRAINTS: ConstraintOption[] = [
   { id: 'simple', label: 'Sederhana', mode: 'simple', icon: 'check-circle' },
 ];
 
+interface CookingStyleOption {
+  id: string;
+  label: string;
+  icon: keyof typeof Feather.glyphMap;
+}
+
+const COOKING_STYLES: CookingStyleOption[] = [
+  { id: 'all', label: 'Semua Gaya', icon: 'grid' },
+  { id: 'Tumis', label: 'Tumis', icon: 'zap' },
+  { id: 'Goreng', label: 'Goreng', icon: 'sun' },
+  { id: 'Kukus', label: 'Kukus', icon: 'cloud' },
+  { id: 'Rebus', label: 'Rebus', icon: 'droplet' },
+  { id: 'Panggang', label: 'Panggang', icon: 'disc' },
+  { id: 'Air Fryer', label: 'Air Fryer', icon: 'wind' },
+];
+
 export function RekomendasiScreen({
   ingredients: initialIngredients,
   onSelectRecipe,
@@ -40,6 +56,7 @@ export function RekomendasiScreen({
 }: RekomendasiScreenProps) {
   const [currentIngredients, setCurrentIngredients] = useState<string[]>(initialIngredients);
   const [activeConstraint, setActiveConstraint] = useState<string>('rescue');
+  const [activeCookingStyle, setActiveCookingStyle] = useState<string>('all');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<RecipeRecommendation[]>([]);
@@ -50,16 +67,19 @@ export function RekomendasiScreen({
 
   const fetchRecommendations = async (
     targetIngredients: string[] = currentIngredients,
-    constraintId: string = activeConstraint
+    constraintId: string = activeConstraint,
+    cookingStyleId: string = activeCookingStyle
   ) => {
     setLoading(true);
     setError(null);
     try {
       const selected = CONSTRAINTS.find((c) => c.id === constraintId);
+      const styleParam = cookingStyleId === 'all' ? undefined : cookingStyleId;
       const data = await getRecipeRecommendations(
         targetIngredients,
         selected?.mode || 'rescue',
-        selected?.label
+        selected?.label,
+        styleParam
       );
       setRecommendations(data);
     } catch (err: any) {
@@ -70,12 +90,17 @@ export function RekomendasiScreen({
   };
 
   useEffect(() => {
-    fetchRecommendations(currentIngredients, activeConstraint);
+    fetchRecommendations(currentIngredients, activeConstraint, activeCookingStyle);
   }, []);
 
   const handleSelectConstraint = (constraintId: string) => {
     setActiveConstraint(constraintId);
-    fetchRecommendations(currentIngredients, constraintId);
+    fetchRecommendations(currentIngredients, constraintId, activeCookingStyle);
+  };
+
+  const handleSelectCookingStyle = (styleId: string) => {
+    setActiveCookingStyle(styleId);
+    fetchRecommendations(currentIngredients, activeConstraint, styleId);
   };
 
   const handleAddOneIngredient = () => {
@@ -91,13 +116,13 @@ export function RekomendasiScreen({
     setCurrentIngredients(updated);
     setNewIngredientInput('');
     setShowAddOneInput(false);
-    fetchRecommendations(updated, activeConstraint);
+    fetchRecommendations(updated, activeConstraint, activeCookingStyle);
   };
 
   const handleLeftoverRemix = () => {
     const nextMode = activeConstraint === 'no_shopping' ? 'rescue' : 'no_shopping';
     setActiveConstraint(nextMode);
-    fetchRecommendations(currentIngredients, nextMode);
+    fetchRecommendations(currentIngredients, nextMode, activeCookingStyle);
   };
 
   return (
@@ -176,9 +201,46 @@ export function RekomendasiScreen({
           )}
         </View>
 
-        {/* 3. MODE FOOD RESCUE / CONSTRAINTS (DESIGN.md Section 27) */}
+        {/* 3. GAYA MASAK (Requirement 3: Hard Constraint) */}
         <View style={styles.constraintSection}>
           <Text style={styles.constraintSectionLabel}>Pilih Gaya Masak:</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.constraintScroll}
+          >
+            {COOKING_STYLES.map((cs) => {
+              const isActive = activeCookingStyle === cs.id;
+              return (
+                <TouchableOpacity
+                  key={cs.id}
+                  style={[styles.constraintChip, isActive && styles.constraintChipActive]}
+                  onPress={() => handleSelectCookingStyle(cs.id)}
+                  activeOpacity={0.8}
+                >
+                  <Feather
+                    name={cs.icon}
+                    size={13}
+                    color={isActive ? '#FFFFFF' : colors.textSecondary}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text
+                    style={[
+                      styles.constraintChipText,
+                      isActive && styles.constraintChipTextActive,
+                    ]}
+                  >
+                    {cs.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* 4. PREFERENSI DAPUR */}
+        <View style={[styles.constraintSection, { marginTop: 6 }]}>
+          <Text style={styles.constraintSectionLabel}>Preferensi Dapur:</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -285,6 +347,15 @@ export function RekomendasiScreen({
                       <View style={styles.difficultyBadge}>
                         <Text style={styles.difficultyText}>{recipe.tingkat_kesulitan}</Text>
                       </View>
+                      {recipe.metode_masak && (
+                        <>
+                          <Text style={styles.metaDot}>•</Text>
+                          <View style={styles.methodBadge}>
+                            <Feather name="zap" size={10} color={colors.accent} style={{ marginRight: 3 }} />
+                            <Text style={styles.methodBadgeText}>{recipe.metode_masak}</Text>
+                          </View>
+                        </>
+                      )}
                     </View>
                   </View>
 
@@ -635,6 +706,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: colors.primaryDark,
+  },
+  methodBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: radius.xs,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  methodBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.accent,
   },
   rescueBadge: {
     flexDirection: 'row',

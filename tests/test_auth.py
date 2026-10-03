@@ -41,21 +41,29 @@ _test_user = {
 
 @pytest.fixture(autouse=True)
 def reset_users_table():
-    """Membersihkan tabel users sebelum setiap test agar terisolasi."""
+    """Membersihkan tabel users sebelum dan sesudah setiap test agar terisolasi."""
     from app.db.models import User  # noqa: F401  (ensure model is registered)
-
-    Base.metadata.create_all(bind=engine)
-    yield
-    # Hapus semua data user setelah test
     from sqlalchemy.orm import Session
     from app.db.database import SessionLocal
 
+    Base.metadata.create_all(bind=engine)
+    # Hapus data sebelum test agar terisolasi dari sisa state manual/test sebelumnya
     db: Session = SessionLocal()
     try:
         db.execute(User.__table__.delete())
         db.commit()
     finally:
         db.close()
+
+    yield
+
+    # Hapus semua data user setelah test
+    db_after: Session = SessionLocal()
+    try:
+        db_after.execute(User.__table__.delete())
+        db_after.commit()
+    finally:
+        db_after.close()
 
 
 # ── Test Register ───────────────────────────────────────────────────────────

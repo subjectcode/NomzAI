@@ -1,37 +1,70 @@
-import { Linking, Alert } from 'react-native';
+import { Linking } from 'react-native';
 
-/**
- * Membentuk URL pencarian YouTube resmi yang valid untuk nama hidangan.
- * Tidak pernah memalsukan ID video statis atau link fiktif.
- */
-export function getYouTubeSearchUrl(recipeName: string): string {
-  const query = `resep ${recipeName} cara memasak`;
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+export interface VideoRecommendation {
+  video_id: string;
+  title: string;
+  channel_title: string;
+  thumbnail_url: string;
+  duration?: string;
+  url: string;
+}
+
+export interface VideoSearchResponse {
+  videos: VideoRecommendation[];
+  source: string;
+  total?: number;
+  offset?: number;
+  limit?: number;
 }
 
 /**
- * Membuka aplikasi YouTube resmi atau browser ke halaman hasil pencarian video tutorial.
+ * Mendapatkan pool rekomendasi video dari backend.
  */
-export async function openYouTubeTutorial(recipeName: string): Promise<boolean> {
-  const url = getYouTubeSearchUrl(recipeName);
+export async function fetchVideoRecommendations(
+  recipeName: string,
+  offset: number = 0,
+  limit: number = 50
+): Promise<VideoRecommendation[]> {
+  const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:8000';
+  const query = `resep ${recipeName} cara memasak`;
+
   try {
-    const supported = await Linking.canOpenURL(url);
+    const url = `${API_URL}/api/videos/search?query=${encodeURIComponent(query)}&offset=${offset}&limit=${limit}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data: VideoSearchResponse = await response.json();
+    return data.videos || [];
+  } catch (error) {
+    console.error('Gagal mengambil rekomendasi video:', error);
+    return [];
+  }
+}
+
+/**
+ * Membuka video langsung di aplikasi YouTube atau browser sebagai fallback.
+ */
+export async function openVideoInYouTube(videoId: string): Promise<boolean> {
+  const appUrl = `vnd.youtube://${videoId}`;
+  const webUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+  try {
+    const supported = await Linking.canOpenURL(appUrl);
     if (supported) {
-      await Linking.openURL(url);
+      await Linking.openURL(appUrl);
       return true;
     } else {
-      Alert.alert(
-        'Buka Tutorial',
-        `Silakan cari video dengan kata kunci: "resep ${recipeName} cara memasak" di aplikasi YouTube.`
-      );
-      return false;
+      await Linking.openURL(webUrl);
+      return true;
     }
   } catch (error) {
-    console.error('Gagal membuka link YouTube:', error);
-    Alert.alert(
-      'Gagal Membuka YouTube',
-      `Tidak dapat membuka link langsung. Kamu dapat mencari "resep ${recipeName}" langsung di YouTube.`
-    );
-    return false;
+    console.error('Gagal membuka video YouTube:', error);
+    try {
+      await Linking.openURL(webUrl);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

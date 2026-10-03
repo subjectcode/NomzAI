@@ -22,27 +22,43 @@ export function GuidedCookingScreen({
   onBack,
   onComplete,
 }: GuidedCookingScreenProps) {
+  const fallbackSteps = [
+    `Persiapan Bahan: Siapkan dan potong bahan utama yang tersedia (${recipe.bahan_tersedia.join(', ')}). Cuci bersih dan tiriskan hingga kering agar tidak membuat minyak meletup saat dimasak.`,
+    `Pemanasan Alat: Panaskan wajan/panci dengan api sedang selama ±2 menit. Tambahkan ${recipe.bahan_tambahan[0] || '1 sdm minyak goreng'} dan tunggu sampai minyak terlihat lebih encer serta bergerak ringan saat wajan dimiringkan.`,
+    `Pengolahan Utama: Masukkan ${recipe.bahan_tersedia[0] || 'bahan utama'}. Masak dengan teknik ${recipe.metode_masak?.toLowerCase() || 'tumis'} di atas api sedang-tinggi selama 3-4 menit sampai sisi bawah mulai kecokelatan keemasan dan aroma harum keluar. Balik perlahan agar matang merata.`,
+    `Pembumbuan & Koreksi Rasa: Turunkan api ke sedang-kecil, masukkan bumbu pelengkap (${recipe.bahan_tambahan.slice(1).join(', ') || 'garam dan merica'}). Aduk merata 1-2 menit hingga bumbu meresap sempurna dan saus membalut bahan.`,
+    `Penyelesaian & Penyajian: Matikan api kompor. Diamkan sejenak 1 menit agar sari makanan stabil, lalu angkat dan tata rapi di atas piring saji selagi hangat.`,
+  ];
+
   const steps =
     recipe.langkah_memasak && recipe.langkah_memasak.length > 0
       ? recipe.langkah_memasak
       : recipe.langkah && recipe.langkah.length > 0
       ? recipe.langkah
-      : [
-          `Siapkan bahan utama yang tersedia: ${recipe.bahan_tersedia.join(', ')}.`,
-          'Cuci bersih bahan segar dan potong sesuai kebutuhan.',
-          'Panaskan sedikit minyak goreng atau margarin di atas wajan dengan api sedang.',
-          `Masak dan tumis ${recipe.nama.toLowerCase()} hingga matang merata dan harum.`,
-          'Bumbui secukupnya, cicipi rasa, lalu angkat dan sajikan selagi hangat.',
-        ];
+      : fallbackSteps;
 
   const totalSteps = steps.length;
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
 
-  // Deteksi durasi waktu di teks instruksi langkah (misal "5 menit", "10 menit")
+  // Deteksi durasi waktu di teks instruksi langkah (misal "5 menit", "10 menit", "45 detik")
   const currentStepText = steps[currentStepIndex];
   const timeMatch = currentStepText.match(/(\d+)\s*(menit|detik)/i);
   const detectedDuration = timeMatch ? `${timeMatch[1]} ${timeMatch[2]}` : null;
+
+  // Deteksi tingkat api (Api Kecil, Api Sedang, Api Sedang-Tinggi, Api Besar)
+  const heatMatch = currentStepText.match(/api\s+(sedang-tinggi|sedang-kecil|kecil|sedang|besar)/i);
+  const detectedHeat = heatMatch ? `Api ${heatMatch[1]}` : null;
+
+  // Deteksi fase langkah memasak
+  const detectedPhase =
+    currentStepIndex === 0
+      ? 'Persiapan'
+      : currentStepIndex === totalSteps - 1
+      ? 'Penyajian'
+      : /bumbu|garam|merica|saus|kecap/i.test(currentStepText)
+      ? 'Pembumbuan'
+      : recipe.metode_masak || 'Pengolahan';
 
   // Timer interaktif jika ada durasi
   const initialSeconds = timeMatch
@@ -177,8 +193,21 @@ export function GuidedCookingScreen({
       >
         {/* 3. CURRENT STEP CARD */}
         <View style={styles.stepCard}>
-          <View style={styles.stepBadge}>
-            <Text style={styles.stepBadgeText}>LANGKAH {currentStepIndex + 1}</Text>
+          <View style={styles.stepHeaderRow}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>LANGKAH {currentStepIndex + 1}</Text>
+            </View>
+            <View style={styles.cuesContainer}>
+              <View style={styles.phaseBadge}>
+                <Text style={styles.phaseBadgeText}>{detectedPhase}</Text>
+              </View>
+              {detectedHeat && (
+                <View style={styles.heatBadge}>
+                  <Feather name="zap" size={11} color={colors.accent} style={{ marginRight: 3 }} />
+                  <Text style={styles.heatBadgeText}>{detectedHeat}</Text>
+                </View>
+              )}
+            </View>
           </View>
 
           <Text style={styles.stepInstructionText}>{currentStepText}</Text>
@@ -329,19 +358,54 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     ...shadows.level1,
   },
+  stepHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
   stepBadge: {
     backgroundColor: colors.mintSoft,
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: radius.xs,
-    alignSelf: 'flex-start',
-    marginBottom: 14,
   },
   stepBadgeText: {
     fontSize: 11,
     fontWeight: '700',
     color: colors.primary,
     letterSpacing: 0.5,
+  },
+  cuesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  phaseBadge: {
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: radius.xs,
+  },
+  phaseBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  heatBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: radius.xs,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  heatBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.accent,
   },
   stepInstructionText: {
     fontSize: 17,

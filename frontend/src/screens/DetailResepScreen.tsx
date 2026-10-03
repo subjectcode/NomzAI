@@ -6,12 +6,14 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Image,
+  ActivityIndicator
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { RecipeRecommendation } from '../types';
 import { colors, radius, shadows, spacing } from '../theme';
 import { isRecipeSaved, saveRecipe, removeSavedRecipe } from '../services/savedStorage';
-import { openYouTubeTutorial } from '../services/youtube';
+import { fetchVideoRecommendations, openVideoInYouTube, VideoRecommendation } from '../services/youtube';
 
 interface DetailResepScreenProps {
   recipe: RecipeRecommendation;
@@ -27,8 +29,36 @@ export function DetailResepScreen({
   const [saved, setSaved] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
+  const [videos, setVideos] = useState<VideoRecommendation[]>([]);
+  const [visibleVideoCount, setVisibleVideoCount] = useState<number>(3);
+  const [loadingVideos, setLoadingVideos] = useState<boolean>(true);
+  const [videoError, setVideoError] = useState<boolean>(false);
+
   useEffect(() => {
     isRecipeSaved(recipe.id, recipe.nama).then(setSaved);
+
+    let isMounted = true;
+    const loadVideos = async () => {
+      setLoadingVideos(true);
+      setVideoError(false);
+      try {
+        const data = await fetchVideoRecommendations(recipe.nama);
+        if (isMounted) {
+          if (data && data.length > 0) {
+            setVideos(data);
+          } else {
+            setVideoError(true);
+          }
+        }
+      } catch (err) {
+        if (isMounted) setVideoError(true);
+      } finally {
+        if (isMounted) setLoadingVideos(false);
+      }
+    };
+
+    loadVideos();
+    return () => { isMounted = false; };
   }, [recipe.id, recipe.nama]);
 
   const handleToggleSave = async () => {
@@ -50,9 +80,7 @@ export function DetailResepScreen({
     }
   };
 
-  const handleOpenTutorial = async () => {
-    await openYouTubeTutorial(recipe.nama);
-  };
+  // Deprecated manual search handling removed
 
   const steps =
     recipe.langkah_memasak && recipe.langkah_memasak.length > 0
@@ -110,7 +138,7 @@ export function DetailResepScreen({
             {recipe.alasan_rekomendasi || recipe.deskripsi || recipe.alasan}
           </Text>
 
-          {/* Quick Metrics: Waktu, Kesulitan, Porsi */}
+          {/* Quick Metrics: Waktu, Kesulitan, Porsi, Metode */}
           <View style={styles.metricsRow}>
             <View style={styles.metricItem}>
               <Feather name="clock" size={16} color={colors.primary} style={{ marginBottom: 4 }} />
@@ -133,6 +161,17 @@ export function DetailResepScreen({
               <Text style={styles.metricLabel}>Porsi</Text>
               <Text style={styles.metricValue}>{porsi}</Text>
             </View>
+
+            {recipe.metode_masak && (
+              <>
+                <View style={styles.metricDivider} />
+                <View style={styles.metricItem}>
+                  <Feather name="zap" size={16} color={colors.accent} style={{ marginBottom: 4 }} />
+                  <Text style={styles.metricLabel}>Metode</Text>
+                  <Text style={styles.metricValue}>{recipe.metode_masak}</Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -210,23 +249,73 @@ export function DetailResepScreen({
         </View>
 
         {/* 6. YOUTUBE VIDEO TUTORIAL DISCOVERY */}
-        <TouchableOpacity
-          style={styles.youtubeCard}
-          onPress={handleOpenTutorial}
-          activeOpacity={0.85}
-          accessibilityLabel="Tonton Tutorial Video di YouTube"
-        >
-          <View style={styles.youtubeIconBox}>
-            <Feather name="video" size={20} color="#DC2626" />
+        <View style={styles.card}>
+          <View style={styles.cardHeaderRow}>
+            <View style={[styles.iconCircle, { backgroundColor: '#FEF2F2' }]}>
+              <Feather name="video" size={14} color="#DC2626" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>Video Tutorial</Text>
+              <Text style={styles.cardSubtitle}>Panduan visual dari YouTube</Text>
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.youtubeTitle}>Lihat Video Panduan</Text>
-            <Text style={styles.youtubeDesc}>
-              Buka referensi video memasak "{recipe.nama}" di YouTube
-            </Text>
-          </View>
-          <Feather name="external-link" size={16} color={colors.textSecondary} />
-        </TouchableOpacity>
+
+          {loadingVideos ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={{ color: colors.textMuted, marginTop: 8 }}>Memuat video tutorial...</Text>
+            </View>
+          ) : videoError || videos.length === 0 ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={{ color: colors.textMuted }}>Belum ada video tutorial untuk hidangan ini.</Text>
+            </View>
+          ) : (
+            <View style={{ gap: 12 }}>
+              {videos.slice(0, visibleVideoCount).map((vid) => (
+                <TouchableOpacity
+                  key={vid.video_id}
+                  style={styles.videoCardRow}
+                  activeOpacity={0.8}
+                  onPress={() => openVideoInYouTube(vid.video_id)}
+                >
+                  <View style={styles.videoThumbnailContainer}>
+                    <Image source={{ uri: vid.thumbnail_url }} style={styles.videoThumbnail} />
+                    <View style={styles.videoPlayOverlay}>
+                      <Feather name="play" size={16} color="#FFF" />
+                    </View>
+                  </View>
+                  <View style={styles.videoInfo}>
+                    <Text style={styles.videoTitle} numberOfLines={2}>{vid.title}</Text>
+                    <Text style={styles.videoChannel} numberOfLines={1}>YouTube • {vid.channel_title}</Text>
+                    {vid.duration && (
+                      <Text style={styles.videoDuration}>{vid.duration}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              {videos.length > visibleVideoCount ? (
+                <TouchableOpacity
+                  style={styles.loadMoreVideosBtn}
+                  onPress={() => setVisibleVideoCount((prev) => Math.min(prev + 4, videos.length))}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="chevron-down" size={15} color={colors.primary} style={{ marginRight: 6 }} />
+                  <Text style={styles.loadMoreVideosBtnText}>
+                    Lihat video lainnya (+{Math.min(4, videos.length - visibleVideoCount)})
+                  </Text>
+                </TouchableOpacity>
+              ) : videos.length > 3 ? (
+                <View style={styles.allVideosLoadedBox}>
+                  <Feather name="check" size={13} color={colors.textMuted} style={{ marginRight: 5 }} />
+                  <Text style={styles.allVideosLoadedText}>
+                    Semua {videos.length} video tutorial telah ditampilkan
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       {/* 7. STICKY BOTTOM PRIMARY CTA (DESIGN.md Section 17 & 29) */}
@@ -443,33 +532,82 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     lineHeight: 20,
   },
-  youtubeCard: {
+  videoCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    marginBottom: 16,
-    ...shadows.level1,
+    paddingVertical: 4,
   },
-  youtubeIconBox: {
-    width: 40,
-    height: 40,
+  videoThumbnailContainer: {
+    width: 100,
+    height: 60,
     borderRadius: radius.md,
-    backgroundColor: '#FEF2F2',
+    overflow: 'hidden',
+    marginRight: 12,
+    backgroundColor: colors.borderSubtle,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoThumbnail: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+    position: 'absolute',
+  },
+  videoPlayOverlay: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    paddingLeft: 2, // optical center for play icon
   },
-  youtubeTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+  videoInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  videoTitle: {
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 2,
+    lineHeight: 18,
+    marginBottom: 4,
   },
-  youtubeDesc: {
+  videoChannel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  videoDuration: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  loadMoreVideosBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: radius.md,
+    backgroundColor: colors.mintSoft,
+    borderWidth: 1,
+    borderColor: colors.lightMint,
+    marginTop: 4,
+  },
+  loadMoreVideosBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  allVideosLoadedBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    marginTop: 2,
+  },
+  allVideosLoadedText: {
     fontSize: 12,
     color: colors.textMuted,
   },

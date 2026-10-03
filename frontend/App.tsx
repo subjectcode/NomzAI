@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
   StyleSheet,
   View,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/context';
@@ -36,6 +37,14 @@ type CookingStep = 'scan' | 'recommendations' | 'detail' | 'guided_cooking';
 type ModalSubScreen = 'none' | 'profile' | 'pantry' | 'history' | 'planner' | 'edit_profile' | 'settings';
 type AuthSubScreen = 'welcome' | 'login' | 'register';
 
+interface NavState {
+  tab: TabRoute;
+  subScreen: ModalSubScreen;
+  cookingStep: CookingStep;
+  recipe?: RecipeRecommendation | null;
+  activeIngredients?: string[];
+}
+
 function MainApp() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
@@ -55,6 +64,95 @@ function MainApp() {
   const [cookingStep, setCookingStep] = useState<CookingStep>('scan');
   const [activeIngredients, setActiveIngredients] = useState<string[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeRecommendation | null>(null);
+
+  // Stack Navigasi untuk Android Hardware Back & in-app Back (Requirement 6)
+  const navHistoryRef = useRef<NavState[]>([]);
+
+  const pushNav = (
+    nextTab: TabRoute,
+    nextSub: ModalSubScreen,
+    nextStep: CookingStep,
+    nextRecipe: RecipeRecommendation | null = selectedRecipe,
+    nextIngredients: string[] = activeIngredients
+  ) => {
+    navHistoryRef.current.push({
+      tab: activeTab,
+      subScreen,
+      cookingStep,
+      recipe: selectedRecipe,
+      activeIngredients,
+    });
+    setActiveTab(nextTab);
+    setSubScreen(nextSub);
+    setCookingStep(nextStep);
+    setSelectedRecipe(nextRecipe);
+    setActiveIngredients(nextIngredients);
+  };
+
+  const handleGoBack = useCallback((): boolean => {
+    // 1. Pop dari riwayat stack jika ada
+    const prev = navHistoryRef.current.pop();
+    if (prev) {
+      setActiveTab(prev.tab);
+      setSubScreen(prev.subScreen);
+      setCookingStep(prev.cookingStep);
+      setSelectedRecipe(prev.recipe || null);
+      if (prev.activeIngredients) {
+        setActiveIngredients(prev.activeIngredients);
+      }
+      return true;
+    }
+
+    // 2. Fallback deterministik jika stack kosong
+    if (subScreen === 'edit_profile' || subScreen === 'settings') {
+      setSubScreen('profile');
+      return true;
+    }
+    if (subScreen !== 'none') {
+      setSubScreen('none');
+      return true;
+    }
+
+    if (activeTab === 'scan') {
+      if (cookingStep === 'guided_cooking') {
+        setCookingStep('detail');
+        return true;
+      }
+      if (cookingStep === 'detail') {
+        if (activeIngredients && activeIngredients.length > 0) {
+          setCookingStep('recommendations');
+        } else {
+          setCookingStep('scan');
+          setActiveTab('beranda');
+        }
+        return true;
+      }
+      if (cookingStep === 'recommendations') {
+        setCookingStep('scan');
+        return true;
+      }
+      if (cookingStep === 'scan') {
+        setActiveTab('beranda');
+        return true;
+      }
+    }
+
+    if (activeTab !== 'beranda') {
+      setActiveTab('beranda');
+      return true;
+    }
+
+    // Root screen (Beranda dengan subScreen === 'none'): izinkan OS keluar dari aplikasi
+    return false;
+  }, [activeTab, subScreen, cookingStep, selectedRecipe, activeIngredients]);
+
+  // Listener Android Hardware Back Button (Requirement 6)
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      return handleGoBack();
+    });
+    return () => subscription.remove();
+  }, [handleGoBack]);
 
   // Periksa status onboarding lokal saat startup
   useEffect(() => {
@@ -131,51 +229,33 @@ function MainApp() {
 
   // 4. MAIN APP: Onboarding selesai & terautentikasi (Aplikasi Utama Nomz)
   const handleStartScan = () => {
-    setSubScreen('none');
-    setActiveTab('scan');
-    setCookingStep('scan');
+    pushNav('scan', 'none', 'scan');
   };
 
   const handleNavigateToRecommendations = (ingredients: string[]) => {
-    setSubScreen('none');
-    setActiveIngredients(ingredients);
-    setActiveTab('scan');
-    setCookingStep('recommendations');
+    pushNav('scan', 'none', 'recommendations', selectedRecipe, ingredients);
   };
 
   const handleSelectRecipe = (recipe: RecipeRecommendation) => {
-    setSelectedRecipe(recipe);
-    setCookingStep('detail');
-    setActiveTab('scan');
+    pushNav('scan', 'none', 'detail', recipe, activeIngredients);
   };
 
   const handleStartGuidedCooking = (recipe: RecipeRecommendation) => {
-    setSelectedRecipe(recipe);
-    setCookingStep('guided_cooking');
-    setActiveTab('scan');
+    pushNav('scan', 'none', 'guided_cooking', recipe, activeIngredients);
   };
 
   const handleGuidedCookingComplete = () => {
-    // Selesai memasak -> kembali ke beranda
+    // Selesai memasak -> reset stack dan kembali ke beranda
+    navHistoryRef.current = [];
     setCookingStep('scan');
     setActiveTab('beranda');
     setSubScreen('none');
   };
 
-  const handleBackToRecommendations = () => {
-    if (activeIngredients && activeIngredients.length > 0) {
-      setCookingStep('recommendations');
-    } else {
-      setCookingStep('scan');
-      setActiveTab('beranda');
-    }
-  };
-
-  const handleBackToScan = () => {
-    setCookingStep('scan');
-  };
-
   const handleSelectTab = (tab: TabRoute) => {
+    if (tab !== activeTab) {
+      navHistoryRef.current = [];
+    }
     setSubScreen('none');
     setActiveTab(tab);
     if (tab === 'scan' && cookingStep === 'guided_cooking') {
@@ -184,11 +264,11 @@ function MainApp() {
   };
 
   // Navigasi Sub-layar (Profile / Pantry / History / Planner)
-  const handleOpenProfile = () => setSubScreen('profile');
-  const handleOpenPantry = () => setSubScreen('pantry');
-  const handleOpenHistory = () => setSubScreen('history');
-  const handleOpenPlanner = () => setSubScreen('planner');
-  const handleCloseSubScreen = () => setSubScreen('none');
+  const handleOpenProfile = () => pushNav(activeTab, 'profile', cookingStep);
+  const handleOpenPantry = () => pushNav(activeTab, 'pantry', cookingStep);
+  const handleOpenHistory = () => pushNav(activeTab, 'history', cookingStep);
+  const handleOpenPlanner = () => pushNav(activeTab, 'planner', cookingStep);
+  const handleCloseSubScreen = () => handleGoBack();
 
   // Menentukan apakah BottomNavBar harus tampil
   const shouldShowBottomNav =
@@ -202,22 +282,21 @@ function MainApp() {
         {/* SUB-SCREENS (Full modal stack) */}
         {subScreen === 'profile' && (
           <ProfileScreen
-            onBack={handleCloseSubScreen}
-            onNavigateToEditProfile={() => setSubScreen('edit_profile')}
+            onBack={handleGoBack}
+            onNavigateToEditProfile={() => pushNav(activeTab, 'edit_profile', cookingStep)}
             onNavigateToPantry={handleOpenPantry}
             onNavigateToHistory={handleOpenHistory}
             onNavigateToPlanner={handleOpenPlanner}
             onNavigateToSaved={() => {
-              handleCloseSubScreen();
-              setActiveTab('tersimpan');
+              pushNav('tersimpan', 'none', cookingStep);
             }}
-            onNavigateToSettings={() => setSubScreen('settings')}
+            onNavigateToSettings={() => pushNav(activeTab, 'settings', cookingStep)}
           />
         )}
 
         {subScreen === 'edit_profile' && (
           <EditProfileScreen
-            onBack={() => setSubScreen('profile')}
+            onBack={handleGoBack}
             onProfileUpdated={() => {
               // Context user is updated reactively
             }}
@@ -226,16 +305,15 @@ function MainApp() {
 
         {subScreen === 'settings' && (
           <SettingsScreen
-            onBack={() => setSubScreen('profile')}
-            onNavigateToEditProfile={() => setSubScreen('edit_profile')}
+            onBack={handleGoBack}
+            onNavigateToEditProfile={() => pushNav(activeTab, 'edit_profile', cookingStep)}
           />
         )}
 
         {subScreen === 'pantry' && (
           <PantryScreen
-            onBack={handleCloseSubScreen}
+            onBack={handleGoBack}
             onRescueFromPantry={(ingredients) => {
-              handleCloseSubScreen();
               handleNavigateToRecommendations(ingredients);
             }}
           />
@@ -243,9 +321,8 @@ function MainApp() {
 
         {subScreen === 'history' && (
           <HistoryScreen
-            onBack={handleCloseSubScreen}
+            onBack={handleGoBack}
             onCookAgain={(recipe) => {
-              handleCloseSubScreen();
               handleStartGuidedCooking(recipe);
             }}
             onStartScan={handleStartScan}
@@ -254,14 +331,12 @@ function MainApp() {
 
         {subScreen === 'planner' && (
           <PlannerScreen
-            onBack={handleCloseSubScreen}
+            onBack={handleGoBack}
             onSelectRecipe={(recipe) => {
-              handleCloseSubScreen();
               handleSelectRecipe(recipe);
             }}
             onExploreRecipes={() => {
-              handleCloseSubScreen();
-              setActiveTab('jelajahi');
+              pushNav('jelajahi', 'none', cookingStep);
             }}
           />
         )}
@@ -275,7 +350,7 @@ function MainApp() {
                 onStartScan={handleStartScan}
                 onOpenProfile={handleOpenProfile}
                 onOpenPantry={handleOpenPantry}
-                onOpenExplore={() => setActiveTab('jelajahi')}
+                onOpenExplore={() => pushNav('jelajahi', 'none', cookingStep)}
                 onSelectRecipe={handleSelectRecipe}
               />
             )}
@@ -295,7 +370,7 @@ function MainApp() {
               <TersimpanScreen
                 isActive={activeTab === 'tersimpan'}
                 onSelectRecipe={handleSelectRecipe}
-                onExplore={() => setActiveTab('jelajahi')}
+                onExplore={() => pushNav('jelajahi', 'none', cookingStep)}
               />
             )}
 
@@ -306,27 +381,27 @@ function MainApp() {
                   <ScanBahanScreen
                     onNavigateToRecommendations={handleNavigateToRecommendations}
                     isActive={activeTab === 'scan' && cookingStep === 'scan' && subScreen === 'none'}
-                    onBack={() => setActiveTab('beranda')}
+                    onBack={handleGoBack}
                   />
                 )}
                 {cookingStep === 'recommendations' && (
                   <RekomendasiScreen
                     ingredients={activeIngredients}
                     onSelectRecipe={handleSelectRecipe}
-                    onBack={handleBackToScan}
+                    onBack={handleGoBack}
                   />
                 )}
                 {cookingStep === 'detail' && selectedRecipe && (
                   <DetailResepScreen
                     recipe={selectedRecipe}
-                    onBack={handleBackToRecommendations}
+                    onBack={handleGoBack}
                     onStartCooking={handleStartGuidedCooking}
                   />
                 )}
                 {cookingStep === 'guided_cooking' && selectedRecipe && (
                   <GuidedCookingScreen
                     recipe={selectedRecipe}
-                    onBack={() => setCookingStep('detail')}
+                    onBack={handleGoBack}
                     onComplete={handleGuidedCookingComplete}
                   />
                 )}

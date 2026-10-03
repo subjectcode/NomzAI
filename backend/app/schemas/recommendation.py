@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 class RecommendationRequest(BaseModel):
     ingredients: List[str] = Field(
         ...,
-        description="Daftar bahan makanan yang dimiliki/dikonfirmasi pengguna",
+        description="Daftar bahan makanan yang dimiliki/dikonfirmasi pengguna (beserta jumlah bila ada)",
         min_length=1,
     )
     mode: Optional[str] = Field(
@@ -15,7 +15,11 @@ class RecommendationRequest(BaseModel):
     )
     constraint: Optional[str] = Field(
         default=None,
-        description="Kendala atau preferensi khusus masakan (contoh: 'tanpa belanja', 'lebih cepat')",
+        description="Kendala atau preferensi khusus masakan (contoh: 'tanpa belanja', 'lebih cepat', 'Tumis')",
+    )
+    cooking_style: Optional[str] = Field(
+        default=None,
+        description="Gaya masak terpilih (contoh: 'Tumis', 'Goreng', 'Kukus', 'Rebus', 'Panggang', 'Air Fryer')",
     )
 
 
@@ -26,22 +30,26 @@ class RecipeRecommendationItem(BaseModel):
     )
     nama: str = Field(
         ...,
-        description="Nama hidangan masakan dalam Bahasa Indonesia (contoh: Telur Dadar Tomat Basil)",
+        description="Nama hidangan masakan dalam Bahasa Indonesia (contoh: Tumis Ayam Brokoli Bawang Gurih)",
     )
     deskripsi: str = Field(
         ...,
         description="Deskripsi singkat masakan (1-2 kalimat)",
     )
+    metode_masak: Optional[str] = Field(
+        default=None,
+        description="Metode masak utama hidangan (contoh: 'Tumis', 'Goreng', 'Kukus', 'Rebus', 'Panggang')",
+    )
     bahan_tersedia: List[str] = Field(
         ...,
         description=(
-            "Bahan masakan yang DIAMBIL DARI input pengguna. "
+            "Bahan masakan yang DIAMBIL DARI input pengguna, beserta takarannya (contoh: '2 butir telur', '150 g ayam fillet'). "
             "Jangan pernah mencantumkan bahan yang tidak ada di input pengguna."
         ),
     )
     bahan_tambahan: List[str] = Field(
         ...,
-        description="Bahan pelengkap atau bumbu dasar tambahan yang umum (contoh: minyak goreng, garam, merica, bawang putih)",
+        description="Bahan pelengkap atau bumbu dasar tambahan umum beserta takarannya (contoh: '1 sdm minyak goreng', '2 siung bawang putih cincang', '1/2 sdt garam')",
     )
     estimasi_waktu: str = Field(
         ...,
@@ -53,11 +61,11 @@ class RecipeRecommendationItem(BaseModel):
     )
     alasan: str = Field(
         ...,
-        description="Alasan singkat mengapa hidangan ini sangat cocok dengan kombinasi bahan yang dimiliki pengguna",
+        description="Alasan singkat mengapa hidangan ini sangat cocok dengan kombinasi bahan dan gaya masak",
     )
     langkah: List[str] = Field(
         default_factory=list,
-        description="Langkah-langkah memasak praktis dan berurutan",
+        description="Langkah-langkah memasak teknis, terukur, dan berurutan untuk panduan memasak nyata",
     )
     porsi: str = Field(
         default="1-2 porsi",
@@ -67,5 +75,5 @@ class RecipeRecommendationItem(BaseModel):
 
 class RecommendationResponse(BaseModel):
     recommendations: List[RecipeRecommendationItem]
-    source: str = Field(default="langflow", description="Execution engine source (e.g. langflow)")
+    source: str = Field(default="langflow", description="Execution engine source (e.g. langflow, gemini)")
     flow_id: str | None = Field(default=None, description="Langflow Flow ID")

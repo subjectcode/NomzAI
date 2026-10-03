@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.routes import auth, health, vision, recommendation
+from app.api.routes import auth, health, vision, recommendation, videos
 from app.db.database import Base, engine
 
 # Initialize database
@@ -29,7 +29,7 @@ app.include_router(vision.router, prefix=f"{settings.API_V1_PREFIX}/vision", tag
 app.include_router(vision.router, prefix=f"{settings.API_V1_PREFIX}/ingredients", tags=["Ingredients"])
 app.include_router(recommendation.router, prefix=f"{settings.API_V1_PREFIX}/recommendations", tags=["Recommendations"])
 app.include_router(recommendation.router, prefix=f"{settings.API_V1_PREFIX}/recipes/recommend", tags=["Recommendations"])
-
+app.include_router(videos.router, prefix=f"{settings.API_V1_PREFIX}/videos", tags=["Videos"])
 
 @app.get("/")
 def root():

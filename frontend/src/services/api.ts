@@ -162,6 +162,7 @@ export async function getRecipeRecommendations(
   ingredients: string[],
   mode: string = 'rescue',
   constraint?: string,
+  cookingStyle?: string,
   timeoutMs: number = 55000
 ): Promise<RecipeRecommendation[]> {
   const controller = new AbortController();
@@ -178,6 +179,7 @@ export async function getRecipeRecommendations(
         ingredients,
         mode,
         constraint: constraint || undefined,
+        cooking_style: cookingStyle || undefined,
       }),
       signal: controller.signal,
     });

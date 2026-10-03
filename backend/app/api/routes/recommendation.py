@@ -12,12 +12,11 @@ router = APIRouter()
     "",
     response_model=RecommendationResponse,
     status_code=status.HTTP_200_OK,
-    summary="Mendapatkan rekomendasi masakan berdasarkan bahan yang tersedia",
+    summary="Mendapatkan rekomendasi masakan berdasarkan bahan yang tersedia dan gaya masak",
 )
 def get_recommendations_endpoint(payload: RecommendationRequest, response: Response):
     """Menerima daftar bahan makanan yang dikonfirmasi pengguna, lalu
-
-    mengembalikan rekomendasi masakan rumahan terstruktur via workflow Langflow.
+    mengembalikan rekomendasi masakan rumahan terstruktur via workflow Langflow / Gemini.
     """
     cleaned = [item.strip() for item in payload.ingredients if item and item.strip()]
     if not cleaned:
@@ -30,6 +29,7 @@ def get_recommendations_endpoint(payload: RecommendationRequest, response: Respo
         cleaned,
         mode=payload.mode or "rescue",
         constraint=payload.constraint,
+        cooking_style=payload.cooking_style,
     )
     response.headers["X-Recommendation-Engine"] = result.source or "langflow"
     if result.flow_id:

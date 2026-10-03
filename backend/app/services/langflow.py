@@ -79,6 +79,7 @@ def run_find_meals_flow(
     ingredients: List[str],
     mode: Optional[str] = None,
     constraint: Optional[str] = None,
+    cooking_style: Optional[str] = None,
 ) -> RecommendationResponse:
     """Mengeksekusi workflow Langflow 'find_meals' secara sinkron via REST API
     menggunakan confirmed ingredients pengguna dan opsi constraint.
@@ -102,6 +103,8 @@ def run_find_meals_flow(
 
     # Format input untuk node Chat Input di Langflow find_meals
     input_str = ", ".join(cleaned_ingredients)
+    if cooking_style:
+        input_str += f" (Gaya masak utama WAJIB: {cooking_style})"
     if constraint:
         input_str += f" (Kendala khusus: {constraint})"
     elif mode and mode != "rescue":
@@ -190,14 +193,20 @@ def run_find_meals_flow(
                     item.bahan_tambahan.append(b)
         item.bahan_tersedia = sanitized_tersedia if sanitized_tersedia else [cleaned_ingredients[0]]
 
+        # Pastikan metode_masak terisi
+        if cooking_style:
+            item.metode_masak = cooking_style
+        elif not item.metode_masak:
+            item.metode_masak = "Tumis"
+
         # Pastikan ada langkah-langkah memasak praktis
         if not item.langkah:
             item.langkah = [
-                f"Siapkan bahan utama yang tersedia: {', '.join(item.bahan_tersedia)}.",
-                "Cuci bersih bahan segar dan potong sesuai selera.",
-                "Panaskan sedikit minyak goreng atau margarin di atas wajan dengan api sedang.",
-                f"Masak dan olah {item.nama.lower()} hingga matang merata dan harum.",
-                "Bumbui dengan bumbu pelengkap secukupnya, cicipi rasa, lalu angkat dan sajikan selagi hangat.",
+                f"Persiapan: Siapkan bahan utama yang tersedia: {', '.join(item.bahan_tersedia)}.",
+                "Pembersihan: Cuci bersih bahan segar dan potong rapi sesuai kebutuhan masakan.",
+                "Pemanasan: Panaskan 1 sdm minyak di wajan dengan api sedang selama 2 menit.",
+                f"Pengolahan: Masak dan olah {item.nama.lower()} dengan metode {item.metode_masak.lower()} selama 3-4 menit hingga matang dan harum.",
+                "Penyelesaian: Bumbui dengan bumbu dasar secukupnya, cicipi rasa, lalu angkat dan sajikan selagi hangat.",
             ]
         if not item.porsi:
             item.porsi = "1-2 porsi"

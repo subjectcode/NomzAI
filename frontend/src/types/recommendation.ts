@@ -2,6 +2,7 @@ export interface RecipeRecommendation {
   id: string;
   nama: string;
   deskripsi: string;
+  metode_masak?: string;
   bahan_tersedia: string[];
   bahan_tambahan: string[];
   estimasi_waktu: string;
