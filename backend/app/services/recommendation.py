@@ -10,6 +10,7 @@ from app.schemas.recommendation import (
     RecommendationResponse,
     RecipeRecommendationItem,
 )
+from app.services.cooking_steps import ensure_recipe_consistency
 from app.services.langflow import run_find_meals_flow
 
 logger = logging.getLogger(__name__)
@@ -111,20 +112,14 @@ def _generate_recommendations_gemini_fallback(
                             item.bahan_tambahan.append(b)
                 item.bahan_tersedia = sanitized_tersedia if sanitized_tersedia else [cleaned_ingredients[0]]
 
-                # 2. Validasi & penyesuaian gaya masak
-                if cooking_style:
-                    item.metode_masak = cooking_style
-                elif not item.metode_masak:
-                    item.metode_masak = "Tumis"
-
-                # 3. Pastikan langkah memasak ada dan informatif
-                if not item.langkah:
-                    item.langkah = [
-                        f"Persiapan: Siapkan dan potong bahan utama ({', '.join(item.bahan_tersedia)}) sesuai selera.",
-                        f"Pengolahan: Panaskan wajan/panci dengan api sedang selama 2 menit. Masukkan bahan utama dan olah dengan teknik {item.metode_masak.lower()} selama 3-4 menit hingga berubah warna dan matang merata.",
-                        "Pembumbuan: Tambahkan bumbu pelengkap dan sedikit air jika perlu, aduk rata selama 1-2 menit hingga meresap dan aroma harum keluar.",
-                        "Penyajian: Matikan api, angkat hidangan, dan sajikan hangat di atas piring saji.",
-                    ]
+                # 2. Pastikan konsistensi nama resep, metode masak, dan langkah teknis sesuai gaya masak
+                item.nama, item.metode_masak, item.langkah = ensure_recipe_consistency(
+                    item_nama=item.nama,
+                    item_metode_masak=item.metode_masak,
+                    item_bahan_tersedia=item.bahan_tersedia,
+                    item_langkah=item.langkah,
+                    cooking_style=cooking_style,
+                )
 
             return parsed_response
 

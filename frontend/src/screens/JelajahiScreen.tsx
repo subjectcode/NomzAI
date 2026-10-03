@@ -33,6 +33,38 @@ interface RescueCategory {
   bgTint: string;
 }
 
+/**
+ * Memastikan setiap bahan memiliki takaran dan unit standar dapur yang masuk akal
+ * sesuai model bahan Nomz (contoh: '2 butir telur', '1 buah tomat').
+ */
+export function formatPresetIngredientWithDefault(raw: string): string {
+  const trimmed = raw.trim();
+  // Jika sudah memiliki angka di awal (misal: "2 butir telur"), pertahankan
+  if (/^\d/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (lower.includes('telur')) return '2 butir telur';
+  if (lower.includes('tomat')) return '1 buah tomat';
+  if (lower.includes('bawang putih')) return '3 siung bawang putih';
+  if (lower.includes('bawang merah')) return '4 butir bawang merah';
+  if (lower.includes('bawang bombay')) return '1 buah bawang bombay';
+  if (lower.includes('nasi')) return '1 piring nasi putih';
+  if (lower.includes('sayur') || lower.includes('bayam') || lower.includes('kangkung')) return '1 ikat sayur';
+  if (lower.includes('tahu')) return '2 kotak tahu';
+  if (lower.includes('tempe')) return '1 papan tempe';
+  if (lower.includes('cabai') || lower.includes('cabe')) return '5 buah cabai';
+  if (lower.includes('kecap')) return '2 sdm kecap manis';
+  if (lower.includes('saus tiram')) return '1 sdm saus tiram';
+  if (lower.includes('wortel')) return '1 buah wortel';
+  if (lower.includes('ayam')) return '150 g daging ayam';
+  if (lower.includes('daging')) return '150 g daging sapi';
+  if (lower.includes('ikan')) return '1 ekor ikan';
+
+  return `1 porsi ${trimmed}`;
+}
+
 // 4 Approved Themes from DESIGN.md Section 10 & Brand Board Reference
 const RESCUE_CATEGORIES: RescueCategory[] = [
   {
@@ -40,7 +72,7 @@ const RESCUE_CATEGORIES: RescueCategory[] = [
     title: 'Makanan Instant',
     subtitle: 'Masak kilat < 15 menit saat waktu terbatas',
     badge: 'Cepat & Praktis',
-    ingredients: ['telur', 'tomat', 'kecap manis'],
+    ingredients: ['2 butir telur', '1 buah tomat', '2 sdm kecap manis'],
     icon: 'zap',
     illustration: ILLUST_MAKANAN_INSTANT,
     themeColor: colors.primary,
@@ -51,7 +83,7 @@ const RESCUE_CATEGORIES: RescueCategory[] = [
     title: 'Sisaan Makanan',
     subtitle: 'Selamatkan sisa nasi, tahu, dan sayuran sebelum layu',
     badge: 'Penyelamat Dapur',
-    ingredients: ['nasi putih', 'bawang putih', 'telur', 'sayur'],
+    ingredients: ['1 piring nasi putih', '3 siung bawang putih', '2 butir telur', '1 ikat sayur'],
     icon: 'refresh-cw',
     illustration: ILLUST_SISAAN_MAKANAN,
     themeColor: colors.orangeDark,
@@ -62,7 +94,7 @@ const RESCUE_CATEGORIES: RescueCategory[] = [
     title: 'Resep Kreatif',
     subtitle: 'Padukan bumbu dasar dapur jadi kreasi rasa baru',
     badge: 'Kaya Rempah',
-    ingredients: ['bawang bombay', 'cabai', 'telur', 'saus tiram'],
+    ingredients: ['1 buah bawang bombay', '5 buah cabai', '2 butir telur', '1 sdm saus tiram'],
     icon: 'compass',
     illustration: ILLUST_RESEP_KREATIF,
     themeColor: colors.success,
@@ -73,7 +105,7 @@ const RESCUE_CATEGORIES: RescueCategory[] = [
     title: 'Lebih Sehat & Hemat',
     subtitle: 'Nutrisi seimbang ramah kantong dari stok dapur harian',
     badge: 'Hemat & Bernutrisi',
-    ingredients: ['tahu', 'tempe', 'bawang merah', 'tomat'],
+    ingredients: ['2 kotak tahu', '1 papan tempe', '4 butir bawang merah', '1 buah tomat'],
     icon: 'heart',
     illustration: ILLUST_LEBIH_SEHAT,
     themeColor: '#0284C7',
@@ -148,7 +180,7 @@ export function JelajahiScreen({
             <TouchableOpacity
               key={cat.id}
               style={styles.categoryCard}
-              onPress={() => onSelectCategoryIngredients(cat.ingredients)}
+              onPress={() => onSelectCategoryIngredients(cat.ingredients.map(formatPresetIngredientWithDefault))}
               activeOpacity={0.85}
             >
               <View style={[styles.categoryIconBox, { backgroundColor: cat.bgTint }]}>

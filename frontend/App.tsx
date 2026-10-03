@@ -90,6 +90,15 @@ function MainApp() {
   };
 
   const handleGoBack = useCallback((): boolean => {
+    // 0. Alur Autentikasi (belum login): Jika di layar Daftar, kembali ke Masuk (Login)
+    if (!isAuthenticated) {
+      if (authSubScreen === 'register') {
+        setAuthSubScreen('login');
+        return true;
+      }
+      return false;
+    }
+
     // 1. Pop dari riwayat stack jika ada
     const prev = navHistoryRef.current.pop();
     if (prev) {
@@ -144,7 +153,7 @@ function MainApp() {
 
     // Root screen (Beranda dengan subScreen === 'none'): izinkan OS keluar dari aplikasi
     return false;
-  }, [activeTab, subScreen, cookingStep, selectedRecipe, activeIngredients]);
+  }, [isAuthenticated, authSubScreen, activeTab, subScreen, cookingStep, selectedRecipe, activeIngredients]);
 
   // Listener Android Hardware Back Button (Requirement 6)
   useEffect(() => {

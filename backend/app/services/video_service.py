@@ -63,7 +63,14 @@ def _search_composio(query: str, max_results: int = 35) -> Optional[List[VideoRe
             
         return videos
     except Exception as e:
-        logger.warning(f"Composio YouTube search failed, will use fallback: {e}")
+        err_msg = str(e)
+        if "410" in err_msg:
+            logger.warning(
+                "Composio API backend endpoint returned HTTP 410 (client_info deprecated in current SDK version). "
+                "Failing over cleanly to YouTube Data API v3 primary fallback."
+            )
+        else:
+            logger.warning("Composio YouTube search failed, will use fallback: %s", e)
         return None
 
 def _search_youtube_api(query: str, max_results: int = 35) -> List[VideoRecommendation]:

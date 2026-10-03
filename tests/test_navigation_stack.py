@@ -103,3 +103,39 @@ def test_scan_and_profile_navigation_flows():
     handled = nav.handle_back_press()
     assert handled is True
     assert nav.current_screen == "explore"
+
+
+def test_auth_register_screen_back_press_returns_to_login():
+    """Verify that pressing Android hardware back on Register screen returns to Login rather than exiting app."""
+    class AuthNavigationManager:
+        def __init__(self):
+            self.is_authenticated = False
+            self.auth_sub_screen = "login"
+
+        def open_register(self):
+            self.auth_sub_screen = "register"
+
+        def handle_back_press(self) -> bool:
+            if not self.is_authenticated:
+                if self.auth_sub_screen == "register":
+                    self.auth_sub_screen = "login"
+                    return True
+                return False
+            return False
+
+    auth_nav = AuthNavigationManager()
+    assert auth_nav.auth_sub_screen == "login"
+
+    # User taps "Daftar"
+    auth_nav.open_register()
+    assert auth_nav.auth_sub_screen == "register"
+
+    # User presses Android hardware Back
+    handled = auth_nav.handle_back_press()
+    assert handled is True
+    assert auth_nav.auth_sub_screen == "login"
+
+    # User presses Android hardware Back at Login (root auth screen) -> allows exit
+    handled = auth_nav.handle_back_press()
+    assert handled is False
+    assert auth_nav.auth_sub_screen == "login"

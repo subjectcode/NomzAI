@@ -98,3 +98,120 @@ def test_ingredient_with_quantity_parsing_compatibility():
     assert "telur" in normalized[0]
     assert any("telur" in n for n in normalized)
     assert any("150 g" in n for n in normalized)
+
+
+def test_ensure_recipe_consistency_kukus():
+    """Verify Kukus method generates steaming steps, sanitizes conflicting titles, and has NO frying instructions."""
+    from app.services.cooking_steps import ensure_recipe_consistency
+
+    # Case 1: Recipe returned from Langflow had "Tumis" title and no steps
+    title, method, steps = ensure_recipe_consistency(
+        item_nama="Tumis Telur Tomat Gurih",
+        item_metode_masak=None,
+        item_bahan_tersedia=["2 butir telur", "1 buah tomat"],
+        item_langkah=[],
+        cooking_style="Kukus",
+    )
+
+    assert method == "Kukus"
+    assert "tumis" not in title.lower()
+    assert "kukus" in title.lower()
+    assert len(steps) >= 4
+    combined = " ".join(steps).lower()
+    assert "kukus" in combined or "uap" in combined
+    assert "minyak di wajan" not in combined
+    assert "panaskan 1 sdm minyak" not in combined
+
+
+def test_ensure_recipe_consistency_goreng():
+    """Verify Goreng method enforces frying steps and texture cues."""
+    from app.services.cooking_steps import ensure_recipe_consistency
+
+    title, method, steps = ensure_recipe_consistency(
+        item_nama="Tahu Tempe Goreng Krispi",
+        item_metode_masak="Goreng",
+        item_bahan_tersedia=["2 kotak tahu", "1 papan tempe"],
+        item_langkah=[],
+        cooking_style="Goreng",
+    )
+
+    assert method == "Goreng"
+    assert len(steps) >= 4
+    combined = " ".join(steps).lower()
+    assert "minyak" in combined
+    assert "goreng" in combined or "renyah" in combined
+    assert "kukus" not in combined
+
+
+def test_ensure_recipe_consistency_rebus():
+    """Verify Rebus method generates broth/boiling steps without frying."""
+    from app.services.cooking_steps import ensure_recipe_consistency
+
+    title, method, steps = ensure_recipe_consistency(
+        item_nama="Goreng Telur Kuah Sup",
+        item_metode_masak=None,
+        item_bahan_tersedia=["2 butir telur", "sayur bayam"],
+        item_langkah=[],
+        cooking_style="Rebus",
+    )
+
+    assert method == "Rebus"
+    assert "goreng" not in title.lower()
+    assert len(steps) >= 4
+    combined = " ".join(steps).lower()
+    assert "panci" in combined or "air" in combined or "rebus" in combined
+    assert "minyak di wajan" not in combined
+
+
+def test_ensure_recipe_consistency_tumis():
+    """Verify Tumis method maintains stir-fry steps."""
+    from app.services.cooking_steps import ensure_recipe_consistency
+
+    title, method, steps = ensure_recipe_consistency(
+        item_nama="Tumis Buncis Bawang Putih",
+        item_metode_masak=None,
+        item_bahan_tersedia=["buncis", "bawang putih"],
+        item_langkah=[],
+        cooking_style="Tumis",
+    )
+
+    assert method == "Tumis"
+    assert "tumis" in title.lower()
+    assert len(steps) >= 4
+    combined = " ".join(steps).lower()
+    assert "tumis" in combined or "wajan" in combined
+
+
+def test_no_universal_tumis_fallback_when_cooking_style_provided():
+    """Verify that when cooking_style is provided, it is NEVER overridden by Tumis."""
+    from app.services.cooking_steps import normalize_cooking_method
+
+    assert normalize_cooking_method("Masakan Dapur", requested_style="Kukus") == "Kukus"
+    assert normalize_cooking_method("Masakan Dapur", requested_style="Goreng") == "Goreng"
+    assert normalize_cooking_method("Masakan Dapur", requested_style="Rebus") == "Rebus"
+    assert normalize_cooking_method("Masakan Dapur", requested_style="Panggang") == "Panggang"
+    assert normalize_cooking_method("Masakan Dapur", requested_style="Air Fryer") == "Air Fryer"
+
+
+def test_contradictory_steps_replaced():
+    """Verify that if Langflow returns contradictory frying steps for Kukus, they are replaced."""
+    from app.services.cooking_steps import ensure_recipe_consistency
+
+    contradictory_steps = [
+        "Panaskan 1 sdm minyak di wajan dengan api sedang selama 2 menit.",
+        "Goreng bahan sampai matang dan harum.",
+    ]
+
+    title, method, steps = ensure_recipe_consistency(
+        item_nama="Kukus Tahu Lembut",
+        item_metode_masak="Kukus",
+        item_bahan_tersedia=["tahu"],
+        item_langkah=contradictory_steps,
+        cooking_style="Kukus",
+    )
+
+    assert method == "Kukus"
+    combined = " ".join(steps).lower()
+    # Contradictory frying instructions must be replaced by steaming steps
+    assert "panaskan 1 sdm minyak di wajan" not in combined
+    assert "kukusan" in combined or "uap" in combined
