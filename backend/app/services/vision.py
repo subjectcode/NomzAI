@@ -17,7 +17,11 @@ Aturan Ketat:
 2. JANGAN mengarang, berasumsi, atau mengklaim bahan yang tidak kasat mata (jangan menebak minyak, garam, penyedap rasa, atau isian tersembunyi jika tidak terlihat).
 3. Berikan nama bahan makanan dalam Bahasa Indonesia baku dan umum, menggunakan huruf kecil (contoh: "telur", "tomat", "daun basil", "bawang putih", "pisang", "apel hijau", "stroberi").
 4. Berikan nilai confidence (angka desimal antara 0.0 hingga 1.0) yang mencerminkan tingkat kepastian visual.
-5. Jika tidak ada bahan makanan yang terlihat, kembalikan daftar kosong.
+5. ESTIMASI KUANTITAS CERDAS:
+   - Jika jumlah bahan dapat dihitung secara visual (misal terlihat 2 butir telur, 1 buah tomat, 3 siung bawang putih), isi `quantity` (angka, misal 2) dan `unit` ('butir', 'buah', 'siung', 'ikat', 'potong', 'lembar').
+   - Jika bahan berupa tumpukan atau potongan yang tidak bisa dihitung pasti, gunakan takaran wajar (misal 1 ikat untuk sayur berdaun, 250 g untuk daging, 1 potong untuk tahu/tempe).
+   - Jangan membuat kepalsuan presisi tinggi yang tidak berdasar.
+6. Jika tidak ada bahan makanan yang terlihat, kembalikan daftar kosong.
 """
 
 

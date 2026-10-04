@@ -23,7 +23,11 @@ import {
   saveAuthToken,
   getAuthToken,
   deleteAuthToken,
+  saveActiveUserId,
+  clearActiveUserId,
+  cleanupLegacyGlobalStorage,
 } from '../services/authStorage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface AuthContextType {
   user: User | null;
@@ -34,7 +38,7 @@ export interface AuthContextType {
   login: (input: LoginInput, rememberMe?: boolean) => Promise<User>;
   loginWithGoogle: (idToken: string) => Promise<User>;
   logout: () => Promise<void>;
-  updateProfile: (data: { displayName?: string; avatarUrl?: string }) => Promise<User>;
+  updateProfile: (data: { displayName?: string; username?: string; avatarUrl?: string }) => Promise<User>;
   deleteAccount: () => Promise<void>;
   restoreSession: () => Promise<void>;
 }
@@ -54,19 +58,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Mengembalikan sesi pengguna saat aplikasi dibuka.
-   * Alur:
-   * 1. Baca token dari SecureStore
-   * 2. Jika tidak ada -> status unauthenticated
-   * 3. Jika ada -> panggil GET /api/auth/me
-   * 4. Jika valid -> restore user & session
-   * 5. Jika invalid/expired (401) -> hapus token dari SecureStore -> unauthenticated
-   * 6. Jika terjadi error jaringan -> jangan crash, tandai selesai loading
    */
   const restoreSession = useCallback(async () => {
     setIsLoading(true);
     try {
       const persistedToken = await getAuthToken();
       if (!persistedToken) {
+        await clearActiveUserId();
         setUser(null);
         setToken(null);
         return;
@@ -74,21 +72,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       try {
         const userData = await getCurrentUser(persistedToken);
+        await saveActiveUserId(userData.id);
+        await cleanupLegacyGlobalStorage();
         setToken(persistedToken);
         setUser(userData);
       } catch (err: any) {
-        // Jika token tidak valid atau expired (HTTP 401), bersihkan token yang rusak
         if (err.status === 401 || err.message?.includes('401') || err.message?.includes('Token')) {
           await deleteAuthToken();
+          await clearActiveUserId();
           setToken(null);
           setUser(null);
         } else {
-          // Kesalahan koneksi jaringan sementara: jangan crash aplikasi
           console.warn('Gagal memvalidasi token sesi (kemungkinan masalah jaringan).');
         }
       }
     } catch {
-      // SecureStore read error fallback
+      await clearActiveUserId();
       setUser(null);
       setToken(null);
     } finally {
@@ -111,13 +110,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [restoreSession]);
 
   /**
-   * Mendaftarkan pengguna baru, menyimpan token ke SecureStore, dan mengaktifkan status auth.
+   * Mendaftarkan pengguna baru, mengikat active user ID, dan membersihkan legacy data.
    */
   const handleRegister = async (input: RegisterInput): Promise<User> => {
     setIsLoading(true);
     try {
       const response = await registerUser(input);
       await saveAuthToken(response.access_token);
+      await saveActiveUserId(response.user.id);
+      await cleanupLegacyGlobalStorage();
       setToken(response.access_token);
       setUser(response.user);
       return response.user;
@@ -127,10 +128,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   /**
-   * Login pengguna.
-   * rememberMe = true  → token disimpan ke SecureStore (persisten antar restart)
-   * rememberMe = false → token hanya di memori (hilang saat app process restart)
-   *                       dan hapus token lama dari SecureStore agar tidak bangkit
+   * Login pengguna dan mengikat active user ID.
    */
   const handleLogin = async (input: LoginInput, rememberMe: boolean = true): Promise<User> => {
     setIsLoading(true);
@@ -139,9 +137,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (rememberMe) {
         await saveAuthToken(response.access_token);
       } else {
-        // Hapus token persisten lama agar tidak bangkit setelah restart
         await deleteAuthToken();
       }
+      await saveActiveUserId(response.user.id);
+      await cleanupLegacyGlobalStorage();
       setToken(response.access_token);
       setUser(response.user);
       return response.user;
@@ -152,13 +151,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   /**
    * Login pengguna via Google Sign-In.
-   * Token JWT Nomz disimpan ke SecureStore secara persisten.
    */
   const handleGoogleLogin = async (idToken: string): Promise<User> => {
     setIsLoading(true);
     try {
       const response = await googleAuth({ idToken });
       await saveAuthToken(response.access_token);
+      await saveActiveUserId(response.user.id);
+      await cleanupLegacyGlobalStorage();
       setToken(response.access_token);
       setUser(response.user);
       return response.user;
@@ -168,12 +168,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   /**
-   * Logout pengguna: menghapus token dari SecureStore dan mereset user state.
+   * Logout pengguna: menghapus token dan active user ID, mereset state.
    */
   const handleLogout = async (): Promise<void> => {
     setIsLoading(true);
     try {
       await deleteAuthToken();
+      await clearActiveUserId();
       setToken(null);
       setUser(null);
     } finally {
@@ -182,9 +183,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   /**
-   * Memperbarui display name dan avatar pengguna pada server dan state lokal.
+   * Memperbarui profil pengguna (display name, username, avatar).
    */
-  const handleUpdateProfile = async (data: { displayName?: string; avatarUrl?: string }): Promise<User> => {
+  const handleUpdateProfile = async (data: {
+    displayName?: string;
+    username?: string;
+    avatarUrl?: string;
+  }): Promise<User> => {
     if (!token) throw new Error('Pengguna belum terautentikasi.');
     setIsLoading(true);
     try {
@@ -197,14 +202,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   /**
-   * Menghapus akun pengguna secara permanen dari server dan membersihkan sesi lokal.
+   * Menghapus akun pengguna dari server dan menghapus seluruh data lokal user ini.
    */
   const handleDeleteAccount = async (): Promise<void> => {
     if (!token) throw new Error('Pengguna belum terautentikasi.');
+    const currentUserId = user?.id;
     setIsLoading(true);
     try {
       await deleteUserAccount(token);
+      if (currentUserId) {
+        await AsyncStorage.multiRemove([
+          `@nomz_cooking_history_${currentUserId}`,
+          `@nomz_pantry_items_${currentUserId}`,
+          `@nomz_saved_recipes_${currentUserId}`,
+          `@nomz_meal_planner_${currentUserId}`,
+          `@nomz_onboarding_completed_${currentUserId}`,
+          `@nomz_avatar_${currentUserId}`,
+        ]);
+      }
       await deleteAuthToken();
+      await clearActiveUserId();
       setToken(null);
       setUser(null);
     } finally {

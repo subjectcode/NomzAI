@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Image,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors, radius, shadows, spacing } from '../theme';
@@ -39,12 +40,12 @@ export function ProfileScreen({
   });
 
   const loadStats = () => {
-    getImpactStats().then(setStats);
+    getImpactStats(user?.id).then(setStats);
   };
 
   useEffect(() => {
     loadStats();
-  }, []);
+  }, [user?.id]);
 
   const handleLogout = () => {
     Alert.alert('Konfirmasi Keluar', 'Apakah Anda yakin ingin keluar dari akun Nomz?', [
@@ -58,7 +59,9 @@ export function ProfileScreen({
   };
 
   const displayName = (user as any)?.display_name || (user as any)?.displayName || 'Pengguna Nomz';
+  const username = (user as any)?.username || '';
   const email = user?.email || 'user@nomz.id';
+  const avatarUrl = (user as any)?.avatar_url || (user as any)?.avatarUrl || null;
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
@@ -88,11 +91,25 @@ export function ProfileScreen({
       >
         {/* 2. USER CARD */}
         <View style={styles.userCard}>
-          <View style={styles.avatarWrap}>
-            <Text style={styles.avatarText}>{initial}</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.avatarWrap}
+            onPress={onNavigateToEditProfile}
+            activeOpacity={0.8}
+          >
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
+            ) : (
+              <Text style={styles.avatarText}>{initial}</Text>
+            )}
+            <View style={styles.avatarBadge}>
+              <Feather name="camera" size={10} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
           <View style={styles.userInfoWrap}>
             <Text style={styles.userName}>{displayName}</Text>
+            {username ? (
+              <Text style={styles.userUsername}>@{username}</Text>
+            ) : null}
             <Text style={styles.userEmail}>{email}</Text>
             <TouchableOpacity
               style={styles.editProfileBtn}
@@ -308,6 +325,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
+    position: 'relative',
+  },
+  avatarImg: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+  },
+  avatarBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: colors.primary,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
   avatarText: {
     fontSize: 22,
@@ -321,6 +357,12 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  userUsername: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
     marginBottom: 2,
   },
   userEmail: {

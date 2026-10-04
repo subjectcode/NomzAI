@@ -1,6 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getActiveUserId } from './authStorage';
 
-const PANTRY_STORAGE_KEY = '@nomz_pantry_items';
+const PANTRY_STORAGE_BASE_KEY = '@nomz_pantry_items';
+
+async function getPantryKey(userId?: string): Promise<string> {
+  const uid = userId || (await getActiveUserId());
+  return uid ? `${PANTRY_STORAGE_BASE_KEY}_${uid}` : `${PANTRY_STORAGE_BASE_KEY}_guest`;
+}
 
 export interface PantryItem {
   id: string;
@@ -11,56 +17,20 @@ export interface PantryItem {
   addedAt: string;
 }
 
-const DEFAULT_PANTRY_ITEMS: PantryItem[] = [
-  {
-    id: 'pantry-1',
-    name: 'Telur',
-    quantity: '4 butir',
-    useFirst: true,
-    expiryDate: 'Besok',
-    addedAt: new Date().toISOString(),
-  },
-  {
-    id: 'pantry-2',
-    name: 'Tomat',
-    quantity: '2 buah',
-    useFirst: true,
-    expiryDate: '2 hari lagi',
-    addedAt: new Date().toISOString(),
-  },
-  {
-    id: 'pantry-3',
-    name: 'Bawang Putih',
-    quantity: '3 siung',
-    useFirst: false,
-    expiryDate: '1 minggu lagi',
-    addedAt: new Date().toISOString(),
-  },
-  {
-    id: 'pantry-4',
-    name: 'Bayam',
-    quantity: '1 ikat',
-    useFirst: true,
-    expiryDate: 'Hari ini',
-    addedAt: new Date().toISOString(),
-  },
-];
-
-export async function getPantryItems(): Promise<PantryItem[]> {
+export async function getPantryItems(userId?: string): Promise<PantryItem[]> {
   try {
-    const json = await AsyncStorage.getItem(PANTRY_STORAGE_KEY);
+    const key = await getPantryKey(userId);
+    const json = await AsyncStorage.getItem(key);
     if (!json) {
-      // Seed default items saat pertama kali
-      await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(DEFAULT_PANTRY_ITEMS));
-      return DEFAULT_PANTRY_ITEMS;
+      return [];
     }
     const parsed = JSON.parse(json);
     return Array.isArray(parsed)
       ? parsed.filter((item) => item && typeof item === 'object' && item.id && item.name)
-      : DEFAULT_PANTRY_ITEMS;
+      : [];
   } catch (error) {
     console.error('Gagal membaca dapur pantry:', error);
-    return DEFAULT_PANTRY_ITEMS;
+    return [];
   }
 }
 
@@ -68,7 +38,8 @@ export async function addPantryItem(
   name: string,
   quantity?: string,
   useFirst: boolean = false,
-  expiryDate?: string
+  expiryDate?: string,
+  userId?: string
 ): Promise<PantryItem> {
   const newItem: PantryItem = {
     id: `pantry-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -80,7 +51,8 @@ export async function addPantryItem(
   };
 
   try {
-    const items = await getPantryItems();
+    const key = await getPantryKey(userId);
+    const items = await getPantryItems(userId);
     const existingIndex = items.findIndex(
       (i) => i.name.toLowerCase() === newItem.name.toLowerCase()
     );
@@ -96,7 +68,7 @@ export async function addPantryItem(
     } else {
       updated = [newItem, ...items];
     }
-    await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(updated));
+    await AsyncStorage.setItem(key, JSON.stringify(updated));
   } catch (error) {
     console.error('Gagal menambah bahan ke dapur:', error);
   }
@@ -104,11 +76,12 @@ export async function addPantryItem(
   return newItem;
 }
 
-export async function removePantryItem(id: string): Promise<boolean> {
+export async function removePantryItem(id: string, userId?: string): Promise<boolean> {
   try {
-    const items = await getPantryItems();
+    const key = await getPantryKey(userId);
+    const items = await getPantryItems(userId);
     const updated = items.filter((item) => item.id !== id);
-    await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(updated));
+    await AsyncStorage.setItem(key, JSON.stringify(updated));
     return true;
   } catch (error) {
     console.error('Gagal menghapus bahan pantry:', error);
@@ -116,13 +89,14 @@ export async function removePantryItem(id: string): Promise<boolean> {
   }
 }
 
-export async function toggleUseFirst(id: string): Promise<boolean> {
+export async function toggleUseFirst(id: string, userId?: string): Promise<boolean> {
   try {
-    const items = await getPantryItems();
+    const key = await getPantryKey(userId);
+    const items = await getPantryItems(userId);
     const updated = items.map((item) =>
       item.id === id ? { ...item, useFirst: !item.useFirst } : item
     );
-    await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(updated));
+    await AsyncStorage.setItem(key, JSON.stringify(updated));
     return true;
   } catch (error) {
     console.error('Gagal memperbarui status Gunakan Dulu:', error);
@@ -134,8 +108,8 @@ export async function toggleUseFirst(id: string): Promise<boolean> {
  * Mengambil daftar nama bahan dapur yang diprioritaskan untuk Food Rescue.
  * Bahan dengan status 'Gunakan Dulu' ditempatkan di depan.
  */
-export async function getPantryIngredientsForRescue(): Promise<string[]> {
-  const items = await getPantryItems();
+export async function getPantryIngredientsForRescue(userId?: string): Promise<string[]> {
+  const items = await getPantryItems(userId);
   const sorted = [...items].sort((a, b) => {
     if (a.useFirst && !b.useFirst) return -1;
     if (!a.useFirst && b.useFirst) return 1;
@@ -147,9 +121,10 @@ export async function getPantryIngredientsForRescue(): Promise<string[]> {
 /**
  * Mengosongkan inventaris dapur (pantry).
  */
-export async function clearPantryItems(): Promise<void> {
+export async function clearPantryItems(userId?: string): Promise<void> {
   try {
-    await AsyncStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify([]));
+    const key = await getPantryKey(userId);
+    await AsyncStorage.setItem(key, JSON.stringify([]));
   } catch (error) {
     console.error('Gagal mengosongkan dapur pantry:', error);
   }

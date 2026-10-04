@@ -1,7 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RecipeRecommendation } from '../types';
+import { getActiveUserId } from './authStorage';
 
-const PLANNER_STORAGE_KEY = '@nomz_meal_planner';
+const PLANNER_STORAGE_BASE_KEY = '@nomz_meal_planner';
+
+async function getPlannerKey(userId?: string): Promise<string> {
+  const uid = userId || (await getActiveUserId());
+  return uid ? `${PLANNER_STORAGE_BASE_KEY}_${uid}` : `${PLANNER_STORAGE_BASE_KEY}_guest`;
+}
 
 export interface MealPlan {
   id: string;
@@ -22,9 +28,10 @@ export const DAYS_OF_WEEK = [
   { key: 'minggu', label: 'Minggu' },
 ];
 
-export async function getMealPlans(): Promise<MealPlan[]> {
+export async function getMealPlans(userId?: string): Promise<MealPlan[]> {
   try {
-    const json = await AsyncStorage.getItem(PLANNER_STORAGE_KEY);
+    const key = await getPlannerKey(userId);
+    const json = await AsyncStorage.getItem(key);
     if (!json) return [];
     const parsed = JSON.parse(json);
     return Array.isArray(parsed)
@@ -40,7 +47,8 @@ export async function addMealPlan(
   dayKey: string,
   dayLabel: string,
   recipe: RecipeRecommendation,
-  mealType: string = 'Makan Siang'
+  mealType: string = 'Makan Siang',
+  userId?: string
 ): Promise<MealPlan> {
   const newPlan: MealPlan = {
     id: `plan-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -52,13 +60,14 @@ export async function addMealPlan(
   };
 
   try {
-    const plans = await getMealPlans();
+    const key = await getPlannerKey(userId);
+    const plans = await getMealPlans(userId);
     // Ganti jika sudah ada rencana untuk hari dan mealType yang sama, atau tambahkan
     const filtered = plans.filter(
       (p) => !(p.dayKey === dayKey && p.mealType === mealType)
     );
     const updated = [...filtered, newPlan];
-    await AsyncStorage.setItem(PLANNER_STORAGE_KEY, JSON.stringify(updated));
+    await AsyncStorage.setItem(key, JSON.stringify(updated));
   } catch (error) {
     console.error('Gagal menyimpan rencana makan:', error);
   }
@@ -66,11 +75,12 @@ export async function addMealPlan(
   return newPlan;
 }
 
-export async function removeMealPlan(id: string): Promise<boolean> {
+export async function removeMealPlan(id: string, userId?: string): Promise<boolean> {
   try {
-    const plans = await getMealPlans();
+    const key = await getPlannerKey(userId);
+    const plans = await getMealPlans(userId);
     const updated = plans.filter((p) => p.id !== id);
-    await AsyncStorage.setItem(PLANNER_STORAGE_KEY, JSON.stringify(updated));
+    await AsyncStorage.setItem(key, JSON.stringify(updated));
     return true;
   } catch (error) {
     console.error('Gagal menghapus rencana makan:', error);
@@ -81,9 +91,10 @@ export async function removeMealPlan(id: string): Promise<boolean> {
 /**
  * Menghapus semua rencana menu mingguan.
  */
-export async function clearMealPlans(): Promise<void> {
+export async function clearMealPlans(userId?: string): Promise<void> {
   try {
-    await AsyncStorage.removeItem(PLANNER_STORAGE_KEY);
+    const key = await getPlannerKey(userId);
+    await AsyncStorage.removeItem(key);
   } catch (error) {
     console.error('Gagal mengosongkan rencana makan:', error);
   }

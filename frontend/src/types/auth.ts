@@ -5,9 +5,11 @@
 export interface User {
   id: string;
   email: string;
+  username?: string | null;
   display_name: string;
   avatar_url: string | null;
   auth_provider: 'email' | 'google' | string;
+  is_verified?: boolean;
 }
 
 export interface AuthResponse {
@@ -18,6 +20,7 @@ export interface AuthResponse {
 
 export interface RegisterInput {
   email: string;
+  username: string;
   password: string;
   displayName: string;
 }

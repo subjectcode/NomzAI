@@ -32,6 +32,7 @@ export function RegisterScreen({
   const { register } = useAuth();
 
   const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -44,13 +45,38 @@ export function RegisterScreen({
   const validate = (): boolean => {
     setErrorMessage(null);
     const trimmedName = displayName.trim();
-    const trimmedEmail = email.trim();
+    const trimmedUsername = username.trim().toLowerCase();
+    const trimmedEmail = email.trim().toLowerCase();
 
+    // 1. Nama Lengkap
     if (!trimmedName) {
       setErrorMessage('Silakan masukkan nama lengkap Anda.');
       return false;
     }
 
+    // 2. Username
+    if (!trimmedUsername) {
+      setErrorMessage('Silakan masukkan username.');
+      return false;
+    }
+
+    if (trimmedUsername.length < 4) {
+      setErrorMessage('Username minimal 4 karakter.');
+      return false;
+    }
+
+    if (trimmedUsername.length > 20) {
+      setErrorMessage('Username maksimal 20 karakter.');
+      return false;
+    }
+
+    const usernameRegex = /^[a-z0-9_]{4,20}$/;
+    if (!usernameRegex.test(trimmedUsername)) {
+      setErrorMessage('Username hanya boleh berisi huruf, angka, dan underscore.');
+      return false;
+    }
+
+    // 3. Email
     if (!trimmedEmail) {
       setErrorMessage('Silakan masukkan alamat email Anda.');
       return false;
@@ -62,18 +88,20 @@ export function RegisterScreen({
       return false;
     }
 
-    if (!password) {
+    // 4. Password
+    if (!password || !password.trim()) {
       setErrorMessage('Silakan masukkan kata sandi.');
       return false;
     }
 
     if (password.length < 8) {
-      setErrorMessage('Kata sandi minimal terdiri dari 8 karakter.');
+      setErrorMessage('Password minimal 8 karakter.');
       return false;
     }
 
+    // 5. Confirm Password
     if (password !== confirmPassword) {
-      setErrorMessage('Konfirmasi kata sandi tidak cocok.');
+      setErrorMessage('Konfirmasi password tidak cocok.');
       return false;
     }
 
@@ -93,26 +121,33 @@ export function RegisterScreen({
     try {
       await register({
         displayName: displayName.trim(),
-        email: email.trim(),
+        username: username.trim().toLowerCase(),
+        email: email.trim().toLowerCase(),
         password,
       });
     } catch (err: any) {
-      const status = err.status;
       const message = err.message || '';
+      const lower = message.toLowerCase();
 
-      if (
-        status === 400 &&
-        (message.toLowerCase().includes('already') ||
-          message.toLowerCase().includes('registered') ||
-          message.toLowerCase().includes('terdaftar'))
-      ) {
-        setErrorMessage('Alamat email sudah terdaftar. Silakan gunakan email lain atau masuk.');
+      if (lower.includes('username sudah digunakan') || lower.includes('username already')) {
+        setErrorMessage('Username sudah digunakan.');
       } else if (
-        message.toLowerCase().includes('network') ||
-        message.toLowerCase().includes('failed to fetch') ||
-        message.toLowerCase().includes('koneksi')
+        lower.includes('email sudah terdaftar') ||
+        lower.includes('already registered') ||
+        lower.includes('email already')
       ) {
-        setErrorMessage('Tidak dapat terhubung ke server. Periksa jaringan Anda.');
+        setErrorMessage('Email sudah terdaftar.');
+      } else if (lower.includes('password minimal 8')) {
+        setErrorMessage('Password minimal 8 karakter.');
+      } else if (lower.includes('username hanya boleh')) {
+        setErrorMessage('Username hanya boleh berisi huruf, angka, dan underscore.');
+      } else if (
+        lower.includes('network') ||
+        lower.includes('failed to fetch') ||
+        lower.includes('koneksi') ||
+        lower.includes('abort')
+      ) {
+        setErrorMessage('Koneksi bermasalah. Coba lagi.');
       } else {
         setErrorMessage(message || 'Gagal mendaftar. Silakan periksa kembali data Anda.');
       }
@@ -190,6 +225,28 @@ export function RegisterScreen({
                   }}
                   autoCapitalize="words"
                   autoCorrect={false}
+                  editable={!isSubmitting}
+                />
+              </View>
+            </View>
+
+            {/* Field: Username */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Username</Text>
+              <View style={styles.inputWrap}>
+                <Feather name="at-sign" size={18} color={colors.primary} style={styles.fieldIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Contoh: ryanfeb"
+                  placeholderTextColor={colors.textMuted}
+                  value={username}
+                  onChangeText={(val) => {
+                    setUsername(val.toLowerCase());
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  maxLength={20}
                   editable={!isSubmitting}
                 />
               </View>

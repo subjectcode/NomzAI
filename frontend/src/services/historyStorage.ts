@@ -1,7 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RecipeRecommendation } from '../types';
+import { getActiveUserId } from './authStorage';
 
-const COOKING_HISTORY_KEY = '@nomz_cooking_history';
+const COOKING_HISTORY_BASE_KEY = '@nomz_cooking_history';
+
+async function getHistoryKey(userId?: string): Promise<string> {
+  const uid = userId || (await getActiveUserId());
+  return uid ? `${COOKING_HISTORY_BASE_KEY}_${uid}` : `${COOKING_HISTORY_BASE_KEY}_guest`;
+}
 
 export interface HistoryItem {
   id: string;
@@ -30,9 +36,10 @@ function formatDateIndo(date: Date): string {
   return `${tgl} ${bln} ${thn}, ${jam}:${mnt}`;
 }
 
-export async function getCookingHistory(): Promise<HistoryItem[]> {
+export async function getCookingHistory(userId?: string): Promise<HistoryItem[]> {
   try {
-    const json = await AsyncStorage.getItem(COOKING_HISTORY_KEY);
+    const key = await getHistoryKey(userId);
+    const json = await AsyncStorage.getItem(key);
     if (!json) return [];
     const parsed = JSON.parse(json);
     return Array.isArray(parsed)
@@ -44,7 +51,10 @@ export async function getCookingHistory(): Promise<HistoryItem[]> {
   }
 }
 
-export async function addCookingHistory(recipe: RecipeRecommendation): Promise<HistoryItem> {
+export async function addCookingHistory(
+  recipe: RecipeRecommendation,
+  userId?: string
+): Promise<HistoryItem> {
   const now = new Date();
   const newItem: HistoryItem = {
     id: `history-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -55,7 +65,8 @@ export async function addCookingHistory(recipe: RecipeRecommendation): Promise<H
   };
 
   try {
-    const list = await getCookingHistory();
+    const key = await getHistoryKey(userId);
+    const list = await getCookingHistory(userId);
     // Cegah duplikasi jika resep yang sama baru saja tercatat dalam rentang 3 detik
     if (list.length > 0 && list[0].recipe?.id === recipe.id) {
       const lastCookedTime = new Date(list[0].cookedAt).getTime();
@@ -64,7 +75,7 @@ export async function addCookingHistory(recipe: RecipeRecommendation): Promise<H
       }
     }
     const updated = [newItem, ...list];
-    await AsyncStorage.setItem(COOKING_HISTORY_KEY, JSON.stringify(updated));
+    await AsyncStorage.setItem(key, JSON.stringify(updated));
   } catch (error) {
     console.error('Gagal menyimpan riwayat memasak:', error);
   }
@@ -72,8 +83,8 @@ export async function addCookingHistory(recipe: RecipeRecommendation): Promise<H
   return newItem;
 }
 
-export async function getImpactStats(): Promise<ImpactStats> {
-  const history = await getCookingHistory();
+export async function getImpactStats(userId?: string): Promise<ImpactStats> {
+  const history = await getCookingHistory(userId);
   const recipesCooked = history.length;
   const ingredientsRescued = history.reduce(
     (sum, item) => sum + (item.recipe?.bahan_tersedia?.length || 0),
@@ -88,9 +99,10 @@ export async function getImpactStats(): Promise<ImpactStats> {
   };
 }
 
-export async function clearCookingHistory(): Promise<void> {
+export async function clearCookingHistory(userId?: string): Promise<void> {
   try {
-    await AsyncStorage.removeItem(COOKING_HISTORY_KEY);
+    const key = await getHistoryKey(userId);
+    await AsyncStorage.removeItem(key);
   } catch (error) {
     console.error('Gagal menghapus riwayat memasak:', error);
   }

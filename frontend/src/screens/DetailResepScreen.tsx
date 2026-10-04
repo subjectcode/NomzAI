@@ -12,6 +12,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { RecipeRecommendation } from '../types';
 import { colors, radius, shadows, spacing } from '../theme';
+import { useAuth } from '../context';
 import { isRecipeSaved, saveRecipe, removeSavedRecipe } from '../services/savedStorage';
 import { fetchVideoRecommendations, openVideoInYouTube, VideoRecommendation } from '../services/youtube';
 
@@ -26,6 +27,7 @@ export function DetailResepScreen({
   onBack,
   onStartCooking,
 }: DetailResepScreenProps) {
+  const { user } = useAuth();
   const [saved, setSaved] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
@@ -35,7 +37,7 @@ export function DetailResepScreen({
   const [videoError, setVideoError] = useState<boolean>(false);
 
   useEffect(() => {
-    isRecipeSaved(recipe.id, recipe.nama).then(setSaved);
+    isRecipeSaved(recipe.id, recipe.nama, user?.id).then(setSaved);
 
     let isMounted = true;
     const loadVideos = async () => {
@@ -59,17 +61,17 @@ export function DetailResepScreen({
 
     loadVideos();
     return () => { isMounted = false; };
-  }, [recipe.id, recipe.nama]);
+  }, [recipe.id, recipe.nama, user?.id]);
 
   const handleToggleSave = async () => {
     if (isSaving) return;
     setIsSaving(true);
     try {
       if (saved) {
-        await removeSavedRecipe(recipe.id);
+        await removeSavedRecipe(recipe.id, user?.id);
         setSaved(false);
       } else {
-        await saveRecipe(recipe);
+        await saveRecipe(recipe, user?.id);
         setSaved(true);
         Alert.alert('Resep Disimpan', 'Resep berhasil ditambahkan ke koleksi Tersimpan.');
       }

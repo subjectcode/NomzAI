@@ -46,7 +46,7 @@ interface NavState {
 }
 
 function MainApp() {
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
   // Status onboarding lokal (AsyncStorage)
   const [isOnboardingCompleted, setIsOnboardingCompleted] = useState<boolean | null>(null);
@@ -163,11 +163,11 @@ function MainApp() {
     return () => subscription.remove();
   }, [handleGoBack]);
 
-  // Periksa status onboarding lokal saat startup
+  // Periksa status onboarding lokal saat startup dan saat user berubah
   useEffect(() => {
     initializeGoogleAuth();
     let isMounted = true;
-    getOnboardingCompleted()
+    getOnboardingCompleted(user?.id)
       .then((completed) => {
         if (isMounted) {
           setIsOnboardingCompleted(completed);
@@ -188,7 +188,7 @@ function MainApp() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user?.id]);
 
   // 1. SPLASH: Menunggu resolusi session auth dan onboarding lokal tanpa fake delay
   const isAppLoading = isAuthLoading || isOnboardingCompleted === null;

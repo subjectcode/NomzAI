@@ -58,6 +58,28 @@ export async function checkBackendHealth(timeoutMs: number = 6000): Promise<Heal
 }
 
 /**
+ * Menginferensi takaran dan unit cerdas secara otomatis untuk bahan makanan.
+ */
+export function inferSmartIngredientQuantity(name: string): { quantity: number; unit: string } {
+  const lower = name.toLowerCase().trim();
+  if (lower.includes('telur')) return { quantity: 2, unit: 'butir' };
+  if (lower.includes('tomat')) return { quantity: 1, unit: 'buah' };
+  if (lower.includes('bawang putih')) return { quantity: 3, unit: 'siung' };
+  if (lower.includes('bawang merah')) return { quantity: 3, unit: 'butir' };
+  if (lower.includes('bawang bombay')) return { quantity: 1, unit: 'buah' };
+  if (lower.includes('wortel')) return { quantity: 1, unit: 'buah' };
+  if (lower.includes('kentang')) return { quantity: 2, unit: 'buah' };
+  if (lower.includes('mentimun') || lower.includes('timun')) return { quantity: 1, unit: 'buah' };
+  if (lower.includes('cabai') || lower.includes('cabe')) return { quantity: 5, unit: 'buah' };
+  if (lower.includes('bayam') || lower.includes('kangkung') || lower.includes('sawi')) return { quantity: 1, unit: 'ikat' };
+  if (lower.includes('tahu') || lower.includes('tempe')) return { quantity: 1, unit: 'potong' };
+  if (lower.includes('ayam') || lower.includes('daging') || lower.includes('ikan') || lower.includes('udang')) return { quantity: 250, unit: 'g' };
+  if (lower.includes('susu') || lower.includes('minyak') || lower.includes('santan')) return { quantity: 200, unit: 'ml' };
+  if (lower.includes('beras') || lower.includes('nasi') || lower.includes('tepung')) return { quantity: 1, unit: 'porsi' };
+  return { quantity: 1, unit: 'buah' };
+}
+
+/**
  * Mengunggah gambar ke endpoint backend POST /api/vision/detect-ingredients
  * menggunakan XMLHttpRequest (XHR) native.
  */
@@ -127,11 +149,24 @@ export async function detectIngredientsFromImage(
       if (res.ok) {
         if (responseJson && Array.isArray(responseJson.ingredients)) {
           const list: DetectedIngredientItem[] = responseJson.ingredients;
-          const mapped: Ingredient[] = list.map((item, index) => ({
-            id: `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`,
-            name: item.name,
-            confidence: item.confidence,
-          }));
+          const mapped: Ingredient[] = list.map((item, index) => {
+            const fallback = inferSmartIngredientQuantity(item.name);
+            const qty =
+              item.quantity !== undefined && item.quantity !== null && item.quantity !== ''
+                ? typeof item.quantity === 'number'
+                  ? item.quantity
+                  : parseFloat(String(item.quantity)) || fallback.quantity
+                : fallback.quantity;
+            const unit = item.unit ? String(item.unit).trim() : fallback.unit;
+
+            return {
+              id: `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 7)}`,
+              name: item.name,
+              confidence: item.confidence,
+              quantity: qty,
+              unit: unit,
+            };
+          });
           resolve(mapped);
         } else {
           reject(

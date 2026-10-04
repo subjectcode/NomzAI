@@ -7,6 +7,8 @@ export interface HealthResponse {
 export interface DetectedIngredientItem {
   name: string;
   confidence: number;
+  quantity?: number | string | null;
+  unit?: string | null;
 }
 
 export interface Ingredient {

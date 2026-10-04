@@ -16,6 +16,7 @@ import {
   getImpactStats,
 } from '../services/historyStorage';
 import { RecipeRecommendation } from '../types';
+import { useAuth } from '../context';
 
 interface HistoryScreenProps {
   onBack: () => void;
@@ -28,6 +29,7 @@ export function HistoryScreen({
   onCookAgain,
   onStartScan,
 }: HistoryScreenProps) {
+  const { user } = useAuth();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [stats, setStats] = useState<ImpactStats>({
     ingredientsRescued: 0,
@@ -38,7 +40,10 @@ export function HistoryScreen({
 
   const loadData = async () => {
     setLoading(true);
-    const [h, s] = await Promise.all([getCookingHistory(), getImpactStats()]);
+    const [h, s] = await Promise.all([
+      getCookingHistory(user?.id),
+      getImpactStats(user?.id),
+    ]);
     setHistory(h);
     setStats(s);
     setLoading(false);
@@ -46,7 +51,7 @@ export function HistoryScreen({
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [user?.id]);
 
   return (
     <View style={styles.container}>

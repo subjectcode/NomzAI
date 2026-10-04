@@ -2,10 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.routes import auth, health, vision, recommendation, videos
-from app.db.database import Base, engine
+from app.db.database import Base, engine, init_db_migrations
 
-# Initialize database
-Base.metadata.create_all(bind=engine)
+# Initialize database & run deterministic migrations
+init_db_migrations()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

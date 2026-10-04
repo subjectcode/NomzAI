@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "nomz-dev-secret-change-in-production"
     GOOGLE_CLIENT_ID: str = ""
 
+    # SMTP / Email Configuration (OTP Verification)
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    EMAILS_FROM_EMAIL: str = "noreply@nomz.app"
+    EMAILS_FROM_NAME: str = "Nomz App"
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:

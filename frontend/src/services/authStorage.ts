@@ -67,3 +67,62 @@ export async function deleteAuthToken(): Promise<void> {
     // ignore
   }
 }
+
+let inMemoryActiveUserId: string | null = null;
+const ACTIVE_USER_ID_KEY = '@nomz:active_user_id';
+
+/**
+ * Menyimpan ID pengguna yang sedang aktif ke penyimpanan lokal & cache memori.
+ */
+export async function saveActiveUserId(userId: string): Promise<void> {
+  inMemoryActiveUserId = userId;
+  try {
+    await AsyncStorage.setItem(ACTIVE_USER_ID_KEY, userId);
+  } catch (error) {
+    console.warn('Gagal menyimpan active user id:', error);
+  }
+}
+
+/**
+ * Mengambil ID pengguna yang sedang aktif (memori cache didahulukan).
+ */
+export async function getActiveUserId(): Promise<string | null> {
+  if (inMemoryActiveUserId) return inMemoryActiveUserId;
+  try {
+    const stored = await AsyncStorage.getItem(ACTIVE_USER_ID_KEY);
+    inMemoryActiveUserId = stored;
+    return stored;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Menghapus ID pengguna yang aktif saat logout atau hapus akun.
+ */
+export async function clearActiveUserId(): Promise<void> {
+  inMemoryActiveUserId = null;
+  try {
+    await AsyncStorage.removeItem(ACTIVE_USER_ID_KEY);
+  } catch (error) {
+    console.warn('Gagal membersihkan active user id:', error);
+  }
+}
+
+/**
+ * Menghapus kunci global warisan yang tidak terisolasi per user
+ * untuk mencegah kebocoran data antar akun pengguna (Section 1 & 14).
+ */
+export async function cleanupLegacyGlobalStorage(): Promise<void> {
+  const legacyKeys = [
+    '@nomz_cooking_history',
+    '@nomz_pantry_items',
+    '@nomz_saved_recipes',
+    '@nomz_meal_planner',
+  ];
+  try {
+    await AsyncStorage.multiRemove(legacyKeys);
+  } catch {
+    // ignore
+  }
+}

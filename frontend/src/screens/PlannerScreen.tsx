@@ -15,6 +15,7 @@ import {
   removeMealPlan,
 } from '../services/plannerStorage';
 import { RecipeRecommendation } from '../types';
+import { useAuth } from '../context';
 
 interface PlannerScreenProps {
   onBack: () => void;
@@ -27,20 +28,21 @@ export function PlannerScreen({
   onSelectRecipe,
   onExploreRecipes,
 }: PlannerScreenProps) {
+  const { user } = useAuth();
   const [plans, setPlans] = useState<MealPlan[]>([]);
   const [activeDay, setActiveDay] = useState<string>('senin');
 
   const loadPlans = async () => {
-    const list = await getMealPlans();
+    const list = await getMealPlans(user?.id);
     setPlans(list);
   };
 
   useEffect(() => {
     loadPlans();
-  }, []);
+  }, [user?.id]);
 
   const handleRemove = async (id: string) => {
-    await removeMealPlan(id);
+    await removeMealPlan(id, user?.id);
     await loadPlans();
   };
 

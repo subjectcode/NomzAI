@@ -16,6 +16,14 @@ class IngredientItem(BaseModel):
         le=1.0,
         description="Skor kepastian visual antara 0.0 hingga 1.0",
     )
+    quantity: float | int | str | None = Field(
+        default=None,
+        description="Estimasi jumlah/kuantitas bahan jika dapat dihitung/dilihat secara wajar (contoh: 2, 1, 3)",
+    )
+    unit: str | None = Field(
+        default=None,
+        description="Satuan bahan dalam Bahasa Indonesia baku (contoh: butir, buah, siung, ikat, potong, lembar, g, ml)",
+    )
 
 
 class Base64IngredientDetectionRequest(BaseModel):

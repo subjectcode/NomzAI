@@ -10,8 +10,11 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  Modal,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { colors, radius, shadows, spacing } from '../theme';
 import { useAuth } from '../context/AuthContext';
 
@@ -25,10 +28,15 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
 
   const currentDisplayName =
     (user as any)?.display_name || (user as any)?.displayName || '';
+  const currentUsername = (user as any)?.username || '';
   const email = user?.email || '';
   const authProvider = (user as any)?.auth_provider || 'email';
+  const currentAvatarUrl = (user as any)?.avatar_url || (user as any)?.avatarUrl || null;
 
   const [displayName, setDisplayName] = useState(currentDisplayName);
+  const [username, setUsername] = useState(currentUsername);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(currentAvatarUrl);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -36,19 +44,114 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
     .charAt(0)
     .toUpperCase();
 
+  // 1. Ambil Foto dari Kamera
+  const handleTakePhoto = async () => {
+    setIsPhotoModalOpen(false);
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Izin Kamera Diperlukan',
+          'Nomz memerlukan izin kamera untuk mengambil foto profil Anda.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const dataUrl = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+        setAvatarUrl(dataUrl);
+      }
+    } catch (err: any) {
+      Alert.alert('Gagal Mengambil Foto', err?.message || 'Tidak dapat mengambil foto.');
+    }
+  };
+
+  // 2. Pilih Foto dari Galeri
+  const handlePickFromGallery = async () => {
+    setIsPhotoModalOpen(false);
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Izin Galeri Diperlukan',
+          'Nomz memerlukan izin galeri untuk memilih foto profil Anda.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const dataUrl = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+        setAvatarUrl(dataUrl);
+      }
+    } catch (err: any) {
+      Alert.alert('Gagal Memilih Foto', err?.message || 'Tidak dapat memilih foto dari galeri.');
+    }
+  };
+
+  // 3. Hapus Foto
+  const handleDeletePhoto = () => {
+    setIsPhotoModalOpen(false);
+    setAvatarUrl(null);
+  };
+
+  // 4. Simpan Perubahan Profil
   const handleSave = async () => {
-    const trimmed = displayName.trim();
-    if (!trimmed) {
+    const trimmedName = displayName.trim();
+    const trimmedUsername = username.trim().toLowerCase();
+
+    if (!trimmedName) {
       setErrorMessage('Nama tampilan tidak boleh kosong.');
       return;
+    }
+
+    if (trimmedUsername) {
+      if (trimmedUsername.length < 4) {
+        setErrorMessage('Username minimal 4 karakter.');
+        return;
+      }
+      if (trimmedUsername.length > 20) {
+        setErrorMessage('Username maksimal 20 karakter.');
+        return;
+      }
+      const usernameRegex = /^[a-z0-9_]{4,20}$/;
+      if (!usernameRegex.test(trimmedUsername)) {
+        setErrorMessage('Username hanya boleh berisi huruf, angka, dan underscore.');
+        return;
+      }
     }
 
     setErrorMessage(null);
     setIsSubmitting(true);
 
     try {
-      await updateProfile({ displayName: trimmed });
-      Alert.alert('Profil Diperbarui', 'Nama profil Anda berhasil disimpan.', [
+      await updateProfile({
+        displayName: trimmedName,
+        username: trimmedUsername || undefined,
+        avatarUrl: avatarUrl === null ? '' : avatarUrl,
+      });
+      Alert.alert('Profil Diperbarui', 'Data profil Anda berhasil disimpan.', [
         {
           text: 'OK',
           onPress: () => {
@@ -58,10 +161,15 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
         },
       ]);
     } catch (error: any) {
-      Alert.alert(
-        'Gagal Menyimpan',
-        error?.message || 'Terjadi kesalahan saat memperbarui profil. Coba lagi.'
-      );
+      const msg = error?.message || '';
+      if (msg.toLowerCase().includes('sudah digunakan')) {
+        setErrorMessage('Username sudah digunakan.');
+      } else {
+        Alert.alert(
+          'Gagal Menyimpan',
+          msg || 'Terjadi kesalahan saat memperbarui profil. Coba lagi.'
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -79,7 +187,7 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
         </TouchableOpacity>
         <View style={styles.topBarTextWrap}>
           <Text style={styles.topBarTitle}>Edit Profil</Text>
-          <Text style={styles.topBarSubtitle}>Perbarui informasi akun Anda</Text>
+          <Text style={styles.topBarSubtitle}>Perbarui foto dan informasi akun Anda</Text>
         </View>
       </View>
 
@@ -88,13 +196,31 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* 2. AVATAR DISPLAY CARD */}
+        {/* 2. AVATAR CARD WITH EDIT PHOTO CTA */}
         <View style={styles.avatarCard}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{initial}</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.avatarCircle}
+            onPress={() => setIsPhotoModalOpen(true)}
+            activeOpacity={0.8}
+          >
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>{initial}</Text>
+            )}
+            <View style={styles.cameraBadge}>
+              <Feather name="camera" size={14} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setIsPhotoModalOpen(true)}
+            activeOpacity={0.7}
+            style={styles.changePhotoBtn}
+          >
+            <Text style={styles.changePhotoText}>Ubah Foto Profil</Text>
+          </TouchableOpacity>
           <Text style={styles.avatarHint}>
-            Avatar otomatis disesuaikan dari inisial nama Anda
+            Ketuk foto untuk mengambil foto langsung atau memilih dari galeri
           </Text>
         </View>
 
@@ -108,7 +234,7 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
           )}
 
           {/* Nama Tampilan */}
-          <Text style={styles.fieldLabel}>Nama Tampilan</Text>
+          <Text style={styles.fieldLabel}>Nama Lengkap</Text>
           <View style={styles.inputWrap}>
             <Feather name="user" size={18} color={colors.primary} style={styles.inputIcon} />
             <TextInput
@@ -118,10 +244,29 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
                 setDisplayName(val);
                 if (errorMessage) setErrorMessage(null);
               }}
-              placeholder="Masukkan nama tampilan"
+              placeholder="Masukkan nama lengkap"
               placeholderTextColor={colors.textMuted}
               maxLength={60}
               autoCapitalize="words"
+            />
+          </View>
+
+          {/* Username */}
+          <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Username</Text>
+          <View style={styles.inputWrap}>
+            <Feather name="at-sign" size={18} color={colors.primary} style={styles.inputIcon} />
+            <TextInput
+              style={styles.textInput}
+              value={username}
+              onChangeText={(val) => {
+                setUsername(val.toLowerCase());
+                if (errorMessage) setErrorMessage(null);
+              }}
+              placeholder="username (contoh: ryanfeb)"
+              placeholderTextColor={colors.textMuted}
+              maxLength={20}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
 
@@ -139,7 +284,7 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
             <Feather name="lock" size={15} color={colors.textMuted} />
           </View>
           <Text style={styles.readOnlyHelp}>
-            Email terikat secara permanen dengan akun untuk keamanan autentikasi.
+            Email terikat secara permanen dengan akun untuk keamanan data.
           </Text>
 
           {/* Metode Autentikasi */}
@@ -176,6 +321,48 @@ export function EditProfileScreen({ onBack, onProfileUpdated }: EditProfileScree
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* 5. PHOTO ACTIONS MODAL */}
+      <Modal
+        visible={isPhotoModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsPhotoModalOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsPhotoModalOpen(false)}
+        >
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalSheetTitle}>Foto Profil</Text>
+
+            <TouchableOpacity style={styles.modalOption} onPress={handleTakePhoto}>
+              <Feather name="camera" size={20} color={colors.primary} style={styles.modalOptionIcon} />
+              <Text style={styles.modalOptionText}>Ambil Foto</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.modalOption} onPress={handlePickFromGallery}>
+              <Feather name="image" size={20} color={colors.primary} style={styles.modalOptionIcon} />
+              <Text style={styles.modalOptionText}>Pilih dari Galeri</Text>
+            </TouchableOpacity>
+
+            {avatarUrl ? (
+              <TouchableOpacity style={styles.modalOption} onPress={handleDeletePhoto}>
+                <Feather name="trash-2" size={20} color={colors.error} style={styles.modalOptionIcon} />
+                <Text style={[styles.modalOptionText, { color: colors.error }]}>Hapus Foto</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            <TouchableOpacity
+              style={[styles.modalOption, styles.modalCancelOption]}
+              onPress={() => setIsPhotoModalOpen(false)}
+            >
+              <Text style={styles.modalCancelText}>Batal</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -188,6 +375,7 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 12,
     backgroundColor: colors.surface,
@@ -233,25 +421,55 @@ const styles = StyleSheet.create({
     ...shadows.level1,
   },
   avatarCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: colors.mintSoft,
     borderWidth: 2,
     borderColor: colors.lightMint,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
+    position: 'relative',
+  },
+  avatarImage: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: colors.primary,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   avatarText: {
-    fontSize: 26,
+    fontSize: 32,
     fontWeight: '800',
     color: colors.primary,
   },
+  changePhotoBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    marginBottom: 4,
+  },
+  changePhotoText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
   avatarHint: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textMuted,
     textAlign: 'center',
+    marginTop: 2,
   },
   formCard: {
     backgroundColor: colors.surface,
@@ -366,5 +584,53 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+  },
+  modalSheetTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+  },
+  modalOptionIcon: {
+    marginRight: 14,
+  },
+  modalOptionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  modalCancelOption: {
+    borderBottomWidth: 0,
+    justifyContent: 'center',
+    marginTop: 10,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    width: '100%',
   },
 });

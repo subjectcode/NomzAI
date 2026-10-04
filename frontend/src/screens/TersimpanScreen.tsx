@@ -10,6 +10,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { RecipeRecommendation } from '../types';
 import { colors, radius, shadows, spacing } from '../theme';
+import { useAuth } from '../context';
 import { getSavedRecipes, removeSavedRecipe } from '../services/savedStorage';
 
 interface TersimpanScreenProps {
@@ -19,22 +20,23 @@ interface TersimpanScreenProps {
 }
 
 export function TersimpanScreen({ isActive, onSelectRecipe, onExplore }: TersimpanScreenProps) {
+  const { user } = useAuth();
   const [recipes, setRecipes] = useState<RecipeRecommendation[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   const loadRecipes = async () => {
     setLoading(true);
-    const data = await getSavedRecipes();
+    const data = await getSavedRecipes(user?.id);
     setRecipes(data);
     setLoading(false);
   };
 
   useEffect(() => {
     loadRecipes();
-  }, [isActive]);
+  }, [isActive, user?.id]);
 
   const handleRemove = async (id: string) => {
-    await removeSavedRecipe(id);
+    await removeSavedRecipe(id, user?.id);
     setRecipes((prev) => prev.filter((r) => r.id !== id));
   };
 

@@ -18,6 +18,7 @@ import {
   toggleUseFirst,
   getPantryIngredientsForRescue,
 } from '../services/pantryStorage';
+import { useAuth } from '../context';
 
 interface PantryScreenProps {
   onBack: () => void;
@@ -25,6 +26,7 @@ interface PantryScreenProps {
 }
 
 export function PantryScreen({ onBack, onRescueFromPantry }: PantryScreenProps) {
+  const { user } = useAuth();
   const [items, setItems] = useState<PantryItem[]>([]);
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [nameInput, setNameInput] = useState<string>('');
@@ -32,20 +34,20 @@ export function PantryScreen({ onBack, onRescueFromPantry }: PantryScreenProps) 
   const [useFirstInput, setUseFirstInput] = useState<boolean>(false);
 
   const loadItems = async () => {
-    const list = await getPantryItems();
+    const list = await getPantryItems(user?.id);
     setItems(list);
   };
 
   useEffect(() => {
     loadItems();
-  }, []);
+  }, [user?.id]);
 
   const handleAdd = async () => {
     if (!nameInput.trim()) {
       Alert.alert('Perhatian', 'Nama bahan tidak boleh kosong.');
       return;
     }
-    await addPantryItem(nameInput, qtyInput, useFirstInput);
+    await addPantryItem(nameInput, qtyInput, useFirstInput, undefined, user?.id);
     setNameInput('');
     setQtyInput('');
     setUseFirstInput(false);
@@ -54,22 +56,22 @@ export function PantryScreen({ onBack, onRescueFromPantry }: PantryScreenProps) 
   };
 
   const handleRemove = async (id: string) => {
-    await removePantryItem(id);
+    await removePantryItem(id, user?.id);
     await loadItems();
   };
 
-  const handleToggle = async (id: string) => {
-    await toggleUseFirst(id);
+  const handleToggleUseFirst = async (id: string) => {
+    await toggleUseFirst(id, user?.id);
     await loadItems();
   };
 
   const handleRescue = async () => {
-    if (items.length === 0) {
+    const ingredients = await getPantryIngredientsForRescue(user?.id);
+    if (ingredients.length === 0) {
       Alert.alert('Dapur Kosong', 'Tambahkan bahan makanan terlebih dahulu.');
       return;
     }
-    const rescueList = await getPantryIngredientsForRescue();
-    onRescueFromPantry(rescueList);
+    onRescueFromPantry(ingredients);
   };
 
   const useFirstCount = items.filter((i) => i.useFirst).length;
@@ -175,7 +177,7 @@ export function PantryScreen({ onBack, onRescueFromPantry }: PantryScreenProps) 
                 {/* Use First Toggle Pill */}
                 <TouchableOpacity
                   style={[styles.useFirstBadge, item.useFirst && styles.useFirstBadgeActive]}
-                  onPress={() => handleToggle(item.id)}
+                  onPress={() => handleToggleUseFirst(item.id)}
                   activeOpacity={0.75}
                 >
                   <Feather

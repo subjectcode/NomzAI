@@ -50,6 +50,7 @@ export async function registerUser(input: RegisterInput): Promise<AuthResponse> 
       },
       body: JSON.stringify({
         email: input.email.trim(),
+        username: input.username ? input.username.trim().toLowerCase() : undefined,
         display_name: input.displayName.trim(),
         password: input.password,
       }),
@@ -192,7 +193,7 @@ export async function googleAuth(input: GoogleAuthInput): Promise<AuthResponse> 
  */
 export async function updateUserProfile(
   token: string,
-  data: { displayName?: string; avatarUrl?: string }
+  data: { displayName?: string; username?: string; avatarUrl?: string }
 ): Promise<User> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -207,7 +208,8 @@ export async function updateUserProfile(
       },
       body: JSON.stringify({
         display_name: data.displayName ? data.displayName.trim() : undefined,
-        avatar_url: data.avatarUrl ? data.avatarUrl.trim() : undefined,
+        username: data.username ? data.username.trim().toLowerCase() : undefined,
+        avatar_url: data.avatarUrl !== undefined ? data.avatarUrl.trim() : undefined,
       }),
       signal: controller.signal,
     });
@@ -263,4 +265,38 @@ export async function deleteUserAccount(token: string): Promise<void> {
     }
     throw error;
   }
+}
+
+/**
+ * Meminta pengiriman kode OTP ke email.
+ */
+export async function sendOtp(email: string): Promise<{ success: boolean; message: string }> {
+  const baseAuthUrl = AUTH_REGISTER_ENDPOINT.replace('/register', '');
+  const response = await fetch(`${baseAuthUrl}/otp/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim().toLowerCase() }),
+  });
+  if (!response.ok) {
+    const msg = await parseErrorResponse(response);
+    throw new Error(msg);
+  }
+  return await response.json();
+}
+
+/**
+ * Memverifikasi kode OTP email.
+ */
+export async function verifyOtp(email: string, otp: string): Promise<{ verified: boolean; message: string }> {
+  const baseAuthUrl = AUTH_REGISTER_ENDPOINT.replace('/register', '');
+  const response = await fetch(`${baseAuthUrl}/otp/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim().toLowerCase(), otp: otp.trim() }),
+  });
+  if (!response.ok) {
+    const msg = await parseErrorResponse(response);
+    throw new Error(msg);
+  }
+  return await response.json();
 }

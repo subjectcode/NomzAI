@@ -1,4 +1,4 @@
-"""Route autentikasi Nomz — register, login, Google Sign-In, dan profil."""
+"""Route autentikasi Nomz — register, login, Google Sign-In, profil, dan OTP."""
 
 import logging
 
@@ -11,6 +11,8 @@ from app.db.models import User
 from app.schemas.auth import (
     AuthResponse,
     GoogleAuthRequest,
+    OTPRequest,
+    OTPVerifyRequest,
     UserCreate,
     UserLogin,
     UserPublic,
@@ -21,9 +23,11 @@ from app.services.auth import (
     create_google_user,
     get_user_by_email,
     get_user_by_provider,
+    get_user_by_username,
     verify_google_id_token,
     verify_password,
 )
+from app.services.otp import request_otp, verify_otp
 
 logger = logging.getLogger(__name__)
 
@@ -34,18 +38,37 @@ router = APIRouter()
     "/register",
     response_model=AuthResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Mendaftarkan pengguna baru dengan email dan password",
+    summary="Mendaftarkan pengguna baru dengan email, username, dan password",
 )
 def register(payload: UserCreate, db: Session = Depends(get_db)):
-    """Membuat akun pengguna baru. Mengembalikan access token jika berhasil."""
-    existing = get_user_by_email(db, payload.email)
-    if existing:
+    """Membuat akun pengguna baru. Mengembalikan access token jika berhasil.
+
+    Memvalidasi keunikan email dan username secara independen di tingkat database.
+    """
+    # 1. Validasi keunikan email
+    existing_email = get_user_by_email(db, payload.email)
+    if existing_email:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email sudah terdaftar.",
         )
 
-    user = create_email_user(db, payload.email, payload.display_name, payload.password)
+    # 2. Validasi keunikan username (jika disediakan)
+    if payload.username:
+        existing_username = get_user_by_username(db, payload.username)
+        if existing_username:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Username sudah digunakan.",
+            )
+
+    user = create_email_user(
+        db=db,
+        email=payload.email,
+        display_name=payload.display_name,
+        password=payload.password,
+        username=payload.username,
+    )
     token = create_access_token(user.id)
 
     return AuthResponse(
@@ -152,7 +175,7 @@ def update_me(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Memperbarui data display_name atau avatar_url pengguna."""
+    """Memperbarui data display_name, username, atau avatar_url pengguna."""
     if payload.display_name is not None:
         trimmed = payload.display_name.strip()
         if not trimmed:
@@ -161,8 +184,19 @@ def update_me(
                 detail="Nama tampilan tidak boleh kosong.",
             )
         current_user.display_name = trimmed
+
+    if payload.username is not None:
+        cleaned_username = payload.username.strip().lower()
+        existing = get_user_by_username(db, cleaned_username)
+        if existing and existing.id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Username sudah digunakan.",
+            )
+        current_user.username = cleaned_username
+
     if payload.avatar_url is not None:
-        current_user.avatar_url = payload.avatar_url.strip()
+        current_user.avatar_url = payload.avatar_url.strip() if payload.avatar_url else None
 
     db.commit()
     db.refresh(current_user)
@@ -182,3 +216,48 @@ def delete_me(
     db.delete(current_user)
     db.commit()
     return None
+
+
+# ── OTP Verification Endpoints ──────────────────────────────────────────────
+
+
+@router.post(
+    "/otp/send",
+    summary="Mengirim kode OTP verifikasi ke email",
+)
+def send_otp(payload: OTPRequest, db: Session = Depends(get_db)):
+    """Menghasilkan kode OTP 6-digit dan mengirimkannya melalui email."""
+    result = request_otp(db, payload.email)
+    return result
+
+
+@router.post(
+    "/otp/verify",
+    summary="Memverifikasi kode OTP yang dimasukkan pengguna",
+)
+def verify_otp_endpoint(payload: OTPVerifyRequest, db: Session = Depends(get_db)):
+    """Memverifikasi kode OTP dan mengonfirmasi status kepemilikan email."""
+    token_record = verify_otp(db, payload.email, payload.otp)
+
+    # Jika akun dengan email tersebut sudah ada di tabel users, aktifkan is_verified
+    user = get_user_by_email(db, payload.email)
+    if user:
+        user.is_verified = True
+        db.commit()
+
+    return {
+        "success": True,
+        "email": payload.email.strip().lower(),
+        "verified": True,
+        "message": "Email berhasil diverifikasi.",
+    }
+
+
+@router.post(
+    "/otp/resend",
+    summary="Mengirim ulang kode OTP dengan proteksi rate limit cooldown",
+)
+def resend_otp(payload: OTPRequest, db: Session = Depends(get_db)):
+    """Meminta pengiriman ulang kode OTP jika jeda cooldown 60 detik terpenuhi."""
+    result = request_otp(db, payload.email)
+    return result

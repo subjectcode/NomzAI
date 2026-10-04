@@ -13,6 +13,7 @@ import { NomzLogo } from '../components/NomzLogo';
 import { RecipeRecommendation } from '../types';
 import { getCookingHistory, HistoryItem, getImpactStats, ImpactStats } from '../services/historyStorage';
 import { getPantryItems, PantryItem } from '../services/pantryStorage';
+import { useAuth } from '../context';
 
 interface BerandaScreenProps {
   onStartScan: () => void;
@@ -88,6 +89,7 @@ export function BerandaScreen({
   onOpenExplore,
   onSelectRecipe,
 }: BerandaScreenProps) {
+  const { user } = useAuth();
   const [recentHistory, setRecentHistory] = useState<HistoryItem[]>([]);
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [impact, setImpact] = useState<ImpactStats>({
@@ -97,10 +99,10 @@ export function BerandaScreen({
   });
 
   useEffect(() => {
-    getCookingHistory().then((list) => setRecentHistory(list.slice(0, 3)));
-    getImpactStats().then(setImpact);
-    getPantryItems().then(setPantryItems);
-  }, []);
+    getCookingHistory(user?.id).then((list) => setRecentHistory(list.slice(0, 3)));
+    getImpactStats(user?.id).then(setImpact);
+    getPantryItems(user?.id).then(setPantryItems);
+  }, [user?.id]);
 
   // Filter bahan dapur yang ditandai "Gunakan Dulu"
   const urgentIngredients = pantryItems.filter((i) => i.useFirst);

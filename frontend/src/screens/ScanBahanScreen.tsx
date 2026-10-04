@@ -18,7 +18,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import { detectIngredientsFromImage } from '../services/api';
+import { detectIngredientsFromImage, inferSmartIngredientQuantity } from '../services/api';
 import { Ingredient } from '../types';
 import { colors, radius, shadows, spacing } from '../theme';
 
@@ -294,12 +294,13 @@ export function ScanBahanScreen({
     const trimmed = newIngredientName.trim();
     if (!trimmed) return;
 
+    const smart = inferSmartIngredientQuantity(trimmed);
     const newItem: Ingredient = {
       id: `${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name: trimmed.toLowerCase(),
       confidence: 1.0,
-      quantity: undefined,
-      unit: undefined,
+      quantity: smart.quantity,
+      unit: smart.unit,
     };
 
     setIngredients((prev) => [...prev, newItem]);
