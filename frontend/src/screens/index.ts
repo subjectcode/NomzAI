@@ -16,3 +16,4 @@ export * from './OnboardingScreen';
 export * from './AuthWelcomeScreen';
 export * from './LoginScreen';
 export * from './RegisterScreen';
+export * from './OtpVerificationScreen';

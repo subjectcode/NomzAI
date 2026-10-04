@@ -26,6 +26,7 @@ import {
   AuthWelcomeScreen,
   LoginScreen,
   RegisterScreen,
+  OtpVerificationScreen,
 } from './src/screens';
 import { BottomNavBar, TabRoute } from './src/components';
 import { colors } from './src/theme';
@@ -35,7 +36,7 @@ import { initializeGoogleAuth } from './src/services/googleAuth';
 
 type CookingStep = 'scan' | 'recommendations' | 'detail' | 'guided_cooking';
 type ModalSubScreen = 'none' | 'profile' | 'pantry' | 'history' | 'planner' | 'edit_profile' | 'settings';
-type AuthSubScreen = 'welcome' | 'login' | 'register';
+type AuthSubScreen = 'welcome' | 'login' | 'register' | 'otp';
 
 interface NavState {
   tab: TabRoute;
@@ -51,8 +52,9 @@ function MainApp() {
   // Status onboarding lokal (AsyncStorage)
   const [isOnboardingCompleted, setIsOnboardingCompleted] = useState<boolean | null>(null);
 
-  // Sub-layar alur autentikasi (welcome | login | register)
+  // Sub-layar alur autentikasi (welcome | login | register | otp)
   const [authSubScreen, setAuthSubScreen] = useState<AuthSubScreen>('login');
+  const [pendingOtpEmail, setPendingOtpEmail] = useState<string>('');
 
   // State Navigasi Tab Utama (Beranda | Jelajahi | Scan | Tersimpan)
   const [activeTab, setActiveTab] = useState<TabRoute>('beranda');
@@ -90,8 +92,12 @@ function MainApp() {
   };
 
   const handleGoBack = useCallback((): boolean => {
-    // 0. Alur Autentikasi (belum login): Jika di layar Daftar, kembali ke Masuk (Login)
+    // 0. Alur Autentikasi (belum login): Jika di layar Daftar atau OTP, kembali sesuai flow
     if (!isAuthenticated) {
+      if (authSubScreen === 'otp') {
+        setAuthSubScreen('register');
+        return true;
+      }
       if (authSubScreen === 'register') {
         setAuthSubScreen('login');
         return true;
@@ -224,6 +230,22 @@ function MainApp() {
         <RegisterScreen
           onNavigateToLogin={() => setAuthSubScreen('login')}
           onNavigateToWelcome={() => setAuthSubScreen('welcome')}
+          onNavigateToOtp={(registeredEmail: string) => {
+            setPendingOtpEmail(registeredEmail);
+            setAuthSubScreen('otp');
+          }}
+        />
+      );
+    }
+
+    if (authSubScreen === 'otp') {
+      return (
+        <OtpVerificationScreen
+          email={pendingOtpEmail}
+          onVerificationSuccess={() => {
+            setAuthSubScreen('login');
+          }}
+          onBackToRegister={() => setAuthSubScreen('register')}
         />
       );
     }

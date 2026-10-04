@@ -32,6 +32,61 @@ def hash_otp_code(otp: str, email: str) -> str:
     return hashlib.sha256(f"{salt}:{otp}".encode("utf-8")).hexdigest()
 
 
+def send_otp_email_via_composio(email: str, otp_code: str, name: str | None = None) -> bool:
+    """Mengirim kode OTP melalui Composio v3 Gmail tool dengan akun aktif.
+
+    Menggunakan tool GMAIL_SEND_EMAIL dengan payload terstruktur.
+    """
+    if not settings.COMPOSIO_API_KEY:
+        logger.warning("COMPOSIO_API_KEY belum dikonfigurasi. Pengiriman email OTP via Composio dilewati.")
+        return False
+
+    display_name = name or "Pengguna Nomz"
+    subject = f"Kode Verifikasi Akun Nomz: {otp_code}"
+    body = (
+        f"Halo {display_name},\n\n"
+        f"Gunakan kode berikut untuk memverifikasi email akun Nomz kamu:\n\n"
+        f"        {otp_code}\n\n"
+        f"Kode berlaku selama {OTP_EXPIRY_MINUTES} menit.\n"
+        f"Jika kamu tidak melakukan pendaftaran, abaikan email ini.\n\n"
+        f"Salam hangat,\nTim Nomz — Food Rescue Assistant"
+    )
+
+    import json
+    import urllib.request
+    import urllib.error
+
+    url = "https://backend.composio.dev/api/v3/tools/execute/GMAIL_SEND_EMAIL"
+    headers = {
+        "x-api-key": settings.COMPOSIO_API_KEY,
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "connected_account_id": "ca_xzILXmWzTG36",
+        "entity_id": "default",
+        "arguments": {
+            "recipient_email": email,
+            "subject": subject,
+            "body": body,
+        },
+    }
+
+    try:
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data.get("successful"):
+                msg_id = data.get("data", {}).get("response_data", {}).get("id")
+                logger.info("Email OTP berhasil dikirim via Composio Gmail ke %s (Message ID: %s)", email, msg_id)
+                return True
+            else:
+                logger.warning("Composio Gmail API gagal mengirim email ke %s: %s", email, data.get("error"))
+                return False
+    except Exception as e:
+        logger.error("Error eksekusi Composio Gmail tool untuk OTP ke %s: %s", email, e)
+        return False
+
+
 def send_otp_email_via_smtp(email: str, otp_code: str) -> bool:
     """Mengirim kode OTP melalui protokol SMTP jika server SMTP dikonfigurasi.
 
@@ -80,7 +135,7 @@ def send_otp_email_via_smtp(email: str, otp_code: str) -> bool:
                 server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             server.sendmail(settings.EMAILS_FROM_EMAIL, [email], msg.as_string())
 
-        logger.info("Email OTP berhasil dikirim ke %s", email)
+        logger.info("Email OTP berhasil dikirim ke %s via SMTP", email)
         return True
     except Exception as e:
         logger.error("Gagal mengirim email OTP ke %s via SMTP: %s", email, e)
@@ -132,17 +187,27 @@ def request_otp(db: Session, email: str, registration_data: dict | None = None) 
     db.add(token_record)
     db.commit()
 
-    email_sent = send_otp_email_via_smtp(normalized_email, otp_code)
+    display_name = registration_data.get("display_name") if registration_data else None
+    email_sent = send_otp_email_via_composio(normalized_email, otp_code, display_name)
+    delivery_provider = "composio_gmail" if email_sent else None
+
+    if not email_sent:
+        email_sent = send_otp_email_via_smtp(normalized_email, otp_code)
+        if email_sent:
+            delivery_provider = "smtp"
 
     return {
         "success": True,
         "email": normalized_email,
         "message": (
-            "Kode OTP telah dikirim ke email Anda."
+            "Kode OTP telah berhasil dikirim ke email Anda via Gmail."
+            if delivery_provider == "composio_gmail"
+            else "Kode OTP telah dikirim ke email Anda."
             if email_sent
-            else "Kode OTP dibuat. (SMTP eksternal belum dikonfigurasi di server)."
+            else "Kode OTP dibuat. Pengiriman email belum aktif di server."
         ),
-        "smtp_delivered": email_sent,
+        "delivered": email_sent,
+        "provider": delivery_provider,
         "expires_in_seconds": OTP_EXPIRY_MINUTES * 60,
     }
 

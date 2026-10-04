@@ -21,12 +21,14 @@ interface RegisterScreenProps {
   onNavigateToLogin: () => void;
   onNavigateToWelcome?: () => void;
   onGoogleSignInSuccess?: () => void;
+  onNavigateToOtp?: (registeredEmail: string) => void;
 }
 
 export function RegisterScreen({
   onNavigateToLogin,
   onNavigateToWelcome,
   onGoogleSignInSuccess,
+  onNavigateToOtp,
 }: RegisterScreenProps) {
   const insets = useSafeAreaInsets();
   const { register } = useAuth();
@@ -118,13 +120,26 @@ export function RegisterScreen({
     setIsSubmitting(true);
     setErrorMessage(null);
 
+    const cleanEmail = email.trim().toLowerCase();
     try {
       await register({
         displayName: displayName.trim(),
         username: username.trim().toLowerCase(),
-        email: email.trim().toLowerCase(),
+        email: cleanEmail,
         password,
       });
+
+      // Kirim OTP verifikasi via Composio Gmail / SMTP
+      try {
+        const { sendOtp } = await import('../services/authApi');
+        await sendOtp(cleanEmail);
+      } catch (otpErr) {
+        // Non-blocking log if already registered
+      }
+
+      if (onNavigateToOtp) {
+        onNavigateToOtp(cleanEmail);
+      }
     } catch (err: any) {
       const message = err.message || '';
       const lower = message.toLowerCase();

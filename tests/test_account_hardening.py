@@ -336,3 +336,25 @@ def test_otp_resend_cooldown_enforced():
     res2 = client.post("/api/auth/otp/resend", json={"email": email})
     assert res2.status_code == 429
     assert "tunggu" in res2.json()["detail"].lower()
+
+
+def test_send_otp_email_via_composio_mock():
+    """Menguji eksekusi pengiriman email OTP via Composio v3 Gmail tool."""
+    from app.services.otp import send_otp_email_via_composio
+    import io
+
+    mock_response = io.BytesIO(b'{"successful": true, "data": {"response_data": {"id": "msg_mock_123"}}}')
+
+    with patch("urllib.request.urlopen", return_value=mock_response):
+        success = send_otp_email_via_composio("user@nomz.dev", "654321", "Test User")
+        assert success is True
+
+
+def test_send_otp_email_via_composio_failure_fallback():
+    """Jika eksekusi Composio tool gagal, fungsi mengembalikan False secara aman."""
+    from app.services.otp import send_otp_email_via_composio
+    import urllib.error
+
+    with patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError("url", 400, "Bad Request", {}, None)):
+        success = send_otp_email_via_composio("user@nomz.dev", "654321", "Test User")
+        assert success is False
