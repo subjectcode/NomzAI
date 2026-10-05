@@ -76,54 +76,16 @@ def _clean_json_markdown(text: str) -> str:
     return cleaned.strip()
 
 
-def run_find_meals_flow(
-    ingredients: List[str],
-    mode: Optional[str] = None,
-    constraint: Optional[str] = None,
+def _call_langflow_api(
+    flow_id: str,
+    payload: dict,
+    headers: dict,
+    base_url: str,
+    cleaned_ingredients: List[str],
     cooking_style: Optional[str] = None,
 ) -> RecommendationResponse:
-    """Mengeksekusi workflow Langflow 'find_meals' secara sinkron via REST API
-    menggunakan confirmed ingredients pengguna dan opsi constraint.
-    """
-    cleaned_ingredients = [ing.strip().lower() for ing in ingredients if ing and ing.strip()]
-    if not cleaned_ingredients:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Daftar bahan makanan tidak boleh kosong.",
-        )
-
-    base_url = settings.LANGFLOW_BASE_URL.rstrip("/")
-    flow_id = settings.LANGFLOW_FLOW_ID
     run_url = f"{base_url}/api/v1/run/{flow_id}"
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    if settings.LANGFLOW_API_KEY:
-        headers["x-api-key"] = settings.LANGFLOW_API_KEY
-
-    # Format input untuk node Chat Input di Langflow find_meals
-    input_str = ", ".join(cleaned_ingredients)
-    if cooking_style:
-        input_str += f" (Gaya masak utama WAJIB: {cooking_style})"
-    if constraint:
-        input_str += f" (Kendala khusus: {constraint})"
-    elif mode and mode != "rescue":
-        mode_labels = {
-            "no_shopping": "Tanpa belanja bahan tambahan, maksimalkan bahan yang ada",
-            "quick": "Lebih cepat, waktu memasak sesingkat mungkin",
-            "simple": "Lebih sederhana, langkah minim dan bumbu praktis",
-            "free": "Eksplorasi bebas variasi rasa",
-        }
-        input_str += f" (Mode: {mode_labels.get(mode, mode)})"
-
-    payload = {
-        "input_value": input_str,
-        "input_type": "chat",
-        "output_type": "chat",
-    }
-
-    logger.info("Mengeksekusi flow Langflow find_meals (%s) dengan input: %s", flow_id, input_str)
+    logger.info("Mengeksekusi flow Langflow (%s) dengan input: %s", flow_id, payload.get("input_value"))
 
     try:
         with httpx.Client(timeout=settings.LANGFLOW_TIMEOUT_SECONDS) as client:
@@ -158,7 +120,6 @@ def run_find_meals_flow(
             detail="Respons dari Langflow tidak dapat di-parse sebagai JSON.",
         )
 
-    # Ekstraksi teks dari struktur output Langflow
     output_text = _extract_text_from_langflow_response(raw_json)
     cleaned_json_str = _clean_json_markdown(output_text)
 
@@ -171,7 +132,6 @@ def run_find_meals_flow(
             detail=f"Format output resep dari Langflow tidak valid: {parse_err}",
         )
 
-    # Validasi terhadap Pydantic schema
     try:
         recommendations_resp = RecommendationResponse.model_validate(parsed_dict)
     except Exception as val_err:
@@ -186,7 +146,6 @@ def run_find_meals_flow(
         sanitized_tersedia = []
         for b in item.bahan_tersedia:
             b_lower = b.lower().strip()
-            # Cek kecocokan dengan input user
             if any(user_ing in b_lower or b_lower in user_ing for user_ing in cleaned_ingredients):
                 sanitized_tersedia.append(b)
             else:
@@ -205,8 +164,91 @@ def run_find_meals_flow(
         if not item.porsi:
             item.porsi = "1-2 porsi"
 
+    recommendations_resp.source = "langflow"
+    recommendations_resp.flow_id = flow_id
     logger.info(
-        "Workflow Langflow find_meals BERHASIL menghasilkan %d rekomendasi masakan",
+        "Workflow Langflow (%s) BERHASIL menghasilkan %d rekomendasi masakan",
+        flow_id,
         len(recommendations_resp.recommendations),
     )
     return recommendations_resp
+
+
+def run_find_meals_flow(
+    ingredients: List[str],
+    mode: Optional[str] = None,
+    constraint: Optional[str] = None,
+    cooking_style: Optional[str] = None,
+    flow_id: Optional[str] = None,
+) -> RecommendationResponse:
+    """Mengeksekusi workflow Langflow secara sinkron via REST API
+    menggunakan confirmed ingredients pengguna dan opsi constraint.
+    Mendukung safe fallback ke flow v1 jika flow target mengalami kendala.
+    """
+    cleaned_ingredients = [ing.strip().lower() for ing in ingredients if ing and ing.strip()]
+    if not cleaned_ingredients:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Daftar bahan makanan tidak boleh kosong.",
+        )
+
+    base_url = settings.LANGFLOW_BASE_URL.rstrip("/")
+    primary_flow_id = flow_id or settings.LANGFLOW_FLOW_ID
+
+    headers = {
+        "Content-Type": "application/json",
+    }
+    if settings.LANGFLOW_API_KEY:
+        headers["x-api-key"] = settings.LANGFLOW_API_KEY
+
+    # Format input untuk node Chat Input di Langflow find_meals
+    input_str = ", ".join(cleaned_ingredients)
+    if cooking_style:
+        input_str += f" (Gaya masak utama WAJIB: {cooking_style})"
+    if constraint:
+        input_str += f" (Kendala khusus: {constraint})"
+    elif mode and mode != "rescue":
+        mode_labels = {
+            "no_shopping": "Tanpa belanja bahan tambahan, maksimalkan bahan yang ada",
+            "quick": "Lebih cepat, waktu memasak sesingkat mungkin",
+            "simple": "Lebih sederhana, langkah minim dan bumbu praktis",
+            "free": "Eksplorasi bebas variasi rasa",
+        }
+        input_str += f" (Mode: {mode_labels.get(mode, mode)})"
+
+    payload = {
+        "input_value": input_str,
+        "input_type": "chat",
+        "output_type": "chat",
+    }
+
+    try:
+        return _call_langflow_api(
+            flow_id=primary_flow_id,
+            payload=payload,
+            headers=headers,
+            base_url=base_url,
+            cleaned_ingredients=cleaned_ingredients,
+            cooking_style=cooking_style,
+        )
+    except Exception as primary_err:
+        v1_id = settings.LANGFLOW_V1_FLOW_ID
+        if primary_flow_id != v1_id and settings.LANGFLOW_AUTO_FALLBACK_V1:
+            logger.warning(
+                "Eksekusi flow utama (%s) gagal (%s). Memulai safe fallback ke flow v1 (%s)...",
+                primary_flow_id,
+                primary_err,
+                v1_id,
+            )
+            try:
+                return _call_langflow_api(
+                    flow_id=v1_id,
+                    payload=payload,
+                    headers=headers,
+                    base_url=base_url,
+                    cleaned_ingredients=cleaned_ingredients,
+                    cooking_style=cooking_style,
+                )
+            except Exception as fallback_err:
+                logger.error("Fallback ke flow v1 (%s) juga gagal: %s", v1_id, fallback_err)
+        raise primary_err

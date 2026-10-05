@@ -22,9 +22,12 @@ class Settings(BaseSettings):
     COMPOSIO_API_KEY: str = ""
     YOUTUBE_API_KEY: str = ""
 
-    # Langflow Workflow Configuration (Milestone 3)
+    # Langflow Workflow Configuration (Milestone 3 & V2 Orchestration)
     LANGFLOW_BASE_URL: str = "http://127.0.0.1:7860"
-    LANGFLOW_FLOW_ID: str = "2e514b81-21d7-49b9-9fae-a981f95a8029"
+    LANGFLOW_V1_FLOW_ID: str = "2e514b81-21d7-49b9-9fae-a981f95a8029"
+    LANGFLOW_V2_FLOW_ID: str = "9b196854-4746-49e7-ad92-f67f06c054ff"
+    LANGFLOW_FLOW_ID: str = "9b196854-4746-49e7-ad92-f67f06c054ff"
+    LANGFLOW_AUTO_FALLBACK_V1: bool = True
     LANGFLOW_API_KEY: str = ""
     LANGFLOW_TIMEOUT_SECONDS: float = 60.0
 

@@ -1,0 +1,1729 @@
+{
+  "name": "find_meals_v2",
+  "description": "Nomz AI Culinary Orchestration Layer V2: Ingredient Normalization, Food Rescue Reasoning, Cooking Style Enforcement, Guided Technical Steps, and Strict Recipe Validation.",
+  "icon": "chef-hat",
+  "icon_bg_color": "#FF6B00",
+  "gradient": "",
+  "data": {
+    "nodes": [
+      {
+        "id": "ChatInput-mZhYn",
+        "type": "genericNode",
+        "position": {
+          "x": -50,
+          "y": 200
+        },
+        "data": {
+          "node": {
+            "base_classes": [
+              "Message"
+            ],
+            "beta": false,
+            "conditional_paths": [],
+            "custom_fields": {},
+            "description": "Get chat inputs from the Playground.",
+            "display_name": "Chat Input",
+            "documentation": "https://docs.langflow.org/chat-input-and-output",
+            "edited": false,
+            "field_order": [
+              "input_value",
+              "should_store_message",
+              "sender",
+              "sender_name",
+              "session_id",
+              "context_id",
+              "files"
+            ],
+            "frozen": false,
+            "icon": "MessagesSquare",
+            "legacy": false,
+            "metadata": {
+              "code_hash": "45974e6b1909",
+              "dependencies": {
+                "dependencies": [
+                  {
+                    "name": "lfx",
+                    "version": null
+                  }
+                ],
+                "total_dependencies": 1
+              },
+              "module": "lfx.components.input_output.chat.ChatInput"
+            },
+            "minimized": true,
+            "output_types": [],
+            "outputs": [
+              {
+                "allows_loop": false,
+                "cache": true,
+                "display_name": "Chat Message",
+                "group_outputs": false,
+                "method": "message_response",
+                "name": "message",
+                "selected": "Message",
+                "tool_mode": true,
+                "types": [
+                  "Message"
+                ],
+                "value": "__UNDEFINED__"
+              }
+            ],
+            "pinned": false,
+            "template": {
+              "_type": "Component",
+              "code": {
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "fileTypes": [],
+                "file_path": "",
+                "info": "",
+                "list": false,
+                "load_from_db": false,
+                "multiline": true,
+                "name": "code",
+                "password": false,
+                "placeholder": "",
+                "required": true,
+                "show": true,
+                "title_case": false,
+                "type": "code",
+                "value": "from lfx.base.data.utils import IMG_FILE_TYPES, TEXT_FILE_TYPES\nfrom lfx.base.io.chat import ChatComponent\nfrom lfx.inputs.inputs import BoolInput\nfrom lfx.io import (\n    DropdownInput,\n    FileInput,\n    MessageTextInput,\n    MultilineInput,\n    Output,\n)\nfrom lfx.schema.image import get_file_paths\nfrom lfx.schema.message import Message\nfrom lfx.services.deps import get_settings_service\nfrom lfx.utils.constants import (\n    MESSAGE_SENDER_AI,\n    MESSAGE_SENDER_NAME_USER,\n    MESSAGE_SENDER_USER,\n)\nfrom lfx.utils.file_path_security import (\n    component_file_access_scopes,\n    enforce_local_file_access,\n    is_local_file_access_restricted,\n)\n\n\nclass ChatInput(ChatComponent):\n    display_name = \"Chat Input\"\n    description = \"Get chat inputs from the Playground.\"\n    documentation: str = \"https://docs.langflow.org/chat-input-and-output\"\n    icon = \"MessagesSquare\"\n    name = \"ChatInput\"\n    minimized = True\n\n    inputs = [\n        MultilineInput(\n            name=\"input_value\",\n            display_name=\"Input Text\",\n            value=\"\",\n            info=\"Message to be passed as input.\",\n            input_types=[],\n        ),\n        BoolInput(\n            name=\"should_store_message\",\n            display_name=\"Store Messages\",\n            info=\"Store the message in the history.\",\n            value=True,\n            advanced=True,\n        ),\n        DropdownInput(\n            name=\"sender\",\n            display_name=\"Sender Type\",\n            options=[MESSAGE_SENDER_AI, MESSAGE_SENDER_USER],\n            value=MESSAGE_SENDER_USER,\n            info=\"Type of sender.\",\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"sender_name\",\n            display_name=\"Sender Name\",\n            info=\"Name of the sender.\",\n            value=MESSAGE_SENDER_NAME_USER,\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"session_id\",\n            display_name=\"Session ID\",\n            info=\"The session ID of the chat. If empty, the current session ID parameter will be used.\",\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"context_id\",\n            display_name=\"Context ID\",\n            info=\"The context ID of the chat. Adds an extra layer to the local memory.\",\n            value=\"\",\n            advanced=True,\n        ),\n        FileInput(\n            name=\"files\",\n            display_name=\"Files\",\n            file_types=TEXT_FILE_TYPES + IMG_FILE_TYPES,\n            info=\"Files to be sent with the message.\",\n            advanced=True,\n            is_list=True,\n            temp_file=True,\n        ),\n    ]\n    outputs = [\n        Output(display_name=\"Chat Message\", name=\"message\", method=\"message_response\"),\n    ]\n\n    async def message_response(self) -> Message:\n        # Ensure files is a list and filter out empty/None values\n        files = self.files if self.files else []\n        if files and not isinstance(files, list):\n            files = [files]\n        # Filter out None/empty values\n        files = [f for f in files if f is not None and f != \"\"]\n\n        # Build endpoints inject caller-controlled file references directly into\n        # ChatInput. Resolve and validate local references before the Message can\n        # later read them while constructing model attachment content.\n        if files:\n            settings_service = get_settings_service()\n            storage_type = getattr(getattr(settings_service, \"settings\", None), \"storage_type\", \"local\")\n            # The storage factory falls back to local storage for unsupported\n            # values, so only the explicitly configured S3 backend may bypass\n            # filesystem containment.\n            if str(storage_type).lower() != \"s3\" and is_local_file_access_restricted():\n                scope_ids = list(component_file_access_scopes(self))\n                # Public executions replace graph.flow_id with a per-visitor\n                # virtual ID. Only the server-populated source provenance may\n                # restore the already-validated public attachment namespace.\n                source_flow_id = getattr(self.graph, \"source_flow_id\", None)\n                if source_flow_id:\n                    scope_ids.append(source_flow_id)\n                for file_path in get_file_paths(files):\n                    enforce_local_file_access(file_path, scope_ids=scope_ids)\n\n        session_id = self.session_id or self.graph.session_id or \"\"\n        message = await Message.create(\n            text=self.input_value,\n            sender=self.sender,\n            sender_name=self.sender_name,\n            session_id=session_id,\n            context_id=self.context_id,\n            files=files,\n        )\n        if session_id and isinstance(message, Message) and self.should_store_message:\n            stored_message = await self.send_message(\n                message,\n            )\n            self.message.value = stored_message\n            message = stored_message\n\n        self.status = message\n        return message\n"
+              },
+              "context_id": {
+                "_input_type": "MessageTextInput",
+                "advanced": true,
+                "api_editable": false,
+                "display_name": "Context ID",
+                "dynamic": false,
+                "info": "The context ID of the chat. Adds an extra layer to the local memory.",
+                "input_types": [
+                  "Message"
+                ],
+                "list": false,
+                "list_add_label": "Add More",
+                "load_from_db": false,
+                "name": "context_id",
+                "override_skip": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "title_case": false,
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "track_in_telemetry": false,
+                "type": "str",
+                "value": ""
+              },
+              "files": {
+                "_input_type": "FileInput",
+                "advanced": true,
+                "api_editable": false,
+                "display_name": "Files",
+                "dynamic": false,
+                "fileTypes": [
+                  "csv",
+                  "json",
+                  "pdf",
+                  "txt",
+                  "md",
+                  "mdx",
+                  "yaml",
+                  "yml",
+                  "xml",
+                  "html",
+                  "htm",
+                  "docx",
+                  "py",
+                  "sh",
+                  "sql",
+                  "js",
+                  "ts",
+                  "tsx",
+                  "jpg",
+                  "jpeg",
+                  "png",
+                  "bmp",
+                  "image"
+                ],
+                "file_path": "",
+                "info": "Files to be sent with the message.",
+                "list": true,
+                "list_add_label": "Add More",
+                "name": "files",
+                "override_skip": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "temp_file": true,
+                "title_case": false,
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "track_in_telemetry": false,
+                "type": "file",
+                "value": ""
+              },
+              "input_value": {
+                "_input_type": "MultilineInput",
+                "advanced": false,
+                "ai_enabled": false,
+                "api_editable": false,
+                "copy_field": false,
+                "display_name": "Input Text",
+                "dynamic": false,
+                "info": "Message to be passed as input.",
+                "input_types": [],
+                "list": false,
+                "list_add_label": "Add More",
+                "load_from_db": false,
+                "multiline": true,
+                "name": "input_value",
+                "override_skip": false,
+                "password": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "title_case": false,
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "track_in_telemetry": false,
+                "type": "str",
+                "value": ""
+              },
+              "sender": {
+                "_input_type": "DropdownInput",
+                "advanced": true,
+                "api_editable": false,
+                "combobox": false,
+                "dialog_inputs": {},
+                "display_name": "Sender Type",
+                "dynamic": false,
+                "external_options": {},
+                "info": "Type of sender.",
+                "name": "sender",
+                "options": [
+                  "Machine",
+                  "User"
+                ],
+                "options_metadata": [],
+                "override_skip": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "title_case": false,
+                "toggle": false,
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "track_in_telemetry": true,
+                "type": "str",
+                "value": "User"
+              },
+              "sender_name": {
+                "_input_type": "MessageTextInput",
+                "advanced": true,
+                "api_editable": false,
+                "display_name": "Sender Name",
+                "dynamic": false,
+                "info": "Name of the sender.",
+                "input_types": [
+                  "Message"
+                ],
+                "list": false,
+                "list_add_label": "Add More",
+                "load_from_db": false,
+                "name": "sender_name",
+                "override_skip": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "title_case": false,
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "track_in_telemetry": false,
+                "type": "str",
+                "value": "User"
+              },
+              "session_id": {
+                "_input_type": "MessageTextInput",
+                "advanced": true,
+                "api_editable": false,
+                "display_name": "Session ID",
+                "dynamic": false,
+                "info": "The session ID of the chat. If empty, the current session ID parameter will be used.",
+                "input_types": [
+                  "Message"
+                ],
+                "list": false,
+                "list_add_label": "Add More",
+                "load_from_db": false,
+                "name": "session_id",
+                "override_skip": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "title_case": false,
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "track_in_telemetry": false,
+                "type": "str",
+                "value": ""
+              },
+              "should_store_message": {
+                "_input_type": "BoolInput",
+                "advanced": true,
+                "api_editable": false,
+                "display_name": "Store Messages",
+                "dynamic": false,
+                "info": "Store the message in the history.",
+                "list": false,
+                "list_add_label": "Add More",
+                "name": "should_store_message",
+                "override_skip": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "title_case": false,
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "track_in_telemetry": true,
+                "type": "bool",
+                "value": true
+              }
+            },
+            "tool_mode": false,
+            "lf_version": "1.12.3"
+          },
+          "showNode": false,
+          "type": "ChatInput",
+          "id": "ChatInput-mZhYn"
+        },
+        "selected": false,
+        "dragging": false,
+        "measured": {
+          "width": 192,
+          "height": 52
+        }
+      },
+      {
+        "id": "IngredientNormalizer-67967",
+        "type": "genericNode",
+        "position": {
+          "x": 300,
+          "y": 200
+        },
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "import json\nimport re\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import MessageTextInput, Output\nfrom lfx.schema.message import Message\n\nUNIT_ALIASES = {\n    \"g\": \"gram\", \"gr\": \"gram\", \"gram\": \"gram\", \"kg\": \"kg\", \"ons\": \"ons\",\n    \"ml\": \"ml\", \"l\": \"liter\", \"liter\": \"liter\",\n    \"btr\": \"butir\", \"butir\": \"butir\", \"biji\": \"biji\", \"buah\": \"buah\", \"bh\": \"buah\", \"pcs\": \"buah\",\n    \"siung\": \"siung\", \"lembar\": \"lembar\", \"lbr\": \"lembar\", \"slice\": \"lembar\",\n    \"batang\": \"batang\", \"btg\": \"batang\", \"ikat\": \"ikat\", \"tangkai\": \"tangkai\", \"ruas\": \"ruas\",\n    \"sdm\": \"sdm\", \"sdt\": \"sdt\", \"piring\": \"piring\", \"mangkuk\": \"mangkuk\", \"gelas\": \"gelas\",\n    \"cup\": \"cup\", \"potong\": \"potong\", \"iris\": \"iris\", \"bungkus\": \"bungkus\", \"pack\": \"bungkus\",\n    \"sachet\": \"sachet\", \"porsi\": \"porsi\", \"genggam\": \"genggam\", \"ekor\": \"ekor\", \"kaleng\": \"kaleng\",\n    \"centong\": \"centong\", \"papan\": \"papan\",\n}\n\nNAME_ALIASES = {\n    \"telor\": \"telur\", \"telur ayam\": \"telur\", \"telur ayam negeri\": \"telur\", \"telur ayam kampung\": \"telur\",\n    \"cabe\": \"cabai\", \"cabe merah\": \"cabai merah\", \"cabe rawit\": \"cabai rawit\",\n    \"bawang bombay\": \"bawang bombai\", \"bawang bombai\": \"bawang bombai\",\n    \"tomat merah\": \"tomat\", \"buncis hijau\": \"buncis\", \"daun bawang\": \"daun bawang\",\n    \"nasi putih\": \"nasi\", \"nasi sisa\": \"nasi\", \"nasi dingin\": \"nasi\",\n    \"mi\": \"mie\", \"mi instan\": \"mie instan\", \"indomie\": \"mie instan\",\n}\n\nCATEGORY_KEYWORDS = [\n    (\"protein\", [\"telur\", \"ayam\", \"daging\", \"sapi\", \"ikan\", \"udang\", \"tahu\", \"tempe\", \"sosis\", \"bakso\",\n                 \"cumi\", \"salmon\", \"tuna\", \"kornet\", \"nugget\"]),\n    (\"karbohidrat\", [\"nasi\", \"mie\", \"bihun\", \"kwetiau\", \"kentang\", \"roti\", \"pasta\", \"spaghetti\",\n                     \"singkong\", \"jagung\", \"ubi\", \"lontong\", \"soun\"]),\n    (\"sayur\", [\"bayam\", \"kangkung\", \"sawi\", \"pakcoy\", \"wortel\", \"brokoli\", \"kol\", \"kubis\", \"tomat\",\n               \"timun\", \"mentimun\", \"terong\", \"buncis\", \"jamur\", \"labu\", \"paprika\", \"selada\", \"tauge\",\n               \"kacang panjang\", \"kembang kol\", \"daun\", \"kemangi\", \"kacang\"]),\n    (\"bumbu\", [\"bawang\", \"garam\", \"gula\", \"kecap\", \"saus\", \"merica\", \"lada\", \"jahe\", \"kunyit\", \"lengkuas\",\n               \"serai\", \"santan\", \"minyak\", \"cabai\", \"cabe\", \"kaldu\", \"mentega\", \"keju\"]),\n]\n\n# 3 = cepat rusak (pakai duluan), 2 = sedang, 1 = awet\nPERISHABILITY = [\n    (3, [\"bayam\", \"kangkung\", \"sawi\", \"pakcoy\", \"selada\", \"tauge\", \"kemangi\", \"daun\", \"ayam\", \"ikan\",\n         \"udang\", \"daging\", \"cumi\", \"salmon\", \"jamur\", \"tahu\", \"nasi\", \"bakso\", \"sosis\", \"santan\"]),\n    (2, [\"tomat\", \"timun\", \"mentimun\", \"terong\", \"buncis\", \"brokoli\", \"kol\", \"kubis\", \"paprika\", \"tempe\",\n         \"telur\", \"mie\", \"labu\", \"kacang panjang\", \"wortel\"]),\n    (1, [\"bawang\", \"kentang\", \"garam\", \"gula\", \"kecap\", \"saus\", \"minyak\", \"merica\", \"lada\", \"jahe\",\n         \"kunyit\", \"ubi\", \"singkong\", \"bihun\", \"pasta\", \"spaghetti\"]),\n]\nPERISH_LABEL = {3: \"tinggi\", 2: \"sedang\", 1: \"rendah\"}\n\n\ndef _first_hit(name, table, default):\n    for key, words in table:\n        for w in words:\n            if w in name:\n                return key\n    return default\n\n\nclass IngredientNormalizer(Component):\n    display_name = \"Ingredient Normalizer\"\n    description = (\n        \"Menormalkan bahan dari Nomz ('telur 2 butir' = '2 butir telur' = '2 telur'), \"\n        \"memisahkan jumlah/satuan, mengelompokkan kategori, menilai tingkat cepat-busuk \"\n        \"(prioritas food-rescue) dan mengekstrak gaya masak, kendala, serta mode dari request.\"\n    )\n    icon = \"list-checks\"\n    name = \"IngredientNormalizer\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"request\",\n            display_name=\"Nomz Request\",\n            info=\"Teks request dari FastAPI/Bob: 'bahan1, bahan2 (Gaya masak utama WAJIB: Kukus) (Kendala khusus: hemat bahan)'. \"\n                 \"Juga menerima JSON dengan key ingredients/cooking_style/constraint/mode.\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Normalized Brief\", name=\"brief\", method=\"build_brief\"),\n    ]\n\n    def _split_request(self, text):\n        style = constraint = mode = None\n        ingredients_raw = []\n        stripped = text.strip()\n        if stripped.startswith(\"{\"):\n            try:\n                obj = json.loads(stripped)\n                ing = obj.get(\"ingredients\") or []\n                ingredients_raw = [str(i) for i in ing] if isinstance(ing, list) else re.split(r\"[,;\\n]\", str(ing))\n                style = obj.get(\"cooking_style\")\n                constraint = obj.get(\"constraint\")\n                mode = obj.get(\"mode\")\n                return ingredients_raw, style, constraint, mode\n            except Exception:\n                pass\n        m = re.search(r\"gaya\\s+masak(?:\\s+utama)?(?:\\s+wajib)?\\s*:\\s*([^)]+)\", text, re.I)\n        if m:\n            style = m.group(1).strip()\n        m = re.search(r\"kendala(?:\\s+khusus)?\\s*:\\s*([^)]+)\", text, re.I)\n        if m:\n            constraint = m.group(1).strip()\n        m = re.search(r\"mode\\s*:\\s*([^)]+)\", text, re.I)\n        if m:\n            mode = m.group(1).strip()\n        body = re.sub(r\"\\([^)]*\\)\", \" \", text)\n        parts = re.split(r\"[,;\\n]| dan \", body)\n        ingredients_raw = [p for p in parts if p and p.strip()]\n        return ingredients_raw, style, constraint, mode\n\n    def _parse_ingredient(self, raw):\n        token = re.sub(r\"\\s+\", \" \", raw.strip().strip(\"-\u2022*\").strip()).lower()\n        if not token:\n            return None\n        qty_text, unit = None, None\n        m = re.search(r\"(\\d+(?:[.,]\\d+)?(?:\\s*/\\s*\\d+)?)\", token)\n        if m:\n            qty_text = re.sub(r\"\\s+\", \"\", m.group(1)).replace(\",\", \".\")\n            before = token[: m.start()].strip()\n            after = token[m.end():].strip()\n            if not before:\n                words = after.split(\" \")\n                if words and words[0] in UNIT_ALIASES:\n                    unit = UNIT_ALIASES[words[0]]\n                    name = \" \".join(words[1:]).strip()\n                else:\n                    name = after\n            else:\n                words = after.split(\" \") if after else []\n                if words and words[0] in UNIT_ALIASES:\n                    unit = UNIT_ALIASES[words[0]]\n                    rest = \" \".join(words[1:]).strip()\n                else:\n                    rest = after\n                name = (before + (\" \" + rest if rest else \"\")).strip()\n        else:\n            name = token\n            if \"secukupnya\" in token:\n                name = token.replace(\"secukupnya\", \"\").strip()\n                unit = \"secukupnya\"\n        name = re.sub(r\"\\s+\", \" \", name).strip(\" -:\")\n        if not name:\n            return None\n        name = NAME_ALIASES.get(name, name)\n        quantity = None\n        if qty_text:\n            try:\n                if \"/\" in qty_text:\n                    a, b = qty_text.split(\"/\")\n                    quantity = float(a) / float(b)\n                else:\n                    quantity = float(qty_text)\n            except Exception:\n                quantity = None\n        return {\"name\": name, \"quantity\": quantity, \"quantity_text\": qty_text, \"unit\": unit, \"raw\": raw.strip()}\n\n    def build_brief(self) -> Message:\n        text = getattr(self.request, \"text\", None) or str(self.request or \"\")\n        raw_items, style, constraint, mode = self._split_request(text)\n\n        merged = {}\n        order = []\n        for raw in raw_items:\n            parsed = self._parse_ingredient(raw)\n            if not parsed:\n                continue\n            key = parsed[\"name\"]\n            if key in merged:\n                cur = merged[key]\n                same_unit = cur[\"unit\"] == parsed[\"unit\"] or cur[\"unit\"] is None or parsed[\"unit\"] is None\n                if same_unit and cur[\"quantity\"] is not None and parsed[\"quantity\"] is not None:\n                    cur[\"quantity\"] += parsed[\"quantity\"]\n                    cur[\"unit\"] = cur[\"unit\"] or parsed[\"unit\"]\n                    q = cur[\"quantity\"]\n                    cur[\"quantity_text\"] = str(int(q)) if float(q).is_integer() else str(round(q, 2))\n                elif cur[\"quantity\"] is None:\n                    cur.update({k: parsed[k] for k in (\"quantity\", \"quantity_text\", \"unit\")})\n                continue\n            merged[key] = parsed\n            order.append(key)\n\n        ingredients = []\n        for key in order:\n            p = merged[key]\n            if p[\"quantity_text\"] and p[\"unit\"] and p[\"unit\"] != \"secukupnya\":\n                display = f\"{p['quantity_text']} {p['unit']} {p['name']}\"\n            elif p[\"quantity_text\"]:\n                display = f\"{p['quantity_text']} {p['name']}\"\n            elif p[\"unit\"] == \"secukupnya\":\n                display = f\"{p['name']} secukupnya\"\n            else:\n                display = p[\"name\"]\n            score = _first_hit(p[\"name\"], PERISHABILITY, 2)\n            ingredients.append({\n                \"name\": p[\"name\"],\n                \"quantity\": p[\"quantity\"],\n                \"unit\": p[\"unit\"],\n                \"display\": display,\n                \"category\": _first_hit(p[\"name\"], CATEGORY_KEYWORDS, \"lainnya\"),\n                \"perishability\": PERISH_LABEL[score],\n                \"source_text\": p[\"raw\"],\n            })\n\n        brief = {\n            \"ingredients\": ingredients,\n            \"ingredient_names\": [i[\"name\"] for i in ingredients],\n            \"ingredient_displays\": [i[\"display\"] for i in ingredients],\n            \"use_first\": [i[\"name\"] for i in ingredients if i[\"perishability\"] == \"tinggi\"],\n            \"cooking_style\": style,\n            \"constraint\": constraint,\n            \"mode\": mode,\n        }\n        self.status = f\"{len(ingredients)} bahan, gaya={style}\"\n        return Message(text=json.dumps(brief, ensure_ascii=False))\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "request": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "request",
+                "value": "",
+                "display_name": "Nomz Request",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "Teks request dari FastAPI/Bob: 'bahan1, bahan2 (Gaya masak utama WAJIB: Kukus) (Kendala khusus: hemat bahan)'. Juga menerima JSON dengan key ingredients/cooking_style/constraint/mode.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MessageTextInput"
+              }
+            },
+            "description": "Menormalkan bahan dari Nomz ('telur 2 butir' = '2 butir telur' = '2 telur'), memisahkan jumlah/satuan, mengelompokkan kategori, menilai tingkat cepat-busuk (prioritas food-rescue) dan mengekstrak gaya masak, kendala, serta mode dari request.",
+            "icon": "list-checks",
+            "base_classes": [
+              "Message"
+            ],
+            "display_name": "Ingredient Normalizer",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "brief",
+                "display_name": "Normalized Brief",
+                "method": "build_brief",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "IngredientNormalizer",
+          "showNode": true,
+          "id": "IngredientNormalizer-67967"
+        }
+      },
+      {
+        "id": "CookingStyleInterpreter-5f7b8",
+        "type": "genericNode",
+        "position": {
+          "x": 650,
+          "y": 200
+        },
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "brief": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "brief",
+                "value": "",
+                "display_name": "Normalized Brief",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "JSON dari Ingredient Normalizer.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MessageTextInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "import json\nimport re\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import MessageTextInput, Output\nfrom lfx.schema.message import Message\n\n# Spesifikasi teknik per metode masak. Dipakai oleh prompt resep, prompt panduan teknis,\n# dan validator untuk memastikan metode benar-benar konsisten (judul -> bahan -> metode -> langkah).\nMETHOD_CATALOG = {\n    \"Kukus\": {\n        \"technique\": \"Steaming: bahan dimasak oleh uap air mendidih di kukusan, tanpa minyak penggorengan.\",\n        \"equipment\": \"kukusan/steamer, wadah tahan panas, tutup (lapisi kain agar uap tidak menetes)\",\n        \"heat\": \"air mendidih dulu, lalu api sedang agar uap tebal stabil\",\n        \"timing\": \"10-25 menit tergantung ketebalan bahan\",\n        \"cues\": \"uap mengepul tebal; tekstur set/empuk; tusuk lidi/garpu keluar bersih\",\n        \"forbidden_terms\": [\"goreng\", \"tumis\", \"panaskan wajan\", \"panaskan minyak\", \"minyak panas\", \"sangrai\", \"oven\", \"air fryer\"],\n        \"required_terms\": [\"kukus\", \"uap\"],\n    },\n    \"Rebus\": {\n        \"technique\": \"Boiling/simmering: bahan dimasak dalam air atau kuah mendidih lalu dikecilkan.\",\n        \"equipment\": \"panci, air/kaldu secukupnya, sendok sayur\",\n        \"heat\": \"api besar sampai mendidih, kecilkan ke api kecil-sedang agar simmer\",\n        \"timing\": \"8-20 menit; bahan padat dahulu, sayur lunak belakangan\",\n        \"cues\": \"kuah bergolak halus; bahan empuk; kuah gurih seimbang\",\n        \"forbidden_terms\": [\"goreng\", \"tumis\", \"panaskan wajan\", \"panaskan minyak\", \"minyak panas\", \"kukusan\", \"oven\", \"air fryer\"],\n        \"required_terms\": [\"rebus\", \"kuah\", \"mendidih\"],\n    },\n    \"Goreng\": {\n        \"technique\": \"Frying: bahan dimasak dalam minyak panas yang cukup banyak hingga kecokelatan renyah.\",\n        \"equipment\": \"wajan/penggorengan dalam, minyak goreng, spatula, peniris\",\n        \"heat\": \"api sedang (\u00b1170\u00b0C); jangan terlalu penuh agar suhu minyak stabil\",\n        \"timing\": \"2-4 menit per sisi; balik sekali\",\n        \"cues\": \"minyak berdesis halus saat bahan masuk; kuning keemasan; ditiriskan\",\n        \"forbidden_terms\": [\"kukus\", \"kukusan\", \"uap\", \"rebus\", \"direbus\", \"oven\", \"air fryer\"],\n        \"required_terms\": [\"goreng\", \"minyak\"],\n    },\n    \"Tumis\": {\n        \"technique\": \"Stir-frying: bahan diaduk cepat di wajan dengan sedikit minyak api sedang-tinggi.\",\n        \"equipment\": \"wajan/wok, sedikit minyak, spatula\",\n        \"heat\": \"api sedang-tinggi, bumbu aromatik lebih dulu lalu bahan utama\",\n        \"timing\": \"5-10 menit total; aduk terus\",\n        \"cues\": \"aroma bawang harum; sayur layu tapi renyah; bumbu menyelimuti bahan\",\n        \"forbidden_terms\": [\"kukus\", \"kukusan\", \"uap\", \"rebus selama\", \"direbus selama\", \"oven\", \"air fryer\", \"deep fry\"],\n        \"required_terms\": [\"tumis\", \"wajan\"],\n    },\n    \"Panggang\": {\n        \"technique\": \"Roasting/grilling: bahan dimasak oleh panas kering oven atau panggangan.\",\n        \"equipment\": \"oven/teflon panggang/grill pan, loyang atau alas, kuas minyak\",\n        \"heat\": \"oven 180\u00b0C (prapanaskan 5-10 menit) atau panggangan api sedang\",\n        \"timing\": \"10-25 menit; balik di tengah waktu\",\n        \"cues\": \"permukaan kecokelatan; aroma panggang harum; bagian dalam matang\",\n        \"forbidden_terms\": [\"kukus\", \"kukusan\", \"rebus\", \"direbus\", \"tumis\", \"goreng hingga\", \"air fryer\"],\n        \"required_terms\": [\"panggang\", \"oven\", \"grill\", \"panggangan\"],\n    },\n    \"Air Fryer\": {\n        \"technique\": \"Air frying: udara panas bersirkulasi cepat memasak bahan dengan sedikit minyak.\",\n        \"equipment\": \"air fryer, keranjang, semprot/olesan tipis minyak\",\n        \"heat\": \"180\u00b0C, prapanaskan 3 menit\",\n        \"timing\": \"8-15 menit; kocok/balik keranjang di tengah\",\n        \"cues\": \"permukaan renyah keemasan; tidak ada genangan minyak\",\n        \"forbidden_terms\": [\"kukus\", \"kukusan\", \"rebus\", \"direbus\", \"tumis\", \"panaskan wajan\", \"goreng dalam minyak\"],\n        \"required_terms\": [\"air fryer\", \"keranjang\"],\n    },\n}\n\nSTYLE_ALIASES = {\n    \"kukus\": \"Kukus\", \"steam\": \"Kukus\", \"steaming\": \"Kukus\", \"tim\": \"Kukus\",\n    \"rebus\": \"Rebus\", \"boil\": \"Rebus\", \"kuah\": \"Rebus\",\n    \"goreng\": \"Goreng\", \"fried\": \"Goreng\", \"deep fry\": \"Goreng\",\n    \"tumis\": \"Tumis\", \"stir fry\": \"Tumis\", \"oseng\": \"Tumis\",\n    \"panggang\": \"Panggang\", \"bakar\": \"Panggang\", \"grill\": \"Panggang\", \"oven\": \"Panggang\",\n    \"air fryer\": \"Air Fryer\", \"airfryer\": \"Air Fryer\", \"air-fryer\": \"Air Fryer\",\n}\n\n\ndef canonical_method(value):\n    if not value:\n        return None\n    v = re.sub(r\"\\s+\", \" \", str(value).strip().lower())\n    if v in STYLE_ALIASES:\n        return STYLE_ALIASES[v]\n    for alias, method in STYLE_ALIASES.items():\n        if alias in v:\n            return method\n    return None\n\n\nclass CookingStyleInterpreter(Component):\n    display_name = \"Cooking Style Interpreter\"\n    description = (\n        \"Mengubah gaya masak + kendala + mode menjadi spesifikasi teknis nyata (peralatan, panas, waktu, \"\n        \"indikator kematangan, istilah terlarang/wajib) agar resep dan langkah memasak benar-benar \"\n        \"sesuai metode, bukan sekadar label.\"\n    )\n    icon = \"chef-hat\"\n    name = \"CookingStyleInterpreter\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"brief\",\n            display_name=\"Normalized Brief\",\n            info=\"JSON dari Ingredient Normalizer.\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Interpreted Brief\", name=\"interpreted\", method=\"interpret\"),\n    ]\n\n    def _constraint_rules(self, constraint, mode):\n        text = f\"{constraint or ''} {mode or ''}\".lower()\n        rules = {\"max_extra_ingredients\": None, \"max_minutes\": None, \"max_steps\": None, \"notes\": []}\n        if any(k in text for k in [\"hemat\", \"tanpa belanja\", \"tidak belanja\", \"tanpa beli\", \"no_shopping\", \"no shopping\"]):\n            rules[\"max_extra_ingredients\"] = 3\n            rules[\"notes\"].append(\"Hemat bahan: tambahan hanya bumbu dapur dasar, maksimal 3 item.\")\n        if any(k in text for k in [\"cepat\", \"quick\", \"instan\", \"buru\"]):\n            rules[\"max_minutes\"] = 15\n            rules[\"notes\"].append(\"Cepat: total waktu maksimal 15 menit.\")\n        if any(k in text for k in [\"sederhana\", \"simple\", \"praktis\"]):\n            rules[\"max_steps\"] = 5\n            rules[\"max_extra_ingredients\"] = rules[\"max_extra_ingredients\"] or 4\n            rules[\"notes\"].append(\"Sederhana: maksimal 5 langkah dan bumbu minimal.\")\n        if \"free\" in text or \"bebas\" in text:\n            rules[\"notes\"].append(\"Eksplorasi bebas: variasi rasa dan teknik dipersilakan.\")\n        if not rules[\"notes\"]:\n            rules[\"notes\"].append(\"Rescue: prioritaskan bahan yang paling cepat rusak.\")\n        return rules\n\n    def interpret(self) -> Message:\n        text = getattr(self.brief, \"text\", None) or str(self.brief or \"{}\")\n        brief = json.loads(text)\n\n        style_raw = brief.get(\"cooking_style\")\n        method = canonical_method(style_raw)\n        constraint = brief.get(\"constraint\")\n        # Frontend lama kadang mengirim metode lewat constraint ('Tumis').\n        if not method and canonical_method(constraint) and (constraint or \"\").strip().lower() in STYLE_ALIASES:\n            method = canonical_method(constraint)\n            brief[\"constraint\"] = None\n\n        brief[\"cooking_style\"] = method or style_raw\n        brief[\"method_locked\"] = bool(method)\n        brief[\"style_spec\"] = ({\"method\": method, **METHOD_CATALOG[method]} if method else None)\n        brief[\"method_catalog\"] = {\n            m: {\"technique\": s[\"technique\"], \"forbidden_terms\": s[\"forbidden_terms\"], \"required_terms\": s[\"required_terms\"]}\n            for m, s in METHOD_CATALOG.items()\n        }\n        brief[\"constraint_rules\"] = self._constraint_rules(brief.get(\"constraint\"), brief.get(\"mode\"))\n        self.status = f\"metode={method or 'bebas'}\"\n        return Message(text=json.dumps(brief, ensure_ascii=False))\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              }
+            },
+            "description": "Mengubah gaya masak + kendala + mode menjadi spesifikasi teknis nyata (peralatan, panas, waktu, indikator kematangan, istilah terlarang/wajib) agar resep dan langkah memasak benar-benar sesuai metode, bukan sekadar label.",
+            "icon": "chef-hat",
+            "base_classes": [
+              "Message"
+            ],
+            "display_name": "Cooking Style Interpreter",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "interpreted",
+                "display_name": "Interpreted Brief",
+                "method": "interpret",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "CookingStyleInterpreter",
+          "showNode": true,
+          "id": "CookingStyleInterpreter-5f7b8"
+        }
+      },
+      {
+        "id": "RescuePromptBuilder-87587",
+        "type": "genericNode",
+        "position": {
+          "x": 1000,
+          "y": 200
+        },
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "import json\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import MessageTextInput, Output\nfrom lfx.schema.message import Message\n\n\nclass RescuePromptBuilder(Component):\n    display_name = \"Rescue Prompt Builder\"\n    description = (\n        \"Menyusun prompt rekomendasi masakan cerdas dan kaya konteks kuliner berdasarkan hasil \"\n        \"normalisasi bahan, strategi food rescue, dan interpretasi gaya masak.\"\n    )\n    icon = \"sparkles\"\n    name = \"RescuePromptBuilder\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"interpreted_brief\",\n            display_name=\"Interpreted Brief\",\n            info=\"Brief dari Cooking Style Interpreter.\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Prompt Message\", name=\"prompt\", method=\"build_prompt\"),\n    ]\n\n    def build_prompt(self) -> Message:\n        text = getattr(self.interpreted_brief, \"text\", None) or str(self.interpreted_brief or \"{}\")\n        try:\n            brief = json.loads(text)\n        except Exception:\n            brief = {}\n\n        ingredients = brief.get(\"ingredients\", [])\n        displays = brief.get(\"ingredient_displays\", [])\n        use_first = brief.get(\"use_first\", [])\n        style = brief.get(\"cooking_style\")\n        style_spec = brief.get(\"style_spec\") or {}\n        constraint = brief.get(\"constraint\")\n        mode = brief.get(\"mode\")\n        rules = brief.get(\"constraint_rules\") or {}\n\n        # Formulasi daftar bahan dengan penanda rescue\n        ing_lines = []\n        for ing in ingredients:\n            disp = ing.get(\"display\") or ing.get(\"name\")\n            perish = ing.get(\"perishability\")\n            cat = ing.get(\"category\")\n            tag = \" [PRIORITAS RESCUE - CEPAT RUSAK]\" if perish == \"tinggi\" else \"\"\n            ing_lines.append(f\"- {disp} ({cat}){tag}\")\n\n        ingredients_text = \"\\n\".join(ing_lines) if ing_lines else \", \".join(displays)\n\n        # Aturan gaya masak teknis\n        style_instructions = \"\"\n        if style and style_spec:\n            forbidden = \", \".join(style_spec.get(\"forbidden_terms\", []))\n            required = \", \".join(style_spec.get(\"required_terms\", []))\n            style_instructions = f\"\"\"\nGAYA MASAK WAJIB: {style}\n- Teknik Utama: {style_spec.get('technique', '')}\n- Alat yang digunakan: {style_spec.get('equipment', '')}\n- Pengaturan Panas/Api: {style_spec.get('heat', '')}\n- Estimasi Durasi: {style_spec.get('timing', '')}\n- Indikator Kematangan: {style_spec.get('cues', '')}\n- ISTILAH TERLARANG (JANGAN GUNAKAN): {forbidden}\n- ISTILAH WAJIB ADA DALAM LANGKAH: {required}\nSETIAP REKOMENDASI HIDANGAN WAJIB MENGGUNAKAN METODE {style} SEBAGAI METODE UTAMA. Dilarang menghasilkan masakan dengan metode bertolak belakang!\n\"\"\"\n        elif style:\n            style_instructions = f\"\\nGAYA MASAK WAJIB: {style}. Semua rekomendasi wajib menggunakan metode {style}.\\n\"\n\n        # Aturan kendala\n        constraint_text = \"\"\n        if constraint or mode:\n            notes = rules.get(\"notes\", [])\n            notes_str = \"; \".join(notes) if notes else (constraint or mode)\n            constraint_text = f\"\\nKENDALA / MODE PENGGUNA: {notes_str}\\n\"\n\n        prompt_content = f\"\"\"Kamu adalah engine rekomendasi kuliner dan perencana masakan rumah tangga profesional untuk aplikasi Nomz.\nTujuan utama Nomz adalah FOOD RESCUE: membantu pengguna memasak makanan lezat dengan memaksimalkan bahan yang sudah dimiliki agar tidak terbuang sia-sia.\n\nDAFTAR BAHAN MAKANAN PENGGUNA:\n{ingredients_text}\n{style_instructions}{constraint_text}\nTUGAS:\nBerikan 3 rekomendasi hidangan realistis, lezat, dan ramah dapur rumah tangga yang memprioritaskan bahan di atas (terutama bahan cepat rusak).\n\nATURAN STRUKTURAL DAN KONSISTENSI KETAT:\n1. Kolom 'bahan_tersedia' HANYA BOLEH berisi bahan dari daftar bahan pengguna di atas (pertahankan takaran jika ada, contoh: \"1 piring nasi\", \"2 butir telur\", \"1 buah tomat\", tanpa label tanda kurung). DILARANG KERAS memasukkan bahan baru ke 'bahan_tersedia'.\n2. Bahan pelengkap wajar dapur (minyak, garam, gula, bawang, air, merica) WAJIB masuk ke 'bahan_tambahan' beserta takarannya.\n3. Kolom 'metode_masak' wajib konsisten dengan gaya masak yang diminta ({style or 'metode utama masakan'}).\n4. Kolom 'nama' harus mencerminkan metode masak dan bahan utama secara harmonis.\n5. PANDUAN MEMASAK TEKNIS (GUIDED COOKING STEPS):\n   Langkah dalam 'langkah' harus terperinci, teknis, dan runtut (minimal 4-6 langkah):\n   - Sebutkan bahan dan takarannya saat dimasukkan.\n   - Cantumkan tingkat panas api (api kecil, api sedang, api besar).\n   - Cantumkan durasi waktu terukur (misal: 2-3 menit, 10 menit).\n   - Cantumkan isyarat sensorik (aroma harum, warna kuning keemasan, uap tebal, kuah mendidih bergolak).\n   - Berikan tips teknis memasak sesuai metode {style or 'yang dipilih'}.\n6. Kolom 'alasan' harus menjelaskan nilai food rescue dan mengapa bahan-bahan tersebut cocok diolah bersama.\n7. Format output HARUS berupa JSON valid tanpa teks pengantar atau markdown tambahan di luar JSON.\n\nSCHEMA JSON KELUARAN:\n{{\n  \"recommendations\": [\n    {{\n      \"nama\": \"Nama Resep\",\n      \"deskripsi\": \"Deskripsi singkat hidangan 1-2 kalimat.\",\n      \"metode_masak\": \"{style or 'Metode'}\",\n      \"bahan_tersedia\": [\"bahan dari daftar user\"],\n      \"bahan_tambahan\": [\"bumbu pelengkap\"],\n      \"estimasi_waktu\": \"20 menit\",\n      \"tingkat_kesulitan\": \"Mudah\",\n      \"alasan\": \"Alasan food rescue dan kecocokan rasa.\",\n      \"langkah\": [\n        \"Langkah 1 teknis...\",\n        \"Langkah 2 teknis...\",\n        \"Langkah 3 teknis...\"\n      ],\n      \"porsi\": \"1-2 porsi\"\n    }}\n  ]\n}}\n\"\"\"\n        self.status = f\"Prompt generated for {len(ingredients)} ingredients\"\n        return Message(text=prompt_content.strip())\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "interpreted_brief": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "interpreted_brief",
+                "value": "",
+                "display_name": "Interpreted Brief",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "Brief dari Cooking Style Interpreter.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MessageTextInput"
+              }
+            },
+            "description": "Menyusun prompt rekomendasi masakan cerdas dan kaya konteks kuliner berdasarkan hasil normalisasi bahan, strategi food rescue, dan interpretasi gaya masak.",
+            "icon": "sparkles",
+            "base_classes": [
+              "Message"
+            ],
+            "display_name": "Rescue Prompt Builder",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "prompt",
+                "display_name": "Prompt Message",
+                "method": "build_prompt",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "RescuePromptBuilder",
+          "showNode": true,
+          "id": "RescuePromptBuilder-87587"
+        }
+      },
+      {
+        "id": "ext:google:GoogleGenerativeAIComponent@official-Gtk78",
+        "type": "genericNode",
+        "position": {
+          "x": 1350,
+          "y": 200
+        },
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "api_key": {
+                "load_from_db": true,
+                "override_skip": false,
+                "required": true,
+                "placeholder": "",
+                "show": true,
+                "name": "api_key",
+                "value": "GOOGLE_API_KEY",
+                "display_name": "Google API Key",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [],
+                "dynamic": false,
+                "info": "The Google API Key to use for the Google Generative AI.",
+                "real_time_refresh": true,
+                "title_case": false,
+                "track_in_telemetry": false,
+                "password": true,
+                "type": "str",
+                "_input_type": "SecretStrInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "from typing import Any\n\nimport requests\nfrom google import genai\nfrom lfx.base.models.google_generative_ai_constants import GOOGLE_GENERATIVE_AI_MODELS\nfrom lfx.base.models.google_generative_ai_model import ChatGoogleGenerativeAIFixed\nfrom lfx.base.models.model import LCModelComponent\nfrom lfx.field_typing import LanguageModel\nfrom lfx.field_typing.range_spec import RangeSpec\nfrom lfx.inputs.inputs import BoolInput, DropdownInput, FloatInput, IntInput, SecretStrInput, SliderInput\nfrom lfx.log.logger import logger\nfrom lfx.schema.dotdict import dotdict\nfrom pydantic.v1 import SecretStr\n\n\nclass GoogleGenerativeAIComponent(LCModelComponent):\n    display_name = \"Google Generative AI\"\n    description = \"Generate text using Google Generative AI.\"\n    icon = \"GoogleGenerativeAI\"\n    name = \"GoogleGenerativeAIModel\"\n\n    inputs = [\n        *LCModelComponent.get_base_inputs(),\n        IntInput(\n            name=\"max_output_tokens\", display_name=\"Max Output Tokens\", info=\"The maximum number of tokens to generate.\"\n        ),\n        DropdownInput(\n            name=\"model_name\",\n            display_name=\"Model\",\n            info=\"The name of the model to use.\",\n            options=GOOGLE_GENERATIVE_AI_MODELS,\n            value=\"gemini-2.5-flash\",\n            refresh_button=True,\n            combobox=True,\n        ),\n        SecretStrInput(\n            name=\"api_key\",\n            display_name=\"Google API Key\",\n            info=\"The Google API Key to use for the Google Generative AI.\",\n            required=True,\n            real_time_refresh=True,\n        ),\n        FloatInput(\n            name=\"top_p\",\n            display_name=\"Top P\",\n            info=\"The maximum cumulative probability of tokens to consider when sampling.\",\n            advanced=True,\n        ),\n        SliderInput(\n            name=\"temperature\",\n            display_name=\"Temperature\",\n            value=0.1,\n            range_spec=RangeSpec(min=0, max=1, step=0.01),\n            info=\"Controls randomness. Lower values are more deterministic, higher values are more creative.\",\n        ),\n        IntInput(\n            name=\"n\",\n            display_name=\"N\",\n            info=\"Number of chat completions to generate for each prompt. \"\n            \"Note that the API may not return the full n completions if duplicates are generated.\",\n            advanced=True,\n        ),\n        IntInput(\n            name=\"top_k\",\n            display_name=\"Top K\",\n            info=\"Decode using top-k sampling: consider the set of top_k most probable tokens. Must be positive.\",\n            advanced=True,\n        ),\n        BoolInput(\n            name=\"tool_model_enabled\",\n            display_name=\"Tool Model Enabled\",\n            info=\"Whether to use the tool model.\",\n            value=False,\n        ),\n    ]\n\n    def build_model(self) -> LanguageModel:  # type: ignore[type-var]\n        google_api_key = self.api_key\n        model = self.model_name\n        max_output_tokens = self.max_output_tokens\n        temperature = self.temperature\n        top_k = self.top_k\n        top_p = self.top_p\n        n = self.n\n\n        # Use modified ChatGoogleGenerativeAIFixed class for multiple function support\n        # TODO: Potentially remove when fixed upstream\n        return ChatGoogleGenerativeAIFixed(\n            model=model,\n            max_output_tokens=max_output_tokens or None,\n            temperature=temperature,\n            top_k=top_k or None,\n            top_p=top_p or None,\n            n=n or 1,\n            google_api_key=SecretStr(google_api_key).get_secret_value(),\n        )\n\n    def get_models(self, *, tool_model_enabled: bool | None = None) -> list[str]:\n        try:\n            with genai.Client(api_key=self.api_key) as client:\n                model_ids = [\n                    model.name.removeprefix(\"models/\")\n                    for model in client.models.list()\n                    if model.name and \"generateContent\" in (model.supported_actions or [])\n                ]\n            model_ids.sort(reverse=True)\n        except (genai.errors.APIError, ValueError) as e:\n            logger.exception(f\"Error getting model names: {e}\")\n            model_ids = GOOGLE_GENERATIVE_AI_MODELS\n        if tool_model_enabled:\n            try:\n                from langchain_google_genai.chat_models import ChatGoogleGenerativeAI\n            except ImportError as e:\n                msg = \"langchain_google_genai is not installed.\"\n                raise ImportError(msg) from e\n            model_ids = [\n                model\n                for model in model_ids\n                if self.supports_tool_calling(ChatGoogleGenerativeAI(model=model, google_api_key=self.api_key))\n            ]\n        return model_ids\n\n    def update_build_config(self, build_config: dotdict, field_value: Any, field_name: str | None = None):\n        if field_name in {\"base_url\", \"model_name\", \"tool_model_enabled\", \"api_key\"} and field_value:\n            try:\n                if len(self.api_key) == 0:\n                    ids = GOOGLE_GENERATIVE_AI_MODELS\n                else:\n                    try:\n                        ids = self.get_models(tool_model_enabled=self.tool_model_enabled)\n                    except (ImportError, ValueError, requests.exceptions.RequestException) as e:\n                        logger.exception(f\"Error getting model names: {e}\")\n                        ids = GOOGLE_GENERATIVE_AI_MODELS\n                build_config.setdefault(\"model_name\", {})\n                build_config[\"model_name\"][\"options\"] = ids\n                if ids:\n                    build_config[\"model_name\"].setdefault(\"value\", ids[0])\n                else:\n                    build_config[\"model_name\"].pop(\"value\", None)\n            except Exception as e:\n                msg = f\"Error getting model names: {e}\"\n                raise ValueError(msg) from e\n        return build_config\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "input_value": {
+                "trace_as_input": true,
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "input_value",
+                "value": "",
+                "display_name": "Input",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MessageInput"
+              },
+              "max_output_tokens": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "max_output_tokens",
+                "value": 0,
+                "display_name": "Max Output Tokens",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "The maximum number of tokens to generate.",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              },
+              "model_name": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "options": [
+                  "nano-banana-pro-preview",
+                  "lyria-3.5",
+                  "lyria-3-pro-preview",
+                  "lyria-3-clip-preview",
+                  "gemma-4-31b-it",
+                  "gemma-4-26b-a4b-it",
+                  "gemini-robotics-er-2-preview",
+                  "gemini-pro-latest",
+                  "gemini-omni-flash-preview",
+                  "gemini-omni-1.1-flash",
+                  "gemini-flash-lite-latest",
+                  "gemini-flash-latest",
+                  "gemini-3.8-flash-tts",
+                  "gemini-3.8-flash-lite-tts",
+                  "gemini-3.8-flash",
+                  "gemini-3.7-flash",
+                  "gemini-3.6-flash",
+                  "gemini-3.5-transcribe",
+                  "gemini-3.5-flash-lite",
+                  "gemini-3.5-flash",
+                  "gemini-3.1-pro-preview-customtools",
+                  "gemini-3.1-pro-preview",
+                  "gemini-3.1-flash-tts-preview",
+                  "gemini-3.1-flash-lite-preview",
+                  "gemini-3.1-flash-lite-image",
+                  "gemini-3.1-flash-lite",
+                  "gemini-3.1-flash-image-preview",
+                  "gemini-3.1-flash-image",
+                  "gemini-3-pro-image-preview",
+                  "gemini-3-pro-image",
+                  "gemini-3-flash-preview",
+                  "gemini-2.5-pro-preview-tts",
+                  "gemini-2.5-pro",
+                  "gemini-2.5-flash-preview-tts",
+                  "gemini-2.5-flash-lite",
+                  "gemini-2.5-flash-image",
+                  "gemini-2.5-flash",
+                  "gemini-2.5-computer-use-preview-10-2025",
+                  "deep-research-pro-preview-12-2025",
+                  "deep-research-preview-04-2026",
+                  "deep-research-max-preview-04-2026",
+                  "antigravity-preview-latest",
+                  "antigravity-preview-09-2026",
+                  "antigravity-preview-05-2026"
+                ],
+                "options_metadata": [],
+                "combobox": true,
+                "dialog_inputs": {},
+                "toggle": false,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "model_name",
+                "value": "gemini-3.5-flash-lite",
+                "display_name": "Model",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "The name of the model to use.",
+                "refresh_button": true,
+                "title_case": false,
+                "track_in_telemetry": true,
+                "external_options": {},
+                "type": "str",
+                "_input_type": "DropdownInput"
+              },
+              "n": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "n",
+                "value": 0,
+                "display_name": "N",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Number of chat completions to generate for each prompt. Note that the API may not return the full n completions if duplicates are generated.",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              },
+              "stream": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "stream",
+                "value": false,
+                "display_name": "Stream",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Stream the response from the model. Streaming works only in Chat.",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "bool",
+                "_input_type": "BoolInput"
+              },
+              "system_message": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "multiline": true,
+                "ai_enabled": false,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "system_message",
+                "value": "",
+                "display_name": "System Message",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "System message to pass to the model.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "copy_field": false,
+                "password": false,
+                "type": "str",
+                "_input_type": "MultilineInput"
+              },
+              "temperature": {
+                "tool_mode": false,
+                "min_label": "",
+                "max_label": "",
+                "min_label_icon": "",
+                "max_label_icon": "",
+                "slider_buttons": false,
+                "slider_buttons_options": [],
+                "slider_input": false,
+                "value_inverted": false,
+                "slider_color": "default",
+                "range_spec": {
+                  "step_type": "float",
+                  "min": 0,
+                  "max": 1,
+                  "step": 0.01
+                },
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "temperature",
+                "value": 0.1,
+                "display_name": "Temperature",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Controls randomness. Lower values are more deterministic, higher values are more creative.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "slider",
+                "_input_type": "SliderInput"
+              },
+              "tool_model_enabled": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "tool_model_enabled",
+                "value": false,
+                "display_name": "Tool Model Enabled",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Whether to use the tool model.",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "bool",
+                "_input_type": "BoolInput"
+              },
+              "top_k": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "top_k",
+                "value": 0,
+                "display_name": "Top K",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Decode using top-k sampling: consider the set of top_k most probable tokens. Must be positive.",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              },
+              "top_p": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "top_p",
+                "value": "",
+                "display_name": "Top P",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "The maximum cumulative probability of tokens to consider when sampling.",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "float",
+                "_input_type": "FloatInput"
+              },
+              "_frontend_node_flow_id": {
+                "value": "2e514b81-21d7-49b9-9fae-a981f95a8029"
+              },
+              "_frontend_node_folder_id": {
+                "value": "61414591-0059-4e01-b071-5def3106d701"
+              },
+              "is_refresh": false
+            },
+            "description": "Generate text using Google Generative AI.",
+            "icon": "GoogleGenerativeAI",
+            "base_classes": [
+              "LanguageModel",
+              "Message"
+            ],
+            "display_name": "Google Generative AI",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "text_output",
+                "display_name": "Model Response",
+                "method": "text_response",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "required_inputs": null,
+                "allows_loop": false,
+                "loop_types": null,
+                "group_outputs": false,
+                "options": null,
+                "tool_mode": true
+              },
+              {
+                "types": [
+                  "LanguageModel"
+                ],
+                "selected": "LanguageModel",
+                "name": "model_output",
+                "display_name": "Language Model",
+                "method": "build_model",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "required_inputs": null,
+                "allows_loop": false,
+                "loop_types": null,
+                "group_outputs": false,
+                "options": null,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [
+              "input_value",
+              "system_message",
+              "stream",
+              "max_output_tokens",
+              "model_name",
+              "api_key",
+              "top_p",
+              "temperature",
+              "n",
+              "top_k",
+              "tool_model_enabled"
+            ],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {
+              "keywords": [
+                "model",
+                "llm",
+                "language model",
+                "large language model"
+              ],
+              "module": "_lfx_ext.official.google.google_generative_ai",
+              "model_provider_policy_mode": "standalone",
+              "model_provider_id": "google-generative-ai",
+              "model_provider_display_name": "Google Generative AI",
+              "code_hash": "f28309bed516",
+              "dependencies": {
+                "total_dependencies": 5,
+                "dependencies": [
+                  {
+                    "name": "requests",
+                    "version": "2.34.2"
+                  },
+                  {
+                    "name": "google",
+                    "version": "2.25.2"
+                  },
+                  {
+                    "name": "lfx",
+                    "version": "1.12.3"
+                  },
+                  {
+                    "name": "pydantic",
+                    "version": "2.13.4"
+                  },
+                  {
+                    "name": "langchain_google_genai",
+                    "version": "4.1.3"
+                  }
+                ]
+              }
+            },
+            "tool_mode": false,
+            "extension": "lfx-google",
+            "bundle": "google",
+            "extension_version": "0.2.4",
+            "namespaced_id": "ext:google:GoogleGenerativeAIComponent@official",
+            "name": "GoogleGenerativeAIModel",
+            "last_updated": "2026-10-04T15:06:39.037Z",
+            "lf_version": "1.12.3"
+          },
+          "showNode": true,
+          "type": "ext:google:GoogleGenerativeAIComponent@official",
+          "id": "ext:google:GoogleGenerativeAIComponent@official-Gtk78",
+          "selected_output": "text_output"
+        },
+        "selected": false,
+        "dragging": false,
+        "measured": {
+          "width": 320,
+          "height": 660
+        }
+      },
+      {
+        "id": "RecipeValidatorFormatter-c3e52",
+        "type": "genericNode",
+        "position": {
+          "x": 1700,
+          "y": 200
+        },
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "import json\nimport re\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import MessageTextInput, Output\nfrom lfx.schema.message import Message\n\nSUPPORTED_METHODS = [\"Tumis\", \"Goreng\", \"Kukus\", \"Rebus\", \"Panggang\", \"Air Fryer\"]\n\nCONTRADICTORY_KEYWORDS = {\n    \"Kukus\": [\"minyak di wajan\", \"panaskan wajan\", \"goreng\", \"tumis\", \"minyak goreng di wajan\", \"gorengan\"],\n    \"Rebus\": [\"minyak di wajan\", \"panaskan minyak\", \"goreng\", \"tumis dengan api\", \"goreng hingga\"],\n    \"Goreng\": [\"kukus\", \"kukusan\", \"air mendidih 500\", \"rebus perlahan\"],\n    \"Tumis\": [\"kukus\", \"kukusan\", \"rebus selama 15\"],\n}\n\n\ndef normalize_recipe_title(recipe_name: str, method: str, target_style: str | None = None) -> str:\n    clean_name = recipe_name.strip()\n    if not clean_name:\n        return f\"{method} Istimewa\"\n\n    m = (target_style or method).strip().title()\n\n    if target_style:\n        contradictions = {\n            \"Kukus\": [\"Tumis \", \"Goreng \", \"Panggang \", \"Bakar \", \"Rebus \"],\n            \"Rebus\": [\"Tumis \", \"Goreng \", \"Panggang \", \"Bakar \", \"Kukus \"],\n            \"Goreng\": [\"Kukus \", \"Rebus \", \"Sup \", \"Sop \", \"Panggang \"],\n            \"Tumis\": [\"Kukus \", \"Rebus \", \"Sup \", \"Sop \", \"Goreng \"],\n            \"Panggang\": [\"Kukus \", \"Rebus \", \"Sup \", \"Tumis \", \"Goreng \"],\n            \"Air Fryer\": [\"Kukus \", \"Rebus \", \"Sup \"],\n        }\n\n        prefixes = contradictions.get(m, [])\n        for prefix in prefixes:\n            if clean_name.lower().startswith(prefix.lower()):\n                clean_name = f\"{m} \" + clean_name[len(prefix):]\n                break\n\n        if m == \"Kukus\":\n            clean_name = re.sub(r\"(?i)\\bgoreng\\b\", \"kukus\", clean_name)\n            clean_name = re.sub(r\"(?i)\\btumis\\b\", \"kukus\", clean_name)\n        elif m == \"Goreng\":\n            clean_name = re.sub(r\"(?i)\\bkukus\\b\", \"goreng\", clean_name)\n        elif m == \"Rebus\":\n            clean_name = re.sub(r\"(?i)\\bgoreng\\b\", \"kuah\", clean_name)\n\n    return clean_name\n\n\ndef generate_method_technical_steps(recipe_name: str, method: str, ingredients: list[str]) -> list[str]:\n    clean_ing = [i.strip() for i in ingredients if i and i.strip()]\n    ing_text = \", \".join(clean_ing) if clean_ing else \"bahan utama\"\n    m = method.strip().title()\n\n    if m == \"Kukus\":\n        return [\n            f\"Persiapan Kukusan & Wadah: Siapkan kukusan/klakat, isi bagian bawah dengan air bersih \u00b11-1.5 liter, dan siapkan wadah tahan panas untuk bahan ({ing_text}).\",\n            \"Pendidihan Uap: Panaskan kukusan dengan api sedang hingga air mendidih dan uap tebal aktif mengepul keluar dari sela tutup.\",\n            f\"Penataan Bahan: Tata bahan masakan ({ing_text}) ke dalam wadah tahan panas, lalu masukkan wadah secara hati-hati ke dalam kukusan yang telah beruap.\",\n            \"Pengukusan Terkontrol: Tutup rapat kukusan (lapisi kain bersih pada tutup jika perlu agar uap air tidak menetes), kukus dengan api sedang selama 15-20 menit hingga matang merata.\",\n            f\"Pengujian Kematangan & Penyajian: Buka tutup kukusan hati-hati, uji kematangan dengan menusuk bagian tengah {recipe_name.lower()} (pastikan tekstur lembut/padat dan harum aromatik), lalu angkat dan sajikan selagi hangat.\",\n        ]\n\n    if m == \"Rebus\":\n        return [\n            f\"Persiapan Panci & Kuah: Siapkan panci, tuang 600-800 ml air bersih (atau kaldu), serta siapkan potongan bahan ({ing_text}).\",\n            \"Pendidihan Awal: Panaskan panci dengan api sedang-tinggi hingga air mendidih bergolak aktif selama 2-3 menit.\",\n            f\"Pemasukan Bahan Bertahap: Masukkan bahan bertekstur lebih padat terlebih dahulu ({ing_text}), masak dengan api sedang hingga setengah empuk.\",\n            \"Pembumbuan & Pematangan Kuah: Masukkan bumbu pelengkap, kecilkan api ke tingkat sedang-kecil (simmering), biarkan rasa meresap dan aroma harum menyatu sempurna selama 8-10 menit.\",\n            \"Penyelesaian: Uji keempukan bahan dan cicipi kuah hangat, matikan api, lalu tuangkan ke mangkuk saji selagi panas.\",\n        ]\n\n    if m == \"Goreng\":\n        return [\n            f\"Persiapan Bahan & Wajan: Keringkan permukaan bahan ({ing_text}) dari air berlebih agar tidak meletup, siapkan wajan dan tuang minyak goreng secukupnya.\",\n            \"Pemanasan Minyak Terkontrol: Panaskan minyak dengan api sedang hingga mencapai suhu optimal (\u00b1160-170\u00b0C, tandai dengan desisan halus saat spatula kayu disentuhkan).\",\n            f\"Penggorengan Bertahap: Masukkan bahan ({ing_text}) secara bertahap agar suhu minyak tidak drop drastis; jangan diaduk terlalu sering pada menit awal agar bentuknya kokoh.\",\n            \"Pembalikan & Pematangan: Balik bahan sekali saat sisi bawah sudah mulai kokoh dan berwarna kuning keemasan, goreng hingga matang merata dan renyah di luar.\",\n            \"Penirisan & Penyajian: Angkat menggunakan serokan kawat, tiriskan sisa minyak di atas rak kawat atau tisu dapur khusus, sajikan selagi renyah.\",\n        ]\n\n    if m == \"Tumis\":\n        return [\n            f\"Persiapan Wajan & Aromatik: Siapkan wajan/wok, tuang 1-2 sdm minyak, serta siapkan bahan ({ing_text}) yang sudah dipotong seragam.\",\n            \"Penumisan Bumbu Aromatik: Panaskan minyak dengan api sedang-tinggi, tumis bumbu aromatik selama 45-60 detik hingga harum semerbak dan layu keemasan.\",\n            f\"Pemasukan Bahan Cepat: Besarkan api sedikit, masukkan bahan utama ({ing_text}), tumis cepat (stir-fry) sambil dibolak-balik agar panas merata dan sayur tetap renyah segar.\",\n            \"Pembumbuan Cepat: Tuangkan bumbu pelengkap dan sedikit air (1-2 sdm jika perlu), aduk rata selama 1-2 menit hingga saus menyelimuti seluruh bahan.\",\n            \"Penyajian: Angkat segera sebelum bahan menjadi terlalu layu (overcooked), pindahkan ke piring saji dan hidangkan hangat.\",\n        ]\n\n    if m == \"Panggang\":\n        return [\n            f\"Prapemanasan Alat: Panaskan oven pada suhu 180\u00b0C (atau panaskan wajan grill/pan panggangan di atas api sedang-kecil).\",\n            f\"Marinasi & Penataan: Lumuri bahan ({ing_text}) dengan sedikit minyak dan bumbu, lalu tata rapi dengan jarak di atas loyang atau pan panggang.\",\n            \"Pemanggangan: Panggang selama 15-20 menit, balik sekali di pertengahan waktu agar kedua sisi matang merata dengan jejak karamelisasi yang cantik.\",\n            \"Penyelesaian: Pastikan bagian dalam matang sempurna dan aroma panggang semerbak, angkat dan sajikan.\",\n        ]\n\n    if m == \"Air Fryer\":\n        return [\n            f\"Prapemanasan Unit: Prapanaskan air fryer pada suhu 180\u00b0C selama 3 menit.\",\n            f\"Penataan Bahan: Tata bahan ({ing_text}) di dalam keranjang air fryer dalam satu lapisan (single layer, tidak menumpuk). Olesi atau semprot tipis minyak.\",\n            \"Pemasakan & Pengocokan: Masak selama 10-15 menit pada suhu 180\u00b0C. Buka keranjang dan kocok/balik bahan di pertengahan waktu (menit ke-6 atau 7).\",\n            \"Penyajian: Periksa kerenyahan permukaan dan kematangan dalam, angkat menggunakan capitan tahan panas dan sajikan hangat.\",\n        ]\n\n    # Default generic\n    return [\n        f\"Persiapan Bahan: Siapkan dan potong bahan ({ing_text}) dengan ukuran seragam.\",\n        f\"Proses Memasak {m}: Olah bahan menggunakan metode {m} dengan api sedang secara terkontrol.\",\n        \"Pembumbuan & Koreksi Rasa: Tambahkan bumbu pelengkap, aduk rata dan koreksi rasa.\",\n        \"Penyajian: Angkat dan sajikan hidangan selagi hangat.\",\n    ]\n\n\nclass RecipeValidatorFormatter(Component):\n    display_name = \"Recipe Validator & Formatter\"\n    description = (\n        \"Memvalidasi output resep dari LLM, memastikan root key recommendations ada, \"\n        \"memvalidasi konsistensi metode masak, menolak bahan halusinasi, membersihkan langkah teknis, \"\n        \"dan memastikan format JSON bersih dan siap dikonsumsi oleh Nomz Mobile App & FastAPI.\"\n    )\n    icon = \"check-check\"\n    name = \"RecipeValidatorFormatter\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"interpreted_brief\",\n            display_name=\"Interpreted Brief\",\n            info=\"Brief dari Cooking Style Interpreter.\",\n        ),\n        MessageTextInput(\n            name=\"llm_output\",\n            display_name=\"LLM Raw Output\",\n            info=\"Teks respons dari model Gemini.\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Formatted JSON\", name=\"formatted_json\", method=\"validate_and_format\"),\n    ]\n\n    def _clean_markdown(self, text: str) -> str:\n        cleaned = text.strip()\n        if cleaned.startswith(\"```\"):\n            cleaned = re.sub(r\"^```[a-zA-Z]*\\n?\", \"\", cleaned)\n            cleaned = re.sub(r\"\\n?```$\", \"\", cleaned)\n        return cleaned.strip()\n\n    def validate_and_format(self) -> Message:\n        raw_llm = getattr(self.llm_output, \"text\", None) or str(self.llm_output or \"\")\n        cleaned_str = self._clean_markdown(raw_llm)\n\n        brief_str = getattr(self.interpreted_brief, \"text\", None) or str(self.interpreted_brief or \"{}\")\n        brief = {}\n        try:\n            brief = json.loads(brief_str)\n        except Exception:\n            brief = {}\n\n        target_style = brief.get(\"cooking_style\")\n        allowed_user_ingredients = [i.lower().strip() for i in brief.get(\"ingredient_names\", [])]\n        user_displays = brief.get(\"ingredient_displays\", [])\n\n        # Parse JSON\n        parsed = None\n        try:\n            parsed = json.loads(cleaned_str)\n        except Exception:\n            m = re.search(r\"\\{[\\s\\S]*\\}\", cleaned_str)\n            if m:\n                try:\n                    parsed = json.loads(m.group(0))\n                except Exception:\n                    pass\n\n        if not parsed or not isinstance(parsed, dict) or \"recommendations\" not in parsed:\n            self.status = \"Fallback: could not parse recommendations\"\n            # Fallback output safe structure\n            fb_method = target_style or \"Tumis\"\n            fb_recs = [{\n                \"nama\": f\"{fb_method} Bahan Segar Dapur\",\n                \"deskripsi\": f\"Hidangan lezat dan bernutrisi dimasak dengan metode {fb_method}.\",\n                \"metode_masak\": fb_method,\n                \"bahan_tersedia\": user_displays if user_displays else [\"bahan utama\"],\n                \"bahan_tambahan\": [\"1 sdm minyak / air\", \"garam secukupnya\", \"merica secukupnya\"],\n                \"estimasi_waktu\": \"20 menit\",\n                \"tingkat_kesulitan\": \"Mudah\",\n                \"alasan\": \"Memaksimalkan bahan makanan yang tersedia di dapur Anda.\",\n                \"langkah\": generate_method_technical_steps(f\"{fb_method} Bahan Segar Dapur\", fb_method, user_displays),\n                \"porsi\": \"1-2 porsi\",\n            }]\n            return Message(text=json.dumps({\"recommendations\": fb_recs}, ensure_ascii=False, indent=2))\n\n        recs = parsed.get(\"recommendations\", [])\n        if not isinstance(recs, list):\n            recs = []\n\n        validated_recs = []\n        for r in recs:\n            if not isinstance(r, dict):\n                continue\n\n            nama = r.get(\"nama\") or \"Kreasi Makanan Nomz\"\n            metode = r.get(\"metode_masak\") or target_style or \"Tumis\"\n            if target_style:\n                metode = target_style\n\n            # Normalisasi nama resep agar tidak kontradiktif\n            nama = normalize_recipe_title(nama, metode, target_style)\n\n            # Validasi bahan_tersedia\n            raw_tersedia = r.get(\"bahan_tersedia\", [])\n            valid_tersedia = []\n            valid_tambahan = list(r.get(\"bahan_tambahan\", []))\n\n            for bt in raw_tersedia:\n                bt_str = str(bt).strip()\n                # Bersihkan label kategori jika LLM menyalinnya (contoh: '2 butir telur (protein)' -> '2 butir telur')\n                bt_clean = re.sub(r\"\\s*\\((?:protein|karbohidrat|sayur|bumbu|lainnya)\\)\", \"\", bt_str, flags=re.I).strip()\n                bt_lower = bt_clean.lower()\n                if allowed_user_ingredients:\n                    matched = any(u in bt_lower or bt_lower in u for u in allowed_user_ingredients)\n                    if matched:\n                        valid_tersedia.append(bt_clean)\n                    else:\n                        if bt_clean not in valid_tambahan:\n                            valid_tambahan.append(bt_clean)\n                else:\n                    valid_tersedia.append(bt_clean)\n\n            if not valid_tersedia:\n                valid_tersedia = user_displays[:1] if user_displays else [\"bahan utama\"]\n\n            # Batasi bahan tambahan jika ada kendala hemat bahan\n            max_extra = brief.get(\"constraint_rules\", {}).get(\"max_extra_ingredients\")\n            if max_extra and len(valid_tambahan) > max_extra:\n                valid_tambahan = valid_tambahan[:max_extra]\n\n            # Validasi langkah memasak teknis\n            raw_steps = r.get(\"langkah\", [])\n            if not isinstance(raw_steps, list):\n                raw_steps = [str(raw_steps)]\n\n            # Cek kontradiksi langkah terhadap gaya masak\n            steps_joined = \" \".join(raw_steps).lower()\n            contradictions = CONTRADICTORY_KEYWORDS.get(metode, [])\n            has_contradiction = any(c in steps_joined for c in contradictions)\n\n            if has_contradiction or len(raw_steps) < 3:\n                # Gunakan langkah teknis standar yang konsisten\n                final_steps = generate_method_technical_steps(nama, metode, valid_tersedia)\n            else:\n                final_steps = [s.strip() for s in raw_steps if s and s.strip()]\n\n            validated_recs.append({\n                \"nama\": nama,\n                \"deskripsi\": r.get(\"deskripsi\") or f\"Hidangan lezat dengan metode {metode}.\",\n                \"metode_masak\": metode,\n                \"bahan_tersedia\": valid_tersedia,\n                \"bahan_tambahan\": valid_tambahan,\n                \"estimasi_waktu\": r.get(\"estimasi_waktu\") or \"20 menit\",\n                \"tingkat_kesulitan\": r.get(\"tingkat_kesulitan\") or \"Mudah\",\n                \"alasan\": r.get(\"alasan\") or \"Memaksimalkan bahan makanan yang tersedia di dapur Anda.\",\n                \"langkah\": final_steps,\n                \"porsi\": r.get(\"porsi\") or \"1-2 porsi\",\n            })\n\n        if not validated_recs:\n            fb_method = target_style or \"Tumis\"\n            validated_recs = [{\n                \"nama\": f\"{fb_method} Bahan Dapur Nomz\",\n                \"deskripsi\": f\"Hidangan praktis dengan teknik {fb_method}.\",\n                \"metode_masak\": fb_method,\n                \"bahan_tersedia\": user_displays if user_displays else [\"bahan utama\"],\n                \"bahan_tambahan\": [\"garam secukupnya\", \"bumbu pelengkap\"],\n                \"estimasi_waktu\": \"20 menit\",\n                \"tingkat_kesulitan\": \"Mudah\",\n                \"alasan\": \"Memaksimalkan bahan makanan yang tersedia.\",\n                \"langkah\": generate_method_technical_steps(f\"{fb_method} Bahan Dapur Nomz\", fb_method, user_displays),\n                \"porsi\": \"1-2 porsi\",\n            }]\n\n        result = {\"recommendations\": validated_recs}\n        self.status = f\"Validated {len(validated_recs)} resep ({metode})\"\n        return Message(text=json.dumps(result, ensure_ascii=False, indent=2))\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "interpreted_brief": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "interpreted_brief",
+                "value": "",
+                "display_name": "Interpreted Brief",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "Brief dari Cooking Style Interpreter.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MessageTextInput"
+              },
+              "llm_output": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "llm_output",
+                "value": "",
+                "display_name": "LLM Raw Output",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "Teks respons dari model Gemini.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MessageTextInput"
+              }
+            },
+            "description": "Memvalidasi output resep dari LLM, memastikan root key recommendations ada, memvalidasi konsistensi metode masak, menolak bahan halusinasi, membersihkan langkah teknis, dan memastikan format JSON bersih dan siap dikonsumsi oleh Nomz Mobile App & FastAPI.",
+            "icon": "check-check",
+            "base_classes": [
+              "Message"
+            ],
+            "display_name": "Recipe Validator & Formatter",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "formatted_json",
+                "display_name": "Formatted JSON",
+                "method": "validate_and_format",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "RecipeValidatorFormatter",
+          "showNode": true,
+          "id": "RecipeValidatorFormatter-c3e52"
+        }
+      },
+      {
+        "id": "ChatOutput-uj4qo",
+        "type": "genericNode",
+        "position": {
+          "x": 2050,
+          "y": 200
+        },
+        "data": {
+          "node": {
+            "base_classes": [
+              "Message"
+            ],
+            "beta": false,
+            "conditional_paths": [],
+            "custom_fields": {},
+            "description": "Display a chat message in the Playground.",
+            "display_name": "Chat Output",
+            "documentation": "https://docs.langflow.org/chat-input-and-output",
+            "edited": false,
+            "field_order": [
+              "input_value",
+              "should_store_message",
+              "sender",
+              "sender_name",
+              "session_id",
+              "context_id",
+              "data_template",
+              "clean_data"
+            ],
+            "frozen": false,
+            "icon": "MessagesSquare",
+            "legacy": false,
+            "metadata": {
+              "code_hash": "84009527d08c",
+              "dependencies": {
+                "dependencies": [
+                  {
+                    "name": "orjson",
+                    "version": "3.11.9"
+                  },
+                  {
+                    "name": "fastapi",
+                    "version": "0.139.2"
+                  },
+                  {
+                    "name": "lfx",
+                    "version": null
+                  }
+                ],
+                "total_dependencies": 3
+              },
+              "module": "lfx.components.input_output.chat_output.ChatOutput"
+            },
+            "minimized": true,
+            "output_types": [],
+            "outputs": [
+              {
+                "allows_loop": false,
+                "cache": true,
+                "display_name": "Output Message",
+                "group_outputs": false,
+                "method": "message_response",
+                "name": "message",
+                "selected": "Message",
+                "tool_mode": true,
+                "types": [
+                  "Message"
+                ],
+                "value": "__UNDEFINED__"
+              }
+            ],
+            "pinned": false,
+            "template": {
+              "_type": "Component",
+              "clean_data": {
+                "_input_type": "BoolInput",
+                "advanced": true,
+                "api_editable": false,
+                "display_name": "Basic Clean Data",
+                "dynamic": false,
+                "info": "Whether to clean data before converting to string.",
+                "list": false,
+                "list_add_label": "Add More",
+                "name": "clean_data",
+                "override_skip": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "title_case": false,
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "track_in_telemetry": true,
+                "type": "bool",
+                "value": true
+              },
+              "code": {
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "fileTypes": [],
+                "file_path": "",
+                "info": "",
+                "list": false,
+                "load_from_db": false,
+                "multiline": true,
+                "name": "code",
+                "password": false,
+                "placeholder": "",
+                "required": true,
+                "show": true,
+                "title_case": false,
+                "type": "code",
+                "value": "from collections.abc import Generator\nfrom typing import Any\n\nimport orjson\nfrom fastapi.encoders import jsonable_encoder\n\nfrom lfx.base.io.chat import ChatComponent\nfrom lfx.helpers.data import safe_convert\nfrom lfx.inputs.inputs import BoolInput, DropdownInput, HandleInput, MessageTextInput\nfrom lfx.schema.data import Data\nfrom lfx.schema.dataframe import DataFrame\nfrom lfx.schema.message import Message\nfrom lfx.schema.properties import Source\nfrom lfx.template.field.base import Output\nfrom lfx.utils.constants import (\n    MESSAGE_SENDER_AI,\n    MESSAGE_SENDER_NAME_AI,\n    MESSAGE_SENDER_USER,\n)\n\n\nclass ChatOutput(ChatComponent):\n    display_name = \"Chat Output\"\n    description = \"Display a chat message in the Playground.\"\n    documentation: str = \"https://docs.langflow.org/chat-input-and-output\"\n    icon = \"MessagesSquare\"\n    name = \"ChatOutput\"\n    minimized = True\n\n    inputs = [\n        HandleInput(\n            name=\"input_value\",\n            display_name=\"Inputs\",\n            info=\"Message to be passed as output.\",\n            input_types=[\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"],\n            required=True,\n        ),\n        BoolInput(\n            name=\"should_store_message\",\n            display_name=\"Store Messages\",\n            info=\"Store the message in the history.\",\n            value=True,\n            advanced=True,\n        ),\n        DropdownInput(\n            name=\"sender\",\n            display_name=\"Sender Type\",\n            options=[MESSAGE_SENDER_AI, MESSAGE_SENDER_USER],\n            value=MESSAGE_SENDER_AI,\n            advanced=True,\n            info=\"Type of sender.\",\n        ),\n        MessageTextInput(\n            name=\"sender_name\",\n            display_name=\"Sender Name\",\n            info=\"Name of the sender.\",\n            value=MESSAGE_SENDER_NAME_AI,\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"session_id\",\n            display_name=\"Session ID\",\n            info=\"The session ID of the chat. If empty, the current session ID parameter will be used.\",\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"context_id\",\n            display_name=\"Context ID\",\n            info=\"The context ID of the chat. Adds an extra layer to the local memory.\",\n            value=\"\",\n            advanced=True,\n        ),\n        MessageTextInput(\n            name=\"data_template\",\n            display_name=\"Data Template\",\n            value=\"{text}\",\n            advanced=True,\n            info=\"Template to convert Data to Text. If left empty, it will be dynamically set to the Data's text key.\",\n        ),\n        BoolInput(\n            name=\"clean_data\",\n            display_name=\"Basic Clean Data\",\n            value=True,\n            advanced=True,\n            info=\"Whether to clean data before converting to string.\",\n        ),\n    ]\n    outputs = [\n        Output(\n            display_name=\"Output Message\",\n            name=\"message\",\n            method=\"message_response\",\n        ),\n    ]\n\n    def _build_source(self, id_: str | None, display_name: str | None, source: str | None) -> Source:\n        source_dict = {}\n        if id_:\n            source_dict[\"id\"] = id_\n        if display_name:\n            source_dict[\"display_name\"] = display_name\n        if source:\n            # Handle case where source is a ChatOpenAI object\n            if hasattr(source, \"model_name\"):\n                source_dict[\"source\"] = source.model_name\n            elif hasattr(source, \"model\"):\n                source_dict[\"source\"] = str(source.model)\n            else:\n                source_dict[\"source\"] = str(source)\n        return Source(**source_dict)\n\n    async def message_response(self) -> Message:\n        # First convert the input to string if needed\n        text = self.convert_to_string()\n\n        # Get source properties\n        source, _, display_name, source_id = self.get_properties_from_source_component()\n\n        # Create or use existing Message object\n        if isinstance(self.input_value, Message) and not self.is_connected_to_chat_input():\n            message = self.input_value\n            # Update message properties\n            message.text = text\n            # Preserve existing session_id from the incoming message if it exists\n            existing_session_id = message.session_id\n        else:\n            message = Message(text=text)\n            existing_session_id = None\n\n        # Set message properties\n        message.sender = self.sender\n        message.sender_name = self.sender_name\n        # Preserve session_id from incoming message, or use component/graph session_id\n        message.session_id = (\n            self.session_id or existing_session_id or (self.graph.session_id if hasattr(self, \"graph\") else None) or \"\"\n        )\n        message.context_id = self.context_id\n        message.flow_id = self.graph.flow_id if hasattr(self, \"graph\") else None\n        message.properties.source = self._build_source(source_id, display_name, source)\n\n        # Store message if needed\n        if message.session_id and self.should_store_message:\n            stored_message = await self.send_message(message)\n            self.message.value = stored_message\n            message = stored_message\n\n        # Set accumulated token usage from all upstream LLM vertices.\n        # This must happen AFTER send_message() because streaming captures\n        # usage from chunks and would overwrite accumulated totals.\n        if hasattr(self, \"_vertex\") and self._vertex is not None:\n            accumulated_usage = self._vertex._accumulate_upstream_token_usage()  # noqa: SLF001\n            if accumulated_usage:\n                message.properties.usage = accumulated_usage\n                if self.should_store_message and message.get_id():\n                    message = await self._update_stored_message(message)\n                    await self._send_message_event(message, id_=message.get_id())\n\n        self.status = message\n        return message\n\n    def _serialize_data(self, data: Data) -> str:\n        \"\"\"Serialize Data object to JSON string.\"\"\"\n        # Convert data.data to JSON-serializable format\n        serializable_data = jsonable_encoder(data.data)\n        # Serialize with orjson, enabling pretty printing with indentation\n        json_bytes = orjson.dumps(serializable_data, option=orjson.OPT_INDENT_2)\n        # Convert bytes to string and wrap in Markdown code blocks\n        return \"```json\\n\" + json_bytes.decode(\"utf-8\") + \"\\n```\"\n\n    def _validate_input(self) -> None:\n        \"\"\"Validate the input data and raise ValueError if invalid.\"\"\"\n        if self.input_value is None:\n            msg = \"Input data cannot be None\"\n            raise ValueError(msg)\n        if isinstance(self.input_value, list) and not all(\n            isinstance(item, Message | Data | DataFrame | str) for item in self.input_value\n        ):\n            invalid_types = [\n                type(item).__name__\n                for item in self.input_value\n                if not isinstance(item, Message | Data | DataFrame | str)\n            ]\n            msg = f\"Expected Data or DataFrame or Message or str, got {invalid_types}\"\n            raise TypeError(msg)\n        if not isinstance(\n            self.input_value,\n            Message | Data | DataFrame | str | list | Generator | type(None),\n        ):\n            type_name = type(self.input_value).__name__\n            msg = f\"Expected Data or DataFrame or Message or str, Generator or None, got {type_name}\"\n            raise TypeError(msg)\n\n    def convert_to_string(self) -> str | Generator[Any, None, None]:\n        \"\"\"Convert input data to string with proper error handling.\"\"\"\n        self._validate_input()\n        if isinstance(self.input_value, list):\n            clean_data: bool = getattr(self, \"clean_data\", False)\n            return \"\\n\".join([safe_convert(item, clean_data=clean_data) for item in self.input_value])\n        if isinstance(self.input_value, Generator):\n            return self.input_value\n        return safe_convert(self.input_value)\n"
+              },
+              "context_id": {
+                "_input_type": "MessageTextInput",
+                "advanced": true,
+                "api_editable": false,
+                "display_name": "Context ID",
+                "dynamic": false,
+                "info": "The context ID of the chat. Adds an extra layer to the local memory.",
+                "input_types": [
+                  "Message"
+                ],
+                "list": false,
+                "list_add_label": "Add More",
+                "load_from_db": false,
+                "name": "context_id",
+                "override_skip": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "title_case": false,
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "track_in_telemetry": false,
+                "type": "str",
+                "value": ""
+              },
+              "data_template": {
+                "_input_type": "MessageTextInput",
+                "advanced": true,
+                "api_editable": false,
+                "display_name": "Data Template",
+                "dynamic": false,
+                "info": "Template to convert Data to Text. If left empty, it will be dynamically set to the Data's text key.",
+                "input_types": [
+                  "Message"
+                ],
+                "list": false,
+                "list_add_label": "Add More",
+                "load_from_db": false,
+                "name": "data_template",
+                "override_skip": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "title_case": false,
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "track_in_telemetry": false,
+                "type": "str",
+                "value": "{text}"
+              },
+              "input_value": {
+                "_input_type": "HandleInput",
+                "advanced": false,
+                "api_editable": false,
+                "display_name": "Inputs",
+                "dynamic": false,
+                "info": "Message to be passed as output.",
+                "input_types": [
+                  "Data",
+                  "JSON",
+                  "DataFrame",
+                  "Table",
+                  "Message"
+                ],
+                "list": false,
+                "list_add_label": "Add More",
+                "name": "input_value",
+                "override_skip": false,
+                "placeholder": "",
+                "required": true,
+                "show": true,
+                "title_case": false,
+                "trace_as_metadata": true,
+                "track_in_telemetry": false,
+                "type": "other",
+                "value": ""
+              },
+              "sender": {
+                "_input_type": "DropdownInput",
+                "advanced": true,
+                "api_editable": false,
+                "combobox": false,
+                "dialog_inputs": {},
+                "display_name": "Sender Type",
+                "dynamic": false,
+                "external_options": {},
+                "info": "Type of sender.",
+                "name": "sender",
+                "options": [
+                  "Machine",
+                  "User"
+                ],
+                "options_metadata": [],
+                "override_skip": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "title_case": false,
+                "toggle": false,
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "track_in_telemetry": true,
+                "type": "str",
+                "value": "Machine"
+              },
+              "sender_name": {
+                "_input_type": "MessageTextInput",
+                "advanced": true,
+                "api_editable": false,
+                "display_name": "Sender Name",
+                "dynamic": false,
+                "info": "Name of the sender.",
+                "input_types": [
+                  "Message"
+                ],
+                "list": false,
+                "list_add_label": "Add More",
+                "load_from_db": false,
+                "name": "sender_name",
+                "override_skip": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "title_case": false,
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "track_in_telemetry": false,
+                "type": "str",
+                "value": "AI"
+              },
+              "session_id": {
+                "_input_type": "MessageTextInput",
+                "advanced": true,
+                "api_editable": false,
+                "display_name": "Session ID",
+                "dynamic": false,
+                "info": "The session ID of the chat. If empty, the current session ID parameter will be used.",
+                "input_types": [
+                  "Message"
+                ],
+                "list": false,
+                "list_add_label": "Add More",
+                "load_from_db": false,
+                "name": "session_id",
+                "override_skip": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "title_case": false,
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "track_in_telemetry": false,
+                "type": "str",
+                "value": ""
+              },
+              "should_store_message": {
+                "_input_type": "BoolInput",
+                "advanced": true,
+                "api_editable": false,
+                "display_name": "Store Messages",
+                "dynamic": false,
+                "info": "Store the message in the history.",
+                "list": false,
+                "list_add_label": "Add More",
+                "name": "should_store_message",
+                "override_skip": false,
+                "placeholder": "",
+                "required": false,
+                "show": true,
+                "title_case": false,
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "track_in_telemetry": true,
+                "type": "bool",
+                "value": true
+              }
+            },
+            "tool_mode": false,
+            "lf_version": "1.12.3"
+          },
+          "showNode": false,
+          "type": "ChatOutput",
+          "id": "ChatOutput-uj4qo"
+        },
+        "selected": false,
+        "dragging": false,
+        "measured": {
+          "width": 192,
+          "height": 52
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "ChatInput-mZhYn",
+        "sourceHandle": "{\"dataType\": \"ChatInput\", \"id\": \"ChatInput-mZhYn\", \"name\": \"message\", \"output_types\": [\"Message\"]}",
+        "target": "IngredientNormalizer-67967",
+        "targetHandle": "{\"fieldName\": \"request\", \"id\": \"IngredientNormalizer-67967\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ChatInput",
+            "id": "ChatInput-mZhYn",
+            "name": "message",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "request",
+            "id": "IngredientNormalizer-67967",
+            "inputTypes": [
+              "Message"
+            ],
+            "type": "str"
+          }
+        },
+        "id": "xy-edge__ChatInput-mZhYn{\"dataType\": \"ChatInput\", \"id\": \"ChatInput-mZhYn\", \"name\": \"message\", \"output_types\": [\"Message\"]}-IngredientNormalizer-67967{\"fieldName\": \"request\", \"id\": \"IngredientNormalizer-67967\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "animated": false,
+        "className": "",
+        "selected": false
+      },
+      {
+        "source": "IngredientNormalizer-67967",
+        "sourceHandle": "{\"dataType\": \"IngredientNormalizer\", \"id\": \"IngredientNormalizer-67967\", \"name\": \"brief\", \"output_types\": [\"Message\"]}",
+        "target": "CookingStyleInterpreter-5f7b8",
+        "targetHandle": "{\"fieldName\": \"brief\", \"id\": \"CookingStyleInterpreter-5f7b8\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "IngredientNormalizer",
+            "id": "IngredientNormalizer-67967",
+            "name": "brief",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "brief",
+            "id": "CookingStyleInterpreter-5f7b8",
+            "inputTypes": [
+              "Message"
+            ],
+            "type": "str"
+          }
+        },
+        "id": "xy-edge__IngredientNormalizer-67967{\"dataType\": \"IngredientNormalizer\", \"id\": \"IngredientNormalizer-67967\", \"name\": \"brief\", \"output_types\": [\"Message\"]}-CookingStyleInterpreter-5f7b8{\"fieldName\": \"brief\", \"id\": \"CookingStyleInterpreter-5f7b8\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "animated": false,
+        "className": "",
+        "selected": false
+      },
+      {
+        "source": "CookingStyleInterpreter-5f7b8",
+        "sourceHandle": "{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-5f7b8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}",
+        "target": "RescuePromptBuilder-87587",
+        "targetHandle": "{\"fieldName\": \"interpreted_brief\", \"id\": \"RescuePromptBuilder-87587\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "CookingStyleInterpreter",
+            "id": "CookingStyleInterpreter-5f7b8",
+            "name": "interpreted",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "interpreted_brief",
+            "id": "RescuePromptBuilder-87587",
+            "inputTypes": [
+              "Message"
+            ],
+            "type": "str"
+          }
+        },
+        "id": "xy-edge__CookingStyleInterpreter-5f7b8{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-5f7b8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}-RescuePromptBuilder-87587{\"fieldName\": \"interpreted_brief\", \"id\": \"RescuePromptBuilder-87587\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "animated": false,
+        "className": "",
+        "selected": false
+      },
+      {
+        "source": "RescuePromptBuilder-87587",
+        "sourceHandle": "{\"dataType\": \"RescuePromptBuilder\", \"id\": \"RescuePromptBuilder-87587\", \"name\": \"prompt\", \"output_types\": [\"Message\"]}",
+        "target": "ext:google:GoogleGenerativeAIComponent@official-Gtk78",
+        "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ext:google:GoogleGenerativeAIComponent@official-Gtk78\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "RescuePromptBuilder",
+            "id": "RescuePromptBuilder-87587",
+            "name": "prompt",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_value",
+            "id": "ext:google:GoogleGenerativeAIComponent@official-Gtk78",
+            "inputTypes": [
+              "Message"
+            ],
+            "type": "str"
+          }
+        },
+        "id": "xy-edge__RescuePromptBuilder-87587{\"dataType\": \"RescuePromptBuilder\", \"id\": \"RescuePromptBuilder-87587\", \"name\": \"prompt\", \"output_types\": [\"Message\"]}-ext:google:GoogleGenerativeAIComponent@official-Gtk78{\"fieldName\": \"input_value\", \"id\": \"ext:google:GoogleGenerativeAIComponent@official-Gtk78\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "animated": false,
+        "className": "",
+        "selected": false
+      },
+      {
+        "source": "CookingStyleInterpreter-5f7b8",
+        "sourceHandle": "{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-5f7b8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}",
+        "target": "RecipeValidatorFormatter-c3e52",
+        "targetHandle": "{\"fieldName\": \"interpreted_brief\", \"id\": \"RecipeValidatorFormatter-c3e52\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "CookingStyleInterpreter",
+            "id": "CookingStyleInterpreter-5f7b8",
+            "name": "interpreted",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "interpreted_brief",
+            "id": "RecipeValidatorFormatter-c3e52",
+            "inputTypes": [
+              "Message"
+            ],
+            "type": "str"
+          }
+        },
+        "id": "xy-edge__CookingStyleInterpreter-5f7b8{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-5f7b8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}-RecipeValidatorFormatter-c3e52{\"fieldName\": \"interpreted_brief\", \"id\": \"RecipeValidatorFormatter-c3e52\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "animated": false,
+        "className": "",
+        "selected": false
+      },
+      {
+        "source": "ext:google:GoogleGenerativeAIComponent@official-Gtk78",
+        "sourceHandle": "{\"dataType\": \"ext:google:GoogleGenerativeAIComponent@official\", \"id\": \"ext:google:GoogleGenerativeAIComponent@official-Gtk78\", \"name\": \"text_output\", \"output_types\": [\"Message\"]}",
+        "target": "RecipeValidatorFormatter-c3e52",
+        "targetHandle": "{\"fieldName\": \"llm_output\", \"id\": \"RecipeValidatorFormatter-c3e52\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ext:google:GoogleGenerativeAIComponent@official",
+            "id": "ext:google:GoogleGenerativeAIComponent@official-Gtk78",
+            "name": "text_output",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "llm_output",
+            "id": "RecipeValidatorFormatter-c3e52",
+            "inputTypes": [
+              "Message"
+            ],
+            "type": "str"
+          }
+        },
+        "id": "xy-edge__ext:google:GoogleGenerativeAIComponent@official-Gtk78{\"dataType\": \"ext:google:GoogleGenerativeAIComponent@official\", \"id\": \"ext:google:GoogleGenerativeAIComponent@official-Gtk78\", \"name\": \"text_output\", \"output_types\": [\"Message\"]}-RecipeValidatorFormatter-c3e52{\"fieldName\": \"llm_output\", \"id\": \"RecipeValidatorFormatter-c3e52\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "animated": false,
+        "className": "",
+        "selected": false
+      },
+      {
+        "source": "RecipeValidatorFormatter-c3e52",
+        "sourceHandle": "{\"dataType\": \"RecipeValidatorFormatter\", \"id\": \"RecipeValidatorFormatter-c3e52\", \"name\": \"formatted_json\", \"output_types\": [\"Message\"]}",
+        "target": "ChatOutput-uj4qo",
+        "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-uj4qo\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "RecipeValidatorFormatter",
+            "id": "RecipeValidatorFormatter-c3e52",
+            "name": "formatted_json",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_value",
+            "id": "ChatOutput-uj4qo",
+            "inputTypes": [
+              "Data",
+              "JSON",
+              "DataFrame",
+              "Table",
+              "Message"
+            ],
+            "type": "other"
+          }
+        },
+        "id": "xy-edge__RecipeValidatorFormatter-c3e52{\"dataType\": \"RecipeValidatorFormatter\", \"id\": \"RecipeValidatorFormatter-c3e52\", \"name\": \"formatted_json\", \"output_types\": [\"Message\"]}-ChatOutput-uj4qo{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-uj4qo\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"other\"}",
+        "animated": false,
+        "className": "",
+        "selected": false
+      }
+    ],
+    "viewport": {
+      "x": 100,
+      "y": 100,
+      "zoom": 0.8
+    }
+  },
+  "is_component": false,
+  "mcp_enabled": true,
+  "action_name": "find_meals_v2",
+  "action_description": "Nomz AI Culinary Orchestration V2 for recipe recommendation and food rescue",
+  "endpoint_name": "find_meals_v2",
+  "tags": [
+    "nomz",
+    "orchestration",
+    "v2",
+    "culinary",
+    "food-rescue"
+  ]
+}
