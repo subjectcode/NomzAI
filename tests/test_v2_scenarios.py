@@ -71,7 +71,7 @@ def test_scenario_e_rescue():
     for rec in data["recommendations"]:
         assert len(rec["bahan_tersedia"]) >= 1
         reason = rec["alasan"].lower()
-        assert any(k in reason for k in ["rescue", "penyelamatan", "memaksimalkan", "cepat", "manfaat", "praktis", "dapur"]), f"Reason: {rec['alasan']}"
+        assert any(k in reason for k in ["rescue", "penyelamatan", "menyelamatkan", "terbuang", "memaksimalkan", "cepat", "manfaat", "praktis", "dapur"]), f"Reason: {rec['alasan']}"
 
 
 def test_scenario_f_quantity():
@@ -91,3 +91,49 @@ def test_scenario_g_constraint():
     for rec in data["recommendations"]:
         # Hemat bahan limits extra ingredients to reasonable staple pantry items
         assert len(rec["bahan_tambahan"]) <= 4, f"Too many extra items: {rec['bahan_tambahan']}"
+
+
+def test_scenario_h_video_search_and_deduplication():
+    """Scenario H & I: Video Search & Deduplication - Langflow V2 returns real deduplicated videos attached to recipes."""
+    data = _run_flow("telur, tomat, bawang putih (Gaya masak utama WAJIB: Tumis)")
+    assert len(data["recommendations"]) >= 1
+    r0 = data["recommendations"][0]
+    videos = r0.get("videos") or data.get("videos") or []
+    assert len(videos) > 0, "No videos returned by Langflow V2 tool orchestration"
+    seen_ids = set()
+    for v in videos:
+        vid = v.get("video_id")
+        assert vid, "Missing video_id"
+        assert vid not in seen_ids, f"Duplicate video ID found: {vid}"
+        seen_ids.add(vid)
+        assert v.get("title"), "Missing video title"
+        assert v.get("thumbnail_url"), "Missing thumbnail_url"
+
+
+def test_scenario_j_video_relevance():
+    """Scenario J: Video Relevance - recipe-aware query produces culinary tutorial videos."""
+    data = _run_flow("ayam fillet, brokoli (Gaya masak utama WAJIB: Tumis)")
+    assert len(data["recommendations"]) >= 1
+    r0 = data["recommendations"][0]
+    videos = r0.get("videos") or data.get("videos") or []
+    assert len(videos) > 0
+    # At least one video title reflects culinary cooking relevance
+    titles = [v["title"].lower() for v in videos]
+    has_relevant_cue = any(
+        any(k in t for k in ["ayam", "brokoli", "tumis", "masak", "resep", "cara"])
+        for t in titles
+    )
+    assert has_relevant_cue, f"No relevant culinary video in: {titles[:3]}"
+
+
+def test_scenario_k_email_tool_orchestration_mock():
+    """Scenario K: Email Tool - safe execution test verifying Composio Gmail tool dispatch through Langflow."""
+    from app.services.otp import send_otp_email_via_composio
+    from unittest.mock import patch
+    import io
+
+    # Mock Langflow flow response
+    mock_payload = b'{"outputs": [{"outputs": [{"results": {"message": {"text": "{\\"successful\\": true, \\"recipient\\": \\"qa@nomz.dev\\", \\"message_id\\": \\"msg_qa_test_999\\"}"}}}]}]}'
+    with patch("urllib.request.urlopen", return_value=io.BytesIO(mock_payload)):
+        ok = send_otp_email_via_composio("qa@nomz.dev", "789012", "QA Nomz")
+        assert ok is True

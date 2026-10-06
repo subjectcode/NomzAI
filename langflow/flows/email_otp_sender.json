@@ -1,0 +1,347 @@
+{
+  "name": "email_otp_sender",
+  "description": "Nomz Transactional Email Orchestrator via Composio v3 Gmail Tools.",
+  "icon": "mail",
+  "icon_bg_color": "#059669",
+  "gradient": "",
+  "data": {
+    "nodes": [
+      {
+        "id": "ChatInput-4f905",
+        "type": "genericNode",
+        "position": {
+          "x": 100,
+          "y": 200
+        },
+        "data": {
+          "type": "ChatInput",
+          "showNode": true,
+          "id": "ChatInput-4f905",
+          "node": {
+            "template": {
+              "input_value": {
+                "value": "",
+                "type": "str",
+                "required": false
+              },
+              "files": {
+                "value": [],
+                "type": "file"
+              },
+              "background_color": {
+                "value": ""
+              },
+              "chat_icon": {
+                "value": ""
+              },
+              "text_color": {
+                "value": ""
+              },
+              "sender": {
+                "value": "User"
+              },
+              "sender_name": {
+                "value": "User"
+              },
+              "session_id": {
+                "value": ""
+              },
+              "should_store_message": {
+                "value": true
+              }
+            },
+            "description": "Get user chat inputs or structured payload.",
+            "display_name": "Email Input",
+            "outputs": [
+              {
+                "display_name": "Message",
+                "name": "message",
+                "method": "message_response",
+                "types": [
+                  "Message"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "ComposioGmailSender-4e8fd",
+        "type": "genericNode",
+        "position": {
+          "x": 500,
+          "y": 200
+        },
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "api_key": {
+                "load_from_db": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "api_key",
+                "value": "COMPOSIO_API_KEY",
+                "display_name": "Composio API Key",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [],
+                "dynamic": false,
+                "info": "Kunci API Composio (ak_...).",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "password": true,
+                "type": "str",
+                "_input_type": "SecretStrInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "import json\nimport logging\nimport os\nimport urllib.error\nimport urllib.request\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import MessageTextInput, Output, SecretStrInput\nfrom lfx.schema.message import Message\n\nlogger = logging.getLogger(__name__)\n\n\nclass ComposioGmailSender(Component):\n    display_name = \"Composio Gmail Sender\"\n    description = (\n        \"Mengeksekusi pengiriman email transaksional/OTP secara aman melalui Composio v3 Tools API \"\n        \"(GMAIL_SEND_EMAIL) dengan akun terhubung yang terverifikasi.\"\n    )\n    icon = \"mail\"\n    name = \"ComposioGmailSender\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"email_payload\",\n            display_name=\"Email Payload\",\n            info=\"JSON payload berisi recipient_email, subject, body, dan optional display_name.\",\n        ),\n        SecretStrInput(\n            name=\"api_key\",\n            display_name=\"Composio API Key\",\n            info=\"Kunci API Composio (ak_...).\",\n            value=\"COMPOSIO_API_KEY\",\n        ),\n        MessageTextInput(\n            name=\"connected_account_id\",\n            display_name=\"Connected Account ID\",\n            info=\"ID akun Gmail terhubung pada Composio.\",\n            value=\"ca_xzILXmWzTG36\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Delivery Result\", name=\"result\", method=\"send_email\"),\n    ]\n\n    def send_email(self) -> Message:\n        raw_payload = getattr(self.email_payload, \"text\", None) or str(self.email_payload or \"{}\")\n        try:\n            data = json.loads(raw_payload)\n        except Exception:\n            data = {\"recipient_email\": \"\", \"subject\": \"\", \"body\": raw_payload}\n\n        recipient = data.get(\"recipient_email\", \"\").strip()\n        subject = data.get(\"subject\", \"Pemberitahuan Akun Nomz\").strip()\n        body = data.get(\"body\", \"\").strip()\n\n        key = self.api_key or os.environ.get(\"COMPOSIO_API_KEY\", \"\")\n        if hasattr(key, \"get_secret_value\"):\n            key = key.get_secret_value()\n        key = str(key or \"\").strip()\n\n        acc_id = str(self.connected_account_id or \"ca_xzILXmWzTG36\").strip()\n\n        if not key or not recipient:\n            err_msg = \"Composio API Key atau recipient_email tidak boleh kosong\"\n            self.status = f\"Error: {err_msg}\"\n            return Message(text=json.dumps({\"successful\": False, \"error\": err_msg}))\n\n        url = \"https://backend.composio.dev/api/v3/tools/execute/GMAIL_SEND_EMAIL\"\n        headers = {\n            \"x-api-key\": key,\n            \"Content-Type\": \"application/json\",\n        }\n        req_body = {\n            \"connected_account_id\": acc_id,\n            \"entity_id\": \"default\",\n            \"arguments\": {\n                \"recipient_email\": recipient,\n                \"subject\": subject,\n                \"body\": body,\n            },\n        }\n\n        try:\n            req = urllib.request.Request(\n                url,\n                data=json.dumps(req_body).encode(\"utf-8\"),\n                headers=headers,\n                method=\"POST\",\n            )\n            with urllib.request.urlopen(req, timeout=20) as resp:\n                resp_data = json.loads(resp.read().decode(\"utf-8\"))\n                successful = bool(resp_data.get(\"successful\"))\n                msg_id = (\n                    resp_data.get(\"data\", {})\n                    .get(\"response_data\", {})\n                    .get(\"id\")\n                )\n                self.status = f\"Dispatched email to {recipient} (Success: {successful}, msgId: {msg_id})\"\n                return Message(\n                    text=json.dumps({\n                        \"successful\": successful,\n                        \"recipient\": recipient,\n                        \"message_id\": msg_id,\n                        \"raw\": resp_data,\n                    }, ensure_ascii=False)\n                )\n        except Exception as e:\n            logger.error(\"Composio Gmail execution error in Langflow: %s\", e)\n            self.status = f\"Failed to send email to {recipient}: {e}\"\n            return Message(text=json.dumps({\"successful\": False, \"error\": str(e), \"recipient\": recipient}))\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "connected_account_id": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "connected_account_id",
+                "value": "ca_xzILXmWzTG36",
+                "display_name": "Connected Account ID",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "ID akun Gmail terhubung pada Composio.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MessageTextInput"
+              },
+              "email_payload": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "email_payload",
+                "value": "",
+                "display_name": "Email Payload",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "JSON payload berisi recipient_email, subject, body, dan optional display_name.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MessageTextInput"
+              }
+            },
+            "description": "Mengeksekusi pengiriman email transaksional/OTP secara aman melalui Composio v3 Tools API (GMAIL_SEND_EMAIL) dengan akun terhubung yang terverifikasi.",
+            "icon": "mail",
+            "base_classes": [
+              "Message"
+            ],
+            "display_name": "Composio Gmail Sender",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "result",
+                "display_name": "Delivery Result",
+                "method": "send_email",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "ComposioGmailSender",
+          "showNode": true,
+          "id": "ComposioGmailSender-4e8fd"
+        }
+      },
+      {
+        "id": "ChatOutput-62f00",
+        "type": "genericNode",
+        "position": {
+          "x": 900,
+          "y": 200
+        },
+        "data": {
+          "type": "ChatOutput",
+          "showNode": true,
+          "id": "ChatOutput-62f00",
+          "node": {
+            "template": {
+              "input_value": {
+                "value": "",
+                "type": "other",
+                "required": false
+              },
+              "background_color": {
+                "value": ""
+              },
+              "chat_icon": {
+                "value": ""
+              },
+              "text_color": {
+                "value": ""
+              },
+              "sender": {
+                "value": "Machine"
+              },
+              "sender_name": {
+                "value": "AI"
+              },
+              "session_id": {
+                "value": ""
+              },
+              "should_store_message": {
+                "value": true
+              }
+            },
+            "description": "Display flow output.",
+            "display_name": "Email Output",
+            "outputs": [
+              {
+                "display_name": "Message",
+                "name": "message",
+                "method": "message_response",
+                "types": [
+                  "Message"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "ChatInput-4f905",
+        "sourceHandle": "{\"dataType\": \"ChatInput\", \"id\": \"ChatInput-4f905\", \"name\": \"message\", \"output_types\": [\"Message\"]}",
+        "target": "ComposioGmailSender-4e8fd",
+        "targetHandle": "{\"fieldName\": \"email_payload\", \"id\": \"ComposioGmailSender-4e8fd\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ChatInput",
+            "id": "ChatInput-4f905",
+            "name": "message",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "email_payload",
+            "id": "ComposioGmailSender-4e8fd",
+            "inputTypes": [
+              "Message"
+            ],
+            "type": "str"
+          }
+        },
+        "id": "xy-edge__ChatInput-4f905{\"dataType\": \"ChatInput\", \"id\": \"ChatInput-4f905\", \"name\": \"message\", \"output_types\": [\"Message\"]}-ComposioGmailSender-4e8fd{\"fieldName\": \"email_payload\", \"id\": \"ComposioGmailSender-4e8fd\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "animated": false,
+        "className": "",
+        "selected": false
+      },
+      {
+        "source": "ComposioGmailSender-4e8fd",
+        "sourceHandle": "{\"dataType\": \"ComposioGmailSender\", \"id\": \"ComposioGmailSender-4e8fd\", \"name\": \"result\", \"output_types\": [\"Message\"]}",
+        "target": "ChatOutput-62f00",
+        "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-62f00\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"other\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "ComposioGmailSender",
+            "id": "ComposioGmailSender-4e8fd",
+            "name": "result",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "input_value",
+            "id": "ChatOutput-62f00",
+            "inputTypes": [
+              "Data",
+              "JSON",
+              "DataFrame",
+              "Table",
+              "Message"
+            ],
+            "type": "other"
+          }
+        },
+        "id": "xy-edge__ComposioGmailSender-4e8fd{\"dataType\": \"ComposioGmailSender\", \"id\": \"ComposioGmailSender-4e8fd\", \"name\": \"result\", \"output_types\": [\"Message\"]}-ChatOutput-62f00{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-62f00\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"other\"}",
+        "animated": false,
+        "className": "",
+        "selected": false
+      }
+    ],
+    "viewport": {
+      "x": 100,
+      "y": 100,
+      "zoom": 1.0
+    }
+  },
+  "is_component": false,
+  "mcp_enabled": true,
+  "action_name": "email_otp_sender",
+  "action_description": "Send transactional emails and OTP via Composio v3",
+  "endpoint_name": "email_otp_sender",
+  "tags": [
+    "nomz",
+    "email",
+    "composio",
+    "otp"
+  ]
+}

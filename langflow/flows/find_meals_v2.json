@@ -1,9 +1,8 @@
 {
   "name": "find_meals_v2",
-  "description": "Nomz AI Culinary Orchestration Layer V2: Ingredient Normalization, Food Rescue Reasoning, Cooking Style Enforcement, Guided Technical Steps, and Strict Recipe Validation.",
+  "description": "Nomz Complete AI + Tool Orchestration Layer: Ingredient Normalization, Food Rescue Reasoning, Cooking Style Enforcement, Gemini Recipe Generation, Strict Validation, Recipe-Aware YouTube Search Intent, YouTube Data API Tool Execution, and Video Relevance Ranking.",
   "icon": "chef-hat",
   "icon_bg_color": "#FF6B00",
-  "gradient": "",
   "data": {
     "nodes": [
       {
@@ -309,10 +308,10 @@
         }
       },
       {
-        "id": "IngredientNormalizer-67967",
+        "id": "IngredientNormalizer-71120",
         "type": "genericNode",
         "position": {
-          "x": 300,
+          "x": 250,
           "y": 200
         },
         "data": {
@@ -326,7 +325,7 @@
                 "list": false,
                 "show": true,
                 "multiline": true,
-                "value": "import json\nimport re\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import MessageTextInput, Output\nfrom lfx.schema.message import Message\n\nUNIT_ALIASES = {\n    \"g\": \"gram\", \"gr\": \"gram\", \"gram\": \"gram\", \"kg\": \"kg\", \"ons\": \"ons\",\n    \"ml\": \"ml\", \"l\": \"liter\", \"liter\": \"liter\",\n    \"btr\": \"butir\", \"butir\": \"butir\", \"biji\": \"biji\", \"buah\": \"buah\", \"bh\": \"buah\", \"pcs\": \"buah\",\n    \"siung\": \"siung\", \"lembar\": \"lembar\", \"lbr\": \"lembar\", \"slice\": \"lembar\",\n    \"batang\": \"batang\", \"btg\": \"batang\", \"ikat\": \"ikat\", \"tangkai\": \"tangkai\", \"ruas\": \"ruas\",\n    \"sdm\": \"sdm\", \"sdt\": \"sdt\", \"piring\": \"piring\", \"mangkuk\": \"mangkuk\", \"gelas\": \"gelas\",\n    \"cup\": \"cup\", \"potong\": \"potong\", \"iris\": \"iris\", \"bungkus\": \"bungkus\", \"pack\": \"bungkus\",\n    \"sachet\": \"sachet\", \"porsi\": \"porsi\", \"genggam\": \"genggam\", \"ekor\": \"ekor\", \"kaleng\": \"kaleng\",\n    \"centong\": \"centong\", \"papan\": \"papan\",\n}\n\nNAME_ALIASES = {\n    \"telor\": \"telur\", \"telur ayam\": \"telur\", \"telur ayam negeri\": \"telur\", \"telur ayam kampung\": \"telur\",\n    \"cabe\": \"cabai\", \"cabe merah\": \"cabai merah\", \"cabe rawit\": \"cabai rawit\",\n    \"bawang bombay\": \"bawang bombai\", \"bawang bombai\": \"bawang bombai\",\n    \"tomat merah\": \"tomat\", \"buncis hijau\": \"buncis\", \"daun bawang\": \"daun bawang\",\n    \"nasi putih\": \"nasi\", \"nasi sisa\": \"nasi\", \"nasi dingin\": \"nasi\",\n    \"mi\": \"mie\", \"mi instan\": \"mie instan\", \"indomie\": \"mie instan\",\n}\n\nCATEGORY_KEYWORDS = [\n    (\"protein\", [\"telur\", \"ayam\", \"daging\", \"sapi\", \"ikan\", \"udang\", \"tahu\", \"tempe\", \"sosis\", \"bakso\",\n                 \"cumi\", \"salmon\", \"tuna\", \"kornet\", \"nugget\"]),\n    (\"karbohidrat\", [\"nasi\", \"mie\", \"bihun\", \"kwetiau\", \"kentang\", \"roti\", \"pasta\", \"spaghetti\",\n                     \"singkong\", \"jagung\", \"ubi\", \"lontong\", \"soun\"]),\n    (\"sayur\", [\"bayam\", \"kangkung\", \"sawi\", \"pakcoy\", \"wortel\", \"brokoli\", \"kol\", \"kubis\", \"tomat\",\n               \"timun\", \"mentimun\", \"terong\", \"buncis\", \"jamur\", \"labu\", \"paprika\", \"selada\", \"tauge\",\n               \"kacang panjang\", \"kembang kol\", \"daun\", \"kemangi\", \"kacang\"]),\n    (\"bumbu\", [\"bawang\", \"garam\", \"gula\", \"kecap\", \"saus\", \"merica\", \"lada\", \"jahe\", \"kunyit\", \"lengkuas\",\n               \"serai\", \"santan\", \"minyak\", \"cabai\", \"cabe\", \"kaldu\", \"mentega\", \"keju\"]),\n]\n\n# 3 = cepat rusak (pakai duluan), 2 = sedang, 1 = awet\nPERISHABILITY = [\n    (3, [\"bayam\", \"kangkung\", \"sawi\", \"pakcoy\", \"selada\", \"tauge\", \"kemangi\", \"daun\", \"ayam\", \"ikan\",\n         \"udang\", \"daging\", \"cumi\", \"salmon\", \"jamur\", \"tahu\", \"nasi\", \"bakso\", \"sosis\", \"santan\"]),\n    (2, [\"tomat\", \"timun\", \"mentimun\", \"terong\", \"buncis\", \"brokoli\", \"kol\", \"kubis\", \"paprika\", \"tempe\",\n         \"telur\", \"mie\", \"labu\", \"kacang panjang\", \"wortel\"]),\n    (1, [\"bawang\", \"kentang\", \"garam\", \"gula\", \"kecap\", \"saus\", \"minyak\", \"merica\", \"lada\", \"jahe\",\n         \"kunyit\", \"ubi\", \"singkong\", \"bihun\", \"pasta\", \"spaghetti\"]),\n]\nPERISH_LABEL = {3: \"tinggi\", 2: \"sedang\", 1: \"rendah\"}\n\n\ndef _first_hit(name, table, default):\n    for key, words in table:\n        for w in words:\n            if w in name:\n                return key\n    return default\n\n\nclass IngredientNormalizer(Component):\n    display_name = \"Ingredient Normalizer\"\n    description = (\n        \"Menormalkan bahan dari Nomz ('telur 2 butir' = '2 butir telur' = '2 telur'), \"\n        \"memisahkan jumlah/satuan, mengelompokkan kategori, menilai tingkat cepat-busuk \"\n        \"(prioritas food-rescue) dan mengekstrak gaya masak, kendala, serta mode dari request.\"\n    )\n    icon = \"list-checks\"\n    name = \"IngredientNormalizer\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"request\",\n            display_name=\"Nomz Request\",\n            info=\"Teks request dari FastAPI/Bob: 'bahan1, bahan2 (Gaya masak utama WAJIB: Kukus) (Kendala khusus: hemat bahan)'. \"\n                 \"Juga menerima JSON dengan key ingredients/cooking_style/constraint/mode.\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Normalized Brief\", name=\"brief\", method=\"build_brief\"),\n    ]\n\n    def _split_request(self, text):\n        style = constraint = mode = None\n        ingredients_raw = []\n        stripped = text.strip()\n        if stripped.startswith(\"{\"):\n            try:\n                obj = json.loads(stripped)\n                ing = obj.get(\"ingredients\") or []\n                ingredients_raw = [str(i) for i in ing] if isinstance(ing, list) else re.split(r\"[,;\\n]\", str(ing))\n                style = obj.get(\"cooking_style\")\n                constraint = obj.get(\"constraint\")\n                mode = obj.get(\"mode\")\n                return ingredients_raw, style, constraint, mode\n            except Exception:\n                pass\n        m = re.search(r\"gaya\\s+masak(?:\\s+utama)?(?:\\s+wajib)?\\s*:\\s*([^)]+)\", text, re.I)\n        if m:\n            style = m.group(1).strip()\n        m = re.search(r\"kendala(?:\\s+khusus)?\\s*:\\s*([^)]+)\", text, re.I)\n        if m:\n            constraint = m.group(1).strip()\n        m = re.search(r\"mode\\s*:\\s*([^)]+)\", text, re.I)\n        if m:\n            mode = m.group(1).strip()\n        body = re.sub(r\"\\([^)]*\\)\", \" \", text)\n        parts = re.split(r\"[,;\\n]| dan \", body)\n        ingredients_raw = [p for p in parts if p and p.strip()]\n        return ingredients_raw, style, constraint, mode\n\n    def _parse_ingredient(self, raw):\n        token = re.sub(r\"\\s+\", \" \", raw.strip().strip(\"-\u2022*\").strip()).lower()\n        if not token:\n            return None\n        qty_text, unit = None, None\n        m = re.search(r\"(\\d+(?:[.,]\\d+)?(?:\\s*/\\s*\\d+)?)\", token)\n        if m:\n            qty_text = re.sub(r\"\\s+\", \"\", m.group(1)).replace(\",\", \".\")\n            before = token[: m.start()].strip()\n            after = token[m.end():].strip()\n            if not before:\n                words = after.split(\" \")\n                if words and words[0] in UNIT_ALIASES:\n                    unit = UNIT_ALIASES[words[0]]\n                    name = \" \".join(words[1:]).strip()\n                else:\n                    name = after\n            else:\n                words = after.split(\" \") if after else []\n                if words and words[0] in UNIT_ALIASES:\n                    unit = UNIT_ALIASES[words[0]]\n                    rest = \" \".join(words[1:]).strip()\n                else:\n                    rest = after\n                name = (before + (\" \" + rest if rest else \"\")).strip()\n        else:\n            name = token\n            if \"secukupnya\" in token:\n                name = token.replace(\"secukupnya\", \"\").strip()\n                unit = \"secukupnya\"\n        name = re.sub(r\"\\s+\", \" \", name).strip(\" -:\")\n        if not name:\n            return None\n        name = NAME_ALIASES.get(name, name)\n        quantity = None\n        if qty_text:\n            try:\n                if \"/\" in qty_text:\n                    a, b = qty_text.split(\"/\")\n                    quantity = float(a) / float(b)\n                else:\n                    quantity = float(qty_text)\n            except Exception:\n                quantity = None\n        return {\"name\": name, \"quantity\": quantity, \"quantity_text\": qty_text, \"unit\": unit, \"raw\": raw.strip()}\n\n    def build_brief(self) -> Message:\n        text = getattr(self.request, \"text\", None) or str(self.request or \"\")\n        raw_items, style, constraint, mode = self._split_request(text)\n\n        merged = {}\n        order = []\n        for raw in raw_items:\n            parsed = self._parse_ingredient(raw)\n            if not parsed:\n                continue\n            key = parsed[\"name\"]\n            if key in merged:\n                cur = merged[key]\n                same_unit = cur[\"unit\"] == parsed[\"unit\"] or cur[\"unit\"] is None or parsed[\"unit\"] is None\n                if same_unit and cur[\"quantity\"] is not None and parsed[\"quantity\"] is not None:\n                    cur[\"quantity\"] += parsed[\"quantity\"]\n                    cur[\"unit\"] = cur[\"unit\"] or parsed[\"unit\"]\n                    q = cur[\"quantity\"]\n                    cur[\"quantity_text\"] = str(int(q)) if float(q).is_integer() else str(round(q, 2))\n                elif cur[\"quantity\"] is None:\n                    cur.update({k: parsed[k] for k in (\"quantity\", \"quantity_text\", \"unit\")})\n                continue\n            merged[key] = parsed\n            order.append(key)\n\n        ingredients = []\n        for key in order:\n            p = merged[key]\n            if p[\"quantity_text\"] and p[\"unit\"] and p[\"unit\"] != \"secukupnya\":\n                display = f\"{p['quantity_text']} {p['unit']} {p['name']}\"\n            elif p[\"quantity_text\"]:\n                display = f\"{p['quantity_text']} {p['name']}\"\n            elif p[\"unit\"] == \"secukupnya\":\n                display = f\"{p['name']} secukupnya\"\n            else:\n                display = p[\"name\"]\n            score = _first_hit(p[\"name\"], PERISHABILITY, 2)\n            ingredients.append({\n                \"name\": p[\"name\"],\n                \"quantity\": p[\"quantity\"],\n                \"unit\": p[\"unit\"],\n                \"display\": display,\n                \"category\": _first_hit(p[\"name\"], CATEGORY_KEYWORDS, \"lainnya\"),\n                \"perishability\": PERISH_LABEL[score],\n                \"source_text\": p[\"raw\"],\n            })\n\n        brief = {\n            \"ingredients\": ingredients,\n            \"ingredient_names\": [i[\"name\"] for i in ingredients],\n            \"ingredient_displays\": [i[\"display\"] for i in ingredients],\n            \"use_first\": [i[\"name\"] for i in ingredients if i[\"perishability\"] == \"tinggi\"],\n            \"cooking_style\": style,\n            \"constraint\": constraint,\n            \"mode\": mode,\n        }\n        self.status = f\"{len(ingredients)} bahan, gaya={style}\"\n        return Message(text=json.dumps(brief, ensure_ascii=False))\n",
+                "value": "import json\nimport re\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import MessageTextInput, Output\nfrom lfx.schema.message import Message\n\nUNIT_ALIASES = {\n    \"g\": \"gram\", \"gr\": \"gram\", \"gram\": \"gram\", \"kg\": \"kg\", \"ons\": \"ons\",\n    \"ml\": \"ml\", \"l\": \"liter\", \"liter\": \"liter\",\n    \"btr\": \"butir\", \"butir\": \"butir\", \"biji\": \"biji\", \"buah\": \"buah\", \"bh\": \"buah\", \"pcs\": \"buah\",\n    \"siung\": \"siung\", \"lembar\": \"lembar\", \"lbr\": \"lembar\", \"slice\": \"lembar\",\n    \"batang\": \"batang\", \"btg\": \"batang\", \"ikat\": \"ikat\", \"tangkai\": \"tangkai\", \"ruas\": \"ruas\",\n    \"sdm\": \"sdm\", \"sdt\": \"sdt\", \"piring\": \"piring\", \"mangkuk\": \"mangkuk\", \"gelas\": \"gelas\",\n    \"cup\": \"cup\", \"potong\": \"potong\", \"iris\": \"iris\", \"bungkus\": \"bungkus\", \"pack\": \"bungkus\",\n    \"sachet\": \"sachet\", \"porsi\": \"porsi\", \"genggam\": \"genggam\", \"ekor\": \"ekor\", \"kaleng\": \"kaleng\",\n    \"centong\": \"centong\", \"papan\": \"papan\",\n}\n\nNAME_ALIASES = {\n    \"telor\": \"telur\", \"telur ayam\": \"telur\", \"telur ayam negeri\": \"telur\", \"telur ayam kampung\": \"telur\",\n    \"cabe\": \"cabai\", \"cabe merah\": \"cabai merah\", \"cabe rawit\": \"cabai rawit\",\n    \"bawang bombay\": \"bawang bombai\", \"bawang bombai\": \"bawang bombai\",\n    \"tomat merah\": \"tomat\", \"buncis hijau\": \"buncis\", \"daun bawang\": \"daun bawang\",\n    \"nasi putih\": \"nasi\", \"nasi sisa\": \"nasi\", \"nasi dingin\": \"nasi\",\n    \"mi\": \"mie\", \"mi instan\": \"mie instan\", \"indomie\": \"mie instan\",\n}\n\nCATEGORY_KEYWORDS = [\n    (\"protein\", [\"telur\", \"ayam\", \"daging\", \"sapi\", \"ikan\", \"udang\", \"tahu\", \"tempe\", \"sosis\", \"bakso\",\n                 \"cumi\", \"salmon\", \"tuna\", \"kornet\", \"nugget\"]),\n    (\"karbohidrat\", [\"nasi\", \"mie\", \"bihun\", \"kwetiau\", \"kentang\", \"roti\", \"pasta\", \"spaghetti\",\n                     \"singkong\", \"jagung\", \"ubi\", \"lontong\", \"soun\"]),\n    (\"sayur\", [\"bayam\", \"kangkung\", \"sawi\", \"pakcoy\", \"wortel\", \"brokoli\", \"kol\", \"kubis\", \"tomat\",\n               \"timun\", \"mentimun\", \"terong\", \"buncis\", \"jamur\", \"labu\", \"paprika\", \"selada\", \"tauge\",\n               \"kacang panjang\", \"kembang kol\", \"daun\", \"kemangi\", \"kacang\"]),\n    (\"bumbu\", [\"bawang\", \"garam\", \"gula\", \"kecap\", \"saus\", \"merica\", \"lada\", \"jahe\", \"kunyit\", \"lengkuas\",\n               \"serai\", \"santan\", \"minyak\", \"cabai\", \"cabe\", \"kaldu\", \"mentega\", \"keju\"]),\n]\n\n# 3 = cepat rusak (pakai duluan), 2 = sedang, 1 = awet\nPERISHABILITY = [\n    (3, [\"bayam\", \"kangkung\", \"sawi\", \"pakcoy\", \"selada\", \"tauge\", \"kemangi\", \"daun\", \"ayam\", \"ikan\",\n         \"udang\", \"daging\", \"cumi\", \"salmon\", \"jamur\", \"tahu\", \"nasi\", \"bakso\", \"sosis\", \"santan\"]),\n    (2, [\"tomat\", \"timun\", \"mentimun\", \"terong\", \"buncis\", \"brokoli\", \"kol\", \"kubis\", \"paprika\", \"tempe\",\n         \"telur\", \"mie\", \"labu\", \"kacang panjang\", \"wortel\"]),\n    (1, [\"bawang\", \"kentang\", \"garam\", \"gula\", \"kecap\", \"saus\", \"minyak\", \"merica\", \"lada\", \"jahe\",\n         \"kunyit\", \"ubi\", \"singkong\", \"bihun\", \"pasta\", \"spaghetti\"]),\n]\nPERISH_LABEL = {3: \"tinggi\", 2: \"sedang\", 1: \"rendah\"}\n\n\ndef _first_hit(name, table, default):\n    for key, words in table:\n        for w in words:\n            if w in name:\n                return key\n    return default\n\n\nclass IngredientNormalizer(Component):\n    display_name = \"Ingredient Normalizer\"\n    description = (\n        \"Menormalkan bahan dari Nomz ('telur 2 butir' = '2 butir telur' = '2 telur'), \"\n        \"memisahkan jumlah/satuan, mengelompokkan kategori, menilai tingkat cepat-busuk \"\n        \"(prioritas food-rescue) dan mengekstrak gaya masak, kendala, serta mode dari request.\"\n    )\n    icon = \"list-checks\"\n    name = \"IngredientNormalizer\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"request\",\n            display_name=\"Nomz Request\",\n            info=\"Teks request dari FastAPI/Bob: 'bahan1, bahan2 (Gaya masak utama WAJIB: Kukus) (Kendala khusus: hemat bahan)'. \"\n                 \"Juga menerima JSON dengan key ingredients/cooking_style/constraint/mode.\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Normalized Brief\", name=\"brief\", method=\"build_brief\"),\n    ]\n\n    def _split_request(self, text):\n        style = constraint = mode = None\n        ingredients_raw = []\n        stripped = text.strip()\n        if stripped.startswith(\"{\"):\n            try:\n                obj = json.loads(stripped)\n                ing = obj.get(\"ingredients\") or []\n                ingredients_raw = [str(i) for i in ing] if isinstance(ing, list) else re.split(r\"[,;\\n]\", str(ing))\n                style = obj.get(\"cooking_style\")\n                constraint = obj.get(\"constraint\")\n                mode = obj.get(\"mode\")\n                return ingredients_raw, style, constraint, mode\n            except Exception:\n                pass\n        m = re.search(r\"gaya\\s+masak(?:\\s+utama)?(?:\\s+wajib)?\\s*:\\s*([^)]+)\", text, re.I)\n        if m:\n            style = m.group(1).strip()\n        m = re.search(r\"kendala(?:\\s+khusus)?\\s*:\\s*([^)]+)\", text, re.I)\n        if m:\n            constraint = m.group(1).strip()\n        m = re.search(r\"mode\\s*:\\s*([^)]+)\", text, re.I)\n        if m:\n            mode = m.group(1).strip()\n        body = re.sub(r\"\\([^)]*\\)\", \" \", text)\n        parts = re.split(r\"[,;\\n]| dan \", body)\n        ingredients_raw = [p for p in parts if p and p.strip()]\n        return ingredients_raw, style, constraint, mode\n\n    def _parse_ingredient(self, raw):\n        token = re.sub(r\"\\s+\", \" \", raw.strip().strip(\"-•*\").strip()).lower()\n        if not token:\n            return None\n        qty_text, unit = None, None\n        m = re.search(r\"(\\d+(?:[.,]\\d+)?(?:\\s*/\\s*\\d+)?)\", token)\n        if m:\n            qty_text = re.sub(r\"\\s+\", \"\", m.group(1)).replace(\",\", \".\")\n            before = token[: m.start()].strip()\n            after = token[m.end():].strip()\n            if not before:\n                words = after.split(\" \")\n                if words and words[0] in UNIT_ALIASES:\n                    unit = UNIT_ALIASES[words[0]]\n                    name = \" \".join(words[1:]).strip()\n                else:\n                    name = after\n            else:\n                words = after.split(\" \") if after else []\n                if words and words[0] in UNIT_ALIASES:\n                    unit = UNIT_ALIASES[words[0]]\n                    rest = \" \".join(words[1:]).strip()\n                else:\n                    rest = after\n                name = (before + (\" \" + rest if rest else \"\")).strip()\n        else:\n            name = token\n            if \"secukupnya\" in token:\n                name = token.replace(\"secukupnya\", \"\").strip()\n                unit = \"secukupnya\"\n        name = re.sub(r\"\\s+\", \" \", name).strip(\" -:\")\n        if not name:\n            return None\n        name = NAME_ALIASES.get(name, name)\n        quantity = None\n        if qty_text:\n            try:\n                if \"/\" in qty_text:\n                    a, b = qty_text.split(\"/\")\n                    quantity = float(a) / float(b)\n                else:\n                    quantity = float(qty_text)\n            except Exception:\n                quantity = None\n        return {\"name\": name, \"quantity\": quantity, \"quantity_text\": qty_text, \"unit\": unit, \"raw\": raw.strip()}\n\n    def build_brief(self) -> Message:\n        text = getattr(self.request, \"text\", None) or str(self.request or \"\")\n        raw_items, style, constraint, mode = self._split_request(text)\n\n        merged = {}\n        order = []\n        for raw in raw_items:\n            parsed = self._parse_ingredient(raw)\n            if not parsed:\n                continue\n            key = parsed[\"name\"]\n            if key in merged:\n                cur = merged[key]\n                same_unit = cur[\"unit\"] == parsed[\"unit\"] or cur[\"unit\"] is None or parsed[\"unit\"] is None\n                if same_unit and cur[\"quantity\"] is not None and parsed[\"quantity\"] is not None:\n                    cur[\"quantity\"] += parsed[\"quantity\"]\n                    cur[\"unit\"] = cur[\"unit\"] or parsed[\"unit\"]\n                    q = cur[\"quantity\"]\n                    cur[\"quantity_text\"] = str(int(q)) if float(q).is_integer() else str(round(q, 2))\n                elif cur[\"quantity\"] is None:\n                    cur.update({k: parsed[k] for k in (\"quantity\", \"quantity_text\", \"unit\")})\n                continue\n            merged[key] = parsed\n            order.append(key)\n\n        ingredients = []\n        for key in order:\n            p = merged[key]\n            if p[\"quantity_text\"] and p[\"unit\"] and p[\"unit\"] != \"secukupnya\":\n                display = f\"{p['quantity_text']} {p['unit']} {p['name']}\"\n            elif p[\"quantity_text\"]:\n                display = f\"{p['quantity_text']} {p['name']}\"\n            elif p[\"unit\"] == \"secukupnya\":\n                display = f\"{p['name']} secukupnya\"\n            else:\n                display = p[\"name\"]\n            score = _first_hit(p[\"name\"], PERISHABILITY, 2)\n            ingredients.append({\n                \"name\": p[\"name\"],\n                \"quantity\": p[\"quantity\"],\n                \"unit\": p[\"unit\"],\n                \"display\": display,\n                \"category\": _first_hit(p[\"name\"], CATEGORY_KEYWORDS, \"lainnya\"),\n                \"perishability\": PERISH_LABEL[score],\n                \"source_text\": p[\"raw\"],\n            })\n\n        brief = {\n            \"ingredients\": ingredients,\n            \"ingredient_names\": [i[\"name\"] for i in ingredients],\n            \"ingredient_displays\": [i[\"display\"] for i in ingredients],\n            \"use_first\": [i[\"name\"] for i in ingredients if i[\"perishability\"] == \"tinggi\"],\n            \"cooking_style\": style,\n            \"constraint\": constraint,\n            \"mode\": mode,\n        }\n        self.status = f\"{len(ingredients)} bahan, gaya={style}\"\n        return Message(text=json.dumps(brief, ensure_ascii=False))\n",
                 "fileTypes": [],
                 "file_path": "",
                 "password": false,
@@ -403,14 +402,14 @@
           },
           "type": "IngredientNormalizer",
           "showNode": true,
-          "id": "IngredientNormalizer-67967"
+          "id": "IngredientNormalizer-71120"
         }
       },
       {
-        "id": "CookingStyleInterpreter-5f7b8",
+        "id": "CookingStyleInterpreter-c20e8",
         "type": "genericNode",
         "position": {
-          "x": 650,
+          "x": 550,
           "y": 200
         },
         "data": {
@@ -450,7 +449,7 @@
                 "list": false,
                 "show": true,
                 "multiline": true,
-                "value": "import json\nimport re\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import MessageTextInput, Output\nfrom lfx.schema.message import Message\n\n# Spesifikasi teknik per metode masak. Dipakai oleh prompt resep, prompt panduan teknis,\n# dan validator untuk memastikan metode benar-benar konsisten (judul -> bahan -> metode -> langkah).\nMETHOD_CATALOG = {\n    \"Kukus\": {\n        \"technique\": \"Steaming: bahan dimasak oleh uap air mendidih di kukusan, tanpa minyak penggorengan.\",\n        \"equipment\": \"kukusan/steamer, wadah tahan panas, tutup (lapisi kain agar uap tidak menetes)\",\n        \"heat\": \"air mendidih dulu, lalu api sedang agar uap tebal stabil\",\n        \"timing\": \"10-25 menit tergantung ketebalan bahan\",\n        \"cues\": \"uap mengepul tebal; tekstur set/empuk; tusuk lidi/garpu keluar bersih\",\n        \"forbidden_terms\": [\"goreng\", \"tumis\", \"panaskan wajan\", \"panaskan minyak\", \"minyak panas\", \"sangrai\", \"oven\", \"air fryer\"],\n        \"required_terms\": [\"kukus\", \"uap\"],\n    },\n    \"Rebus\": {\n        \"technique\": \"Boiling/simmering: bahan dimasak dalam air atau kuah mendidih lalu dikecilkan.\",\n        \"equipment\": \"panci, air/kaldu secukupnya, sendok sayur\",\n        \"heat\": \"api besar sampai mendidih, kecilkan ke api kecil-sedang agar simmer\",\n        \"timing\": \"8-20 menit; bahan padat dahulu, sayur lunak belakangan\",\n        \"cues\": \"kuah bergolak halus; bahan empuk; kuah gurih seimbang\",\n        \"forbidden_terms\": [\"goreng\", \"tumis\", \"panaskan wajan\", \"panaskan minyak\", \"minyak panas\", \"kukusan\", \"oven\", \"air fryer\"],\n        \"required_terms\": [\"rebus\", \"kuah\", \"mendidih\"],\n    },\n    \"Goreng\": {\n        \"technique\": \"Frying: bahan dimasak dalam minyak panas yang cukup banyak hingga kecokelatan renyah.\",\n        \"equipment\": \"wajan/penggorengan dalam, minyak goreng, spatula, peniris\",\n        \"heat\": \"api sedang (\u00b1170\u00b0C); jangan terlalu penuh agar suhu minyak stabil\",\n        \"timing\": \"2-4 menit per sisi; balik sekali\",\n        \"cues\": \"minyak berdesis halus saat bahan masuk; kuning keemasan; ditiriskan\",\n        \"forbidden_terms\": [\"kukus\", \"kukusan\", \"uap\", \"rebus\", \"direbus\", \"oven\", \"air fryer\"],\n        \"required_terms\": [\"goreng\", \"minyak\"],\n    },\n    \"Tumis\": {\n        \"technique\": \"Stir-frying: bahan diaduk cepat di wajan dengan sedikit minyak api sedang-tinggi.\",\n        \"equipment\": \"wajan/wok, sedikit minyak, spatula\",\n        \"heat\": \"api sedang-tinggi, bumbu aromatik lebih dulu lalu bahan utama\",\n        \"timing\": \"5-10 menit total; aduk terus\",\n        \"cues\": \"aroma bawang harum; sayur layu tapi renyah; bumbu menyelimuti bahan\",\n        \"forbidden_terms\": [\"kukus\", \"kukusan\", \"uap\", \"rebus selama\", \"direbus selama\", \"oven\", \"air fryer\", \"deep fry\"],\n        \"required_terms\": [\"tumis\", \"wajan\"],\n    },\n    \"Panggang\": {\n        \"technique\": \"Roasting/grilling: bahan dimasak oleh panas kering oven atau panggangan.\",\n        \"equipment\": \"oven/teflon panggang/grill pan, loyang atau alas, kuas minyak\",\n        \"heat\": \"oven 180\u00b0C (prapanaskan 5-10 menit) atau panggangan api sedang\",\n        \"timing\": \"10-25 menit; balik di tengah waktu\",\n        \"cues\": \"permukaan kecokelatan; aroma panggang harum; bagian dalam matang\",\n        \"forbidden_terms\": [\"kukus\", \"kukusan\", \"rebus\", \"direbus\", \"tumis\", \"goreng hingga\", \"air fryer\"],\n        \"required_terms\": [\"panggang\", \"oven\", \"grill\", \"panggangan\"],\n    },\n    \"Air Fryer\": {\n        \"technique\": \"Air frying: udara panas bersirkulasi cepat memasak bahan dengan sedikit minyak.\",\n        \"equipment\": \"air fryer, keranjang, semprot/olesan tipis minyak\",\n        \"heat\": \"180\u00b0C, prapanaskan 3 menit\",\n        \"timing\": \"8-15 menit; kocok/balik keranjang di tengah\",\n        \"cues\": \"permukaan renyah keemasan; tidak ada genangan minyak\",\n        \"forbidden_terms\": [\"kukus\", \"kukusan\", \"rebus\", \"direbus\", \"tumis\", \"panaskan wajan\", \"goreng dalam minyak\"],\n        \"required_terms\": [\"air fryer\", \"keranjang\"],\n    },\n}\n\nSTYLE_ALIASES = {\n    \"kukus\": \"Kukus\", \"steam\": \"Kukus\", \"steaming\": \"Kukus\", \"tim\": \"Kukus\",\n    \"rebus\": \"Rebus\", \"boil\": \"Rebus\", \"kuah\": \"Rebus\",\n    \"goreng\": \"Goreng\", \"fried\": \"Goreng\", \"deep fry\": \"Goreng\",\n    \"tumis\": \"Tumis\", \"stir fry\": \"Tumis\", \"oseng\": \"Tumis\",\n    \"panggang\": \"Panggang\", \"bakar\": \"Panggang\", \"grill\": \"Panggang\", \"oven\": \"Panggang\",\n    \"air fryer\": \"Air Fryer\", \"airfryer\": \"Air Fryer\", \"air-fryer\": \"Air Fryer\",\n}\n\n\ndef canonical_method(value):\n    if not value:\n        return None\n    v = re.sub(r\"\\s+\", \" \", str(value).strip().lower())\n    if v in STYLE_ALIASES:\n        return STYLE_ALIASES[v]\n    for alias, method in STYLE_ALIASES.items():\n        if alias in v:\n            return method\n    return None\n\n\nclass CookingStyleInterpreter(Component):\n    display_name = \"Cooking Style Interpreter\"\n    description = (\n        \"Mengubah gaya masak + kendala + mode menjadi spesifikasi teknis nyata (peralatan, panas, waktu, \"\n        \"indikator kematangan, istilah terlarang/wajib) agar resep dan langkah memasak benar-benar \"\n        \"sesuai metode, bukan sekadar label.\"\n    )\n    icon = \"chef-hat\"\n    name = \"CookingStyleInterpreter\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"brief\",\n            display_name=\"Normalized Brief\",\n            info=\"JSON dari Ingredient Normalizer.\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Interpreted Brief\", name=\"interpreted\", method=\"interpret\"),\n    ]\n\n    def _constraint_rules(self, constraint, mode):\n        text = f\"{constraint or ''} {mode or ''}\".lower()\n        rules = {\"max_extra_ingredients\": None, \"max_minutes\": None, \"max_steps\": None, \"notes\": []}\n        if any(k in text for k in [\"hemat\", \"tanpa belanja\", \"tidak belanja\", \"tanpa beli\", \"no_shopping\", \"no shopping\"]):\n            rules[\"max_extra_ingredients\"] = 3\n            rules[\"notes\"].append(\"Hemat bahan: tambahan hanya bumbu dapur dasar, maksimal 3 item.\")\n        if any(k in text for k in [\"cepat\", \"quick\", \"instan\", \"buru\"]):\n            rules[\"max_minutes\"] = 15\n            rules[\"notes\"].append(\"Cepat: total waktu maksimal 15 menit.\")\n        if any(k in text for k in [\"sederhana\", \"simple\", \"praktis\"]):\n            rules[\"max_steps\"] = 5\n            rules[\"max_extra_ingredients\"] = rules[\"max_extra_ingredients\"] or 4\n            rules[\"notes\"].append(\"Sederhana: maksimal 5 langkah dan bumbu minimal.\")\n        if \"free\" in text or \"bebas\" in text:\n            rules[\"notes\"].append(\"Eksplorasi bebas: variasi rasa dan teknik dipersilakan.\")\n        if not rules[\"notes\"]:\n            rules[\"notes\"].append(\"Rescue: prioritaskan bahan yang paling cepat rusak.\")\n        return rules\n\n    def interpret(self) -> Message:\n        text = getattr(self.brief, \"text\", None) or str(self.brief or \"{}\")\n        brief = json.loads(text)\n\n        style_raw = brief.get(\"cooking_style\")\n        method = canonical_method(style_raw)\n        constraint = brief.get(\"constraint\")\n        # Frontend lama kadang mengirim metode lewat constraint ('Tumis').\n        if not method and canonical_method(constraint) and (constraint or \"\").strip().lower() in STYLE_ALIASES:\n            method = canonical_method(constraint)\n            brief[\"constraint\"] = None\n\n        brief[\"cooking_style\"] = method or style_raw\n        brief[\"method_locked\"] = bool(method)\n        brief[\"style_spec\"] = ({\"method\": method, **METHOD_CATALOG[method]} if method else None)\n        brief[\"method_catalog\"] = {\n            m: {\"technique\": s[\"technique\"], \"forbidden_terms\": s[\"forbidden_terms\"], \"required_terms\": s[\"required_terms\"]}\n            for m, s in METHOD_CATALOG.items()\n        }\n        brief[\"constraint_rules\"] = self._constraint_rules(brief.get(\"constraint\"), brief.get(\"mode\"))\n        self.status = f\"metode={method or 'bebas'}\"\n        return Message(text=json.dumps(brief, ensure_ascii=False))\n",
+                "value": "import json\nimport re\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import MessageTextInput, Output\nfrom lfx.schema.message import Message\n\n# Spesifikasi teknik per metode masak. Dipakai oleh prompt resep, prompt panduan teknis,\n# dan validator untuk memastikan metode benar-benar konsisten (judul -> bahan -> metode -> langkah).\nMETHOD_CATALOG = {\n    \"Kukus\": {\n        \"technique\": \"Steaming: bahan dimasak oleh uap air mendidih di kukusan, tanpa minyak penggorengan.\",\n        \"equipment\": \"kukusan/steamer, wadah tahan panas, tutup (lapisi kain agar uap tidak menetes)\",\n        \"heat\": \"air mendidih dulu, lalu api sedang agar uap tebal stabil\",\n        \"timing\": \"10-25 menit tergantung ketebalan bahan\",\n        \"cues\": \"uap mengepul tebal; tekstur set/empuk; tusuk lidi/garpu keluar bersih\",\n        \"forbidden_terms\": [\"goreng\", \"tumis\", \"panaskan wajan\", \"panaskan minyak\", \"minyak panas\", \"sangrai\", \"oven\", \"air fryer\"],\n        \"required_terms\": [\"kukus\", \"uap\"],\n    },\n    \"Rebus\": {\n        \"technique\": \"Boiling/simmering: bahan dimasak dalam air atau kuah mendidih lalu dikecilkan.\",\n        \"equipment\": \"panci, air/kaldu secukupnya, sendok sayur\",\n        \"heat\": \"api besar sampai mendidih, kecilkan ke api kecil-sedang agar simmer\",\n        \"timing\": \"8-20 menit; bahan padat dahulu, sayur lunak belakangan\",\n        \"cues\": \"kuah bergolak halus; bahan empuk; kuah gurih seimbang\",\n        \"forbidden_terms\": [\"goreng\", \"tumis\", \"panaskan wajan\", \"panaskan minyak\", \"minyak panas\", \"kukusan\", \"oven\", \"air fryer\"],\n        \"required_terms\": [\"rebus\", \"kuah\", \"mendidih\"],\n    },\n    \"Goreng\": {\n        \"technique\": \"Frying: bahan dimasak dalam minyak panas yang cukup banyak hingga kecokelatan renyah.\",\n        \"equipment\": \"wajan/penggorengan dalam, minyak goreng, spatula, peniris\",\n        \"heat\": \"api sedang (±170°C); jangan terlalu penuh agar suhu minyak stabil\",\n        \"timing\": \"2-4 menit per sisi; balik sekali\",\n        \"cues\": \"minyak berdesis halus saat bahan masuk; kuning keemasan; ditiriskan\",\n        \"forbidden_terms\": [\"kukus\", \"kukusan\", \"uap\", \"rebus\", \"direbus\", \"oven\", \"air fryer\"],\n        \"required_terms\": [\"goreng\", \"minyak\"],\n    },\n    \"Tumis\": {\n        \"technique\": \"Stir-frying: bahan diaduk cepat di wajan dengan sedikit minyak api sedang-tinggi.\",\n        \"equipment\": \"wajan/wok, sedikit minyak, spatula\",\n        \"heat\": \"api sedang-tinggi, bumbu aromatik lebih dulu lalu bahan utama\",\n        \"timing\": \"5-10 menit total; aduk terus\",\n        \"cues\": \"aroma bawang harum; sayur layu tapi renyah; bumbu menyelimuti bahan\",\n        \"forbidden_terms\": [\"kukus\", \"kukusan\", \"uap\", \"rebus selama\", \"direbus selama\", \"oven\", \"air fryer\", \"deep fry\"],\n        \"required_terms\": [\"tumis\", \"wajan\"],\n    },\n    \"Panggang\": {\n        \"technique\": \"Roasting/grilling: bahan dimasak oleh panas kering oven atau panggangan.\",\n        \"equipment\": \"oven/teflon panggang/grill pan, loyang atau alas, kuas minyak\",\n        \"heat\": \"oven 180°C (prapanaskan 5-10 menit) atau panggangan api sedang\",\n        \"timing\": \"10-25 menit; balik di tengah waktu\",\n        \"cues\": \"permukaan kecokelatan; aroma panggang harum; bagian dalam matang\",\n        \"forbidden_terms\": [\"kukus\", \"kukusan\", \"rebus\", \"direbus\", \"tumis\", \"goreng hingga\", \"air fryer\"],\n        \"required_terms\": [\"panggang\", \"oven\", \"grill\", \"panggangan\"],\n    },\n    \"Air Fryer\": {\n        \"technique\": \"Air frying: udara panas bersirkulasi cepat memasak bahan dengan sedikit minyak.\",\n        \"equipment\": \"air fryer, keranjang, semprot/olesan tipis minyak\",\n        \"heat\": \"180°C, prapanaskan 3 menit\",\n        \"timing\": \"8-15 menit; kocok/balik keranjang di tengah\",\n        \"cues\": \"permukaan renyah keemasan; tidak ada genangan minyak\",\n        \"forbidden_terms\": [\"kukus\", \"kukusan\", \"rebus\", \"direbus\", \"tumis\", \"panaskan wajan\", \"goreng dalam minyak\"],\n        \"required_terms\": [\"air fryer\", \"keranjang\"],\n    },\n}\n\nSTYLE_ALIASES = {\n    \"kukus\": \"Kukus\", \"steam\": \"Kukus\", \"steaming\": \"Kukus\", \"tim\": \"Kukus\",\n    \"rebus\": \"Rebus\", \"boil\": \"Rebus\", \"kuah\": \"Rebus\",\n    \"goreng\": \"Goreng\", \"fried\": \"Goreng\", \"deep fry\": \"Goreng\",\n    \"tumis\": \"Tumis\", \"stir fry\": \"Tumis\", \"oseng\": \"Tumis\",\n    \"panggang\": \"Panggang\", \"bakar\": \"Panggang\", \"grill\": \"Panggang\", \"oven\": \"Panggang\",\n    \"air fryer\": \"Air Fryer\", \"airfryer\": \"Air Fryer\", \"air-fryer\": \"Air Fryer\",\n}\n\n\ndef canonical_method(value):\n    if not value:\n        return None\n    v = re.sub(r\"\\s+\", \" \", str(value).strip().lower())\n    if v in STYLE_ALIASES:\n        return STYLE_ALIASES[v]\n    for alias, method in STYLE_ALIASES.items():\n        if alias in v:\n            return method\n    return None\n\n\nclass CookingStyleInterpreter(Component):\n    display_name = \"Cooking Style Interpreter\"\n    description = (\n        \"Mengubah gaya masak + kendala + mode menjadi spesifikasi teknis nyata (peralatan, panas, waktu, \"\n        \"indikator kematangan, istilah terlarang/wajib) agar resep dan langkah memasak benar-benar \"\n        \"sesuai metode, bukan sekadar label.\"\n    )\n    icon = \"chef-hat\"\n    name = \"CookingStyleInterpreter\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"brief\",\n            display_name=\"Normalized Brief\",\n            info=\"JSON dari Ingredient Normalizer.\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Interpreted Brief\", name=\"interpreted\", method=\"interpret\"),\n    ]\n\n    def _constraint_rules(self, constraint, mode):\n        text = f\"{constraint or ''} {mode or ''}\".lower()\n        rules = {\"max_extra_ingredients\": None, \"max_minutes\": None, \"max_steps\": None, \"notes\": []}\n        if any(k in text for k in [\"hemat\", \"tanpa belanja\", \"tidak belanja\", \"tanpa beli\", \"no_shopping\", \"no shopping\"]):\n            rules[\"max_extra_ingredients\"] = 3\n            rules[\"notes\"].append(\"Hemat bahan: tambahan hanya bumbu dapur dasar, maksimal 3 item.\")\n        if any(k in text for k in [\"cepat\", \"quick\", \"instan\", \"buru\"]):\n            rules[\"max_minutes\"] = 15\n            rules[\"notes\"].append(\"Cepat: total waktu maksimal 15 menit.\")\n        if any(k in text for k in [\"sederhana\", \"simple\", \"praktis\"]):\n            rules[\"max_steps\"] = 5\n            rules[\"max_extra_ingredients\"] = rules[\"max_extra_ingredients\"] or 4\n            rules[\"notes\"].append(\"Sederhana: maksimal 5 langkah dan bumbu minimal.\")\n        if \"free\" in text or \"bebas\" in text:\n            rules[\"notes\"].append(\"Eksplorasi bebas: variasi rasa dan teknik dipersilakan.\")\n        if not rules[\"notes\"]:\n            rules[\"notes\"].append(\"Rescue: prioritaskan bahan yang paling cepat rusak.\")\n        return rules\n\n    def interpret(self) -> Message:\n        text = getattr(self.brief, \"text\", None) or str(self.brief or \"{}\")\n        brief = json.loads(text)\n\n        style_raw = brief.get(\"cooking_style\")\n        method = canonical_method(style_raw)\n        constraint = brief.get(\"constraint\")\n        # Frontend lama kadang mengirim metode lewat constraint ('Tumis').\n        if not method and canonical_method(constraint) and (constraint or \"\").strip().lower() in STYLE_ALIASES:\n            method = canonical_method(constraint)\n            brief[\"constraint\"] = None\n\n        brief[\"cooking_style\"] = method or style_raw\n        brief[\"method_locked\"] = bool(method)\n        brief[\"style_spec\"] = ({\"method\": method, **METHOD_CATALOG[method]} if method else None)\n        brief[\"method_catalog\"] = {\n            m: {\"technique\": s[\"technique\"], \"forbidden_terms\": s[\"forbidden_terms\"], \"required_terms\": s[\"required_terms\"]}\n            for m, s in METHOD_CATALOG.items()\n        }\n        brief[\"constraint_rules\"] = self._constraint_rules(brief.get(\"constraint\"), brief.get(\"mode\"))\n        self.status = f\"metode={method or 'bebas'}\"\n        return Message(text=json.dumps(brief, ensure_ascii=False))\n",
                 "fileTypes": [],
                 "file_path": "",
                 "password": false,
@@ -501,14 +500,14 @@
           },
           "type": "CookingStyleInterpreter",
           "showNode": true,
-          "id": "CookingStyleInterpreter-5f7b8"
+          "id": "CookingStyleInterpreter-c20e8"
         }
       },
       {
-        "id": "RescuePromptBuilder-87587",
+        "id": "RescuePromptBuilder-61f23",
         "type": "genericNode",
         "position": {
-          "x": 1000,
+          "x": 850,
           "y": 200
         },
         "data": {
@@ -599,14 +598,14 @@
           },
           "type": "RescuePromptBuilder",
           "showNode": true,
-          "id": "RescuePromptBuilder-87587"
+          "id": "RescuePromptBuilder-61f23"
         }
       },
       {
         "id": "ext:google:GoogleGenerativeAIComponent@official-Gtk78",
         "type": "genericNode",
         "position": {
-          "x": 1350,
+          "x": 1150,
           "y": 200
         },
         "data": {
@@ -1057,7 +1056,7 @@
             "extension_version": "0.2.4",
             "namespaced_id": "ext:google:GoogleGenerativeAIComponent@official",
             "name": "GoogleGenerativeAIModel",
-            "last_updated": "2026-10-04T15:06:39.037Z",
+            "last_updated": "2026-10-05T15:21:49.193Z",
             "lf_version": "1.12.3"
           },
           "showNode": true,
@@ -1073,10 +1072,10 @@
         }
       },
       {
-        "id": "RecipeValidatorFormatter-c3e52",
+        "id": "RecipeValidatorFormatter-22693",
         "type": "genericNode",
         "position": {
-          "x": 1700,
+          "x": 1450,
           "y": 200
         },
         "data": {
@@ -1090,7 +1089,7 @@
                 "list": false,
                 "show": true,
                 "multiline": true,
-                "value": "import json\nimport re\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import MessageTextInput, Output\nfrom lfx.schema.message import Message\n\nSUPPORTED_METHODS = [\"Tumis\", \"Goreng\", \"Kukus\", \"Rebus\", \"Panggang\", \"Air Fryer\"]\n\nCONTRADICTORY_KEYWORDS = {\n    \"Kukus\": [\"minyak di wajan\", \"panaskan wajan\", \"goreng\", \"tumis\", \"minyak goreng di wajan\", \"gorengan\"],\n    \"Rebus\": [\"minyak di wajan\", \"panaskan minyak\", \"goreng\", \"tumis dengan api\", \"goreng hingga\"],\n    \"Goreng\": [\"kukus\", \"kukusan\", \"air mendidih 500\", \"rebus perlahan\"],\n    \"Tumis\": [\"kukus\", \"kukusan\", \"rebus selama 15\"],\n}\n\n\ndef normalize_recipe_title(recipe_name: str, method: str, target_style: str | None = None) -> str:\n    clean_name = recipe_name.strip()\n    if not clean_name:\n        return f\"{method} Istimewa\"\n\n    m = (target_style or method).strip().title()\n\n    if target_style:\n        contradictions = {\n            \"Kukus\": [\"Tumis \", \"Goreng \", \"Panggang \", \"Bakar \", \"Rebus \"],\n            \"Rebus\": [\"Tumis \", \"Goreng \", \"Panggang \", \"Bakar \", \"Kukus \"],\n            \"Goreng\": [\"Kukus \", \"Rebus \", \"Sup \", \"Sop \", \"Panggang \"],\n            \"Tumis\": [\"Kukus \", \"Rebus \", \"Sup \", \"Sop \", \"Goreng \"],\n            \"Panggang\": [\"Kukus \", \"Rebus \", \"Sup \", \"Tumis \", \"Goreng \"],\n            \"Air Fryer\": [\"Kukus \", \"Rebus \", \"Sup \"],\n        }\n\n        prefixes = contradictions.get(m, [])\n        for prefix in prefixes:\n            if clean_name.lower().startswith(prefix.lower()):\n                clean_name = f\"{m} \" + clean_name[len(prefix):]\n                break\n\n        if m == \"Kukus\":\n            clean_name = re.sub(r\"(?i)\\bgoreng\\b\", \"kukus\", clean_name)\n            clean_name = re.sub(r\"(?i)\\btumis\\b\", \"kukus\", clean_name)\n        elif m == \"Goreng\":\n            clean_name = re.sub(r\"(?i)\\bkukus\\b\", \"goreng\", clean_name)\n        elif m == \"Rebus\":\n            clean_name = re.sub(r\"(?i)\\bgoreng\\b\", \"kuah\", clean_name)\n\n    return clean_name\n\n\ndef generate_method_technical_steps(recipe_name: str, method: str, ingredients: list[str]) -> list[str]:\n    clean_ing = [i.strip() for i in ingredients if i and i.strip()]\n    ing_text = \", \".join(clean_ing) if clean_ing else \"bahan utama\"\n    m = method.strip().title()\n\n    if m == \"Kukus\":\n        return [\n            f\"Persiapan Kukusan & Wadah: Siapkan kukusan/klakat, isi bagian bawah dengan air bersih \u00b11-1.5 liter, dan siapkan wadah tahan panas untuk bahan ({ing_text}).\",\n            \"Pendidihan Uap: Panaskan kukusan dengan api sedang hingga air mendidih dan uap tebal aktif mengepul keluar dari sela tutup.\",\n            f\"Penataan Bahan: Tata bahan masakan ({ing_text}) ke dalam wadah tahan panas, lalu masukkan wadah secara hati-hati ke dalam kukusan yang telah beruap.\",\n            \"Pengukusan Terkontrol: Tutup rapat kukusan (lapisi kain bersih pada tutup jika perlu agar uap air tidak menetes), kukus dengan api sedang selama 15-20 menit hingga matang merata.\",\n            f\"Pengujian Kematangan & Penyajian: Buka tutup kukusan hati-hati, uji kematangan dengan menusuk bagian tengah {recipe_name.lower()} (pastikan tekstur lembut/padat dan harum aromatik), lalu angkat dan sajikan selagi hangat.\",\n        ]\n\n    if m == \"Rebus\":\n        return [\n            f\"Persiapan Panci & Kuah: Siapkan panci, tuang 600-800 ml air bersih (atau kaldu), serta siapkan potongan bahan ({ing_text}).\",\n            \"Pendidihan Awal: Panaskan panci dengan api sedang-tinggi hingga air mendidih bergolak aktif selama 2-3 menit.\",\n            f\"Pemasukan Bahan Bertahap: Masukkan bahan bertekstur lebih padat terlebih dahulu ({ing_text}), masak dengan api sedang hingga setengah empuk.\",\n            \"Pembumbuan & Pematangan Kuah: Masukkan bumbu pelengkap, kecilkan api ke tingkat sedang-kecil (simmering), biarkan rasa meresap dan aroma harum menyatu sempurna selama 8-10 menit.\",\n            \"Penyelesaian: Uji keempukan bahan dan cicipi kuah hangat, matikan api, lalu tuangkan ke mangkuk saji selagi panas.\",\n        ]\n\n    if m == \"Goreng\":\n        return [\n            f\"Persiapan Bahan & Wajan: Keringkan permukaan bahan ({ing_text}) dari air berlebih agar tidak meletup, siapkan wajan dan tuang minyak goreng secukupnya.\",\n            \"Pemanasan Minyak Terkontrol: Panaskan minyak dengan api sedang hingga mencapai suhu optimal (\u00b1160-170\u00b0C, tandai dengan desisan halus saat spatula kayu disentuhkan).\",\n            f\"Penggorengan Bertahap: Masukkan bahan ({ing_text}) secara bertahap agar suhu minyak tidak drop drastis; jangan diaduk terlalu sering pada menit awal agar bentuknya kokoh.\",\n            \"Pembalikan & Pematangan: Balik bahan sekali saat sisi bawah sudah mulai kokoh dan berwarna kuning keemasan, goreng hingga matang merata dan renyah di luar.\",\n            \"Penirisan & Penyajian: Angkat menggunakan serokan kawat, tiriskan sisa minyak di atas rak kawat atau tisu dapur khusus, sajikan selagi renyah.\",\n        ]\n\n    if m == \"Tumis\":\n        return [\n            f\"Persiapan Wajan & Aromatik: Siapkan wajan/wok, tuang 1-2 sdm minyak, serta siapkan bahan ({ing_text}) yang sudah dipotong seragam.\",\n            \"Penumisan Bumbu Aromatik: Panaskan minyak dengan api sedang-tinggi, tumis bumbu aromatik selama 45-60 detik hingga harum semerbak dan layu keemasan.\",\n            f\"Pemasukan Bahan Cepat: Besarkan api sedikit, masukkan bahan utama ({ing_text}), tumis cepat (stir-fry) sambil dibolak-balik agar panas merata dan sayur tetap renyah segar.\",\n            \"Pembumbuan Cepat: Tuangkan bumbu pelengkap dan sedikit air (1-2 sdm jika perlu), aduk rata selama 1-2 menit hingga saus menyelimuti seluruh bahan.\",\n            \"Penyajian: Angkat segera sebelum bahan menjadi terlalu layu (overcooked), pindahkan ke piring saji dan hidangkan hangat.\",\n        ]\n\n    if m == \"Panggang\":\n        return [\n            f\"Prapemanasan Alat: Panaskan oven pada suhu 180\u00b0C (atau panaskan wajan grill/pan panggangan di atas api sedang-kecil).\",\n            f\"Marinasi & Penataan: Lumuri bahan ({ing_text}) dengan sedikit minyak dan bumbu, lalu tata rapi dengan jarak di atas loyang atau pan panggang.\",\n            \"Pemanggangan: Panggang selama 15-20 menit, balik sekali di pertengahan waktu agar kedua sisi matang merata dengan jejak karamelisasi yang cantik.\",\n            \"Penyelesaian: Pastikan bagian dalam matang sempurna dan aroma panggang semerbak, angkat dan sajikan.\",\n        ]\n\n    if m == \"Air Fryer\":\n        return [\n            f\"Prapemanasan Unit: Prapanaskan air fryer pada suhu 180\u00b0C selama 3 menit.\",\n            f\"Penataan Bahan: Tata bahan ({ing_text}) di dalam keranjang air fryer dalam satu lapisan (single layer, tidak menumpuk). Olesi atau semprot tipis minyak.\",\n            \"Pemasakan & Pengocokan: Masak selama 10-15 menit pada suhu 180\u00b0C. Buka keranjang dan kocok/balik bahan di pertengahan waktu (menit ke-6 atau 7).\",\n            \"Penyajian: Periksa kerenyahan permukaan dan kematangan dalam, angkat menggunakan capitan tahan panas dan sajikan hangat.\",\n        ]\n\n    # Default generic\n    return [\n        f\"Persiapan Bahan: Siapkan dan potong bahan ({ing_text}) dengan ukuran seragam.\",\n        f\"Proses Memasak {m}: Olah bahan menggunakan metode {m} dengan api sedang secara terkontrol.\",\n        \"Pembumbuan & Koreksi Rasa: Tambahkan bumbu pelengkap, aduk rata dan koreksi rasa.\",\n        \"Penyajian: Angkat dan sajikan hidangan selagi hangat.\",\n    ]\n\n\nclass RecipeValidatorFormatter(Component):\n    display_name = \"Recipe Validator & Formatter\"\n    description = (\n        \"Memvalidasi output resep dari LLM, memastikan root key recommendations ada, \"\n        \"memvalidasi konsistensi metode masak, menolak bahan halusinasi, membersihkan langkah teknis, \"\n        \"dan memastikan format JSON bersih dan siap dikonsumsi oleh Nomz Mobile App & FastAPI.\"\n    )\n    icon = \"check-check\"\n    name = \"RecipeValidatorFormatter\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"interpreted_brief\",\n            display_name=\"Interpreted Brief\",\n            info=\"Brief dari Cooking Style Interpreter.\",\n        ),\n        MessageTextInput(\n            name=\"llm_output\",\n            display_name=\"LLM Raw Output\",\n            info=\"Teks respons dari model Gemini.\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Formatted JSON\", name=\"formatted_json\", method=\"validate_and_format\"),\n    ]\n\n    def _clean_markdown(self, text: str) -> str:\n        cleaned = text.strip()\n        if cleaned.startswith(\"```\"):\n            cleaned = re.sub(r\"^```[a-zA-Z]*\\n?\", \"\", cleaned)\n            cleaned = re.sub(r\"\\n?```$\", \"\", cleaned)\n        return cleaned.strip()\n\n    def validate_and_format(self) -> Message:\n        raw_llm = getattr(self.llm_output, \"text\", None) or str(self.llm_output or \"\")\n        cleaned_str = self._clean_markdown(raw_llm)\n\n        brief_str = getattr(self.interpreted_brief, \"text\", None) or str(self.interpreted_brief or \"{}\")\n        brief = {}\n        try:\n            brief = json.loads(brief_str)\n        except Exception:\n            brief = {}\n\n        target_style = brief.get(\"cooking_style\")\n        allowed_user_ingredients = [i.lower().strip() for i in brief.get(\"ingredient_names\", [])]\n        user_displays = brief.get(\"ingredient_displays\", [])\n\n        # Parse JSON\n        parsed = None\n        try:\n            parsed = json.loads(cleaned_str)\n        except Exception:\n            m = re.search(r\"\\{[\\s\\S]*\\}\", cleaned_str)\n            if m:\n                try:\n                    parsed = json.loads(m.group(0))\n                except Exception:\n                    pass\n\n        if not parsed or not isinstance(parsed, dict) or \"recommendations\" not in parsed:\n            self.status = \"Fallback: could not parse recommendations\"\n            # Fallback output safe structure\n            fb_method = target_style or \"Tumis\"\n            fb_recs = [{\n                \"nama\": f\"{fb_method} Bahan Segar Dapur\",\n                \"deskripsi\": f\"Hidangan lezat dan bernutrisi dimasak dengan metode {fb_method}.\",\n                \"metode_masak\": fb_method,\n                \"bahan_tersedia\": user_displays if user_displays else [\"bahan utama\"],\n                \"bahan_tambahan\": [\"1 sdm minyak / air\", \"garam secukupnya\", \"merica secukupnya\"],\n                \"estimasi_waktu\": \"20 menit\",\n                \"tingkat_kesulitan\": \"Mudah\",\n                \"alasan\": \"Memaksimalkan bahan makanan yang tersedia di dapur Anda.\",\n                \"langkah\": generate_method_technical_steps(f\"{fb_method} Bahan Segar Dapur\", fb_method, user_displays),\n                \"porsi\": \"1-2 porsi\",\n            }]\n            return Message(text=json.dumps({\"recommendations\": fb_recs}, ensure_ascii=False, indent=2))\n\n        recs = parsed.get(\"recommendations\", [])\n        if not isinstance(recs, list):\n            recs = []\n\n        validated_recs = []\n        for r in recs:\n            if not isinstance(r, dict):\n                continue\n\n            nama = r.get(\"nama\") or \"Kreasi Makanan Nomz\"\n            metode = r.get(\"metode_masak\") or target_style or \"Tumis\"\n            if target_style:\n                metode = target_style\n\n            # Normalisasi nama resep agar tidak kontradiktif\n            nama = normalize_recipe_title(nama, metode, target_style)\n\n            # Validasi bahan_tersedia\n            raw_tersedia = r.get(\"bahan_tersedia\", [])\n            valid_tersedia = []\n            valid_tambahan = list(r.get(\"bahan_tambahan\", []))\n\n            for bt in raw_tersedia:\n                bt_str = str(bt).strip()\n                # Bersihkan label kategori jika LLM menyalinnya (contoh: '2 butir telur (protein)' -> '2 butir telur')\n                bt_clean = re.sub(r\"\\s*\\((?:protein|karbohidrat|sayur|bumbu|lainnya)\\)\", \"\", bt_str, flags=re.I).strip()\n                bt_lower = bt_clean.lower()\n                if allowed_user_ingredients:\n                    matched = any(u in bt_lower or bt_lower in u for u in allowed_user_ingredients)\n                    if matched:\n                        valid_tersedia.append(bt_clean)\n                    else:\n                        if bt_clean not in valid_tambahan:\n                            valid_tambahan.append(bt_clean)\n                else:\n                    valid_tersedia.append(bt_clean)\n\n            if not valid_tersedia:\n                valid_tersedia = user_displays[:1] if user_displays else [\"bahan utama\"]\n\n            # Batasi bahan tambahan jika ada kendala hemat bahan\n            max_extra = brief.get(\"constraint_rules\", {}).get(\"max_extra_ingredients\")\n            if max_extra and len(valid_tambahan) > max_extra:\n                valid_tambahan = valid_tambahan[:max_extra]\n\n            # Validasi langkah memasak teknis\n            raw_steps = r.get(\"langkah\", [])\n            if not isinstance(raw_steps, list):\n                raw_steps = [str(raw_steps)]\n\n            # Cek kontradiksi langkah terhadap gaya masak\n            steps_joined = \" \".join(raw_steps).lower()\n            contradictions = CONTRADICTORY_KEYWORDS.get(metode, [])\n            has_contradiction = any(c in steps_joined for c in contradictions)\n\n            if has_contradiction or len(raw_steps) < 3:\n                # Gunakan langkah teknis standar yang konsisten\n                final_steps = generate_method_technical_steps(nama, metode, valid_tersedia)\n            else:\n                final_steps = [s.strip() for s in raw_steps if s and s.strip()]\n\n            validated_recs.append({\n                \"nama\": nama,\n                \"deskripsi\": r.get(\"deskripsi\") or f\"Hidangan lezat dengan metode {metode}.\",\n                \"metode_masak\": metode,\n                \"bahan_tersedia\": valid_tersedia,\n                \"bahan_tambahan\": valid_tambahan,\n                \"estimasi_waktu\": r.get(\"estimasi_waktu\") or \"20 menit\",\n                \"tingkat_kesulitan\": r.get(\"tingkat_kesulitan\") or \"Mudah\",\n                \"alasan\": r.get(\"alasan\") or \"Memaksimalkan bahan makanan yang tersedia di dapur Anda.\",\n                \"langkah\": final_steps,\n                \"porsi\": r.get(\"porsi\") or \"1-2 porsi\",\n            })\n\n        if not validated_recs:\n            fb_method = target_style or \"Tumis\"\n            validated_recs = [{\n                \"nama\": f\"{fb_method} Bahan Dapur Nomz\",\n                \"deskripsi\": f\"Hidangan praktis dengan teknik {fb_method}.\",\n                \"metode_masak\": fb_method,\n                \"bahan_tersedia\": user_displays if user_displays else [\"bahan utama\"],\n                \"bahan_tambahan\": [\"garam secukupnya\", \"bumbu pelengkap\"],\n                \"estimasi_waktu\": \"20 menit\",\n                \"tingkat_kesulitan\": \"Mudah\",\n                \"alasan\": \"Memaksimalkan bahan makanan yang tersedia.\",\n                \"langkah\": generate_method_technical_steps(f\"{fb_method} Bahan Dapur Nomz\", fb_method, user_displays),\n                \"porsi\": \"1-2 porsi\",\n            }]\n\n        result = {\"recommendations\": validated_recs}\n        self.status = f\"Validated {len(validated_recs)} resep ({metode})\"\n        return Message(text=json.dumps(result, ensure_ascii=False, indent=2))\n",
+                "value": "import json\nimport re\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import MessageTextInput, Output\nfrom lfx.schema.message import Message\n\nSUPPORTED_METHODS = [\"Tumis\", \"Goreng\", \"Kukus\", \"Rebus\", \"Panggang\", \"Air Fryer\"]\n\nCONTRADICTORY_KEYWORDS = {\n    \"Kukus\": [\"minyak di wajan\", \"panaskan wajan\", \"goreng\", \"tumis\", \"minyak goreng di wajan\", \"gorengan\"],\n    \"Rebus\": [\"minyak di wajan\", \"panaskan minyak\", \"goreng\", \"tumis dengan api\", \"goreng hingga\"],\n    \"Goreng\": [\"kukus\", \"kukusan\", \"air mendidih 500\", \"rebus perlahan\"],\n    \"Tumis\": [\"kukus\", \"kukusan\", \"rebus selama 15\"],\n}\n\n\ndef normalize_recipe_title(recipe_name: str, method: str, target_style: str | None = None) -> str:\n    clean_name = recipe_name.strip()\n    if not clean_name:\n        return f\"{method} Istimewa\"\n\n    m = (target_style or method).strip().title()\n\n    if target_style:\n        contradictions = {\n            \"Kukus\": [\"Tumis \", \"Goreng \", \"Panggang \", \"Bakar \", \"Rebus \"],\n            \"Rebus\": [\"Tumis \", \"Goreng \", \"Panggang \", \"Bakar \", \"Kukus \"],\n            \"Goreng\": [\"Kukus \", \"Rebus \", \"Sup \", \"Sop \", \"Panggang \"],\n            \"Tumis\": [\"Kukus \", \"Rebus \", \"Sup \", \"Sop \", \"Goreng \"],\n            \"Panggang\": [\"Kukus \", \"Rebus \", \"Sup \", \"Tumis \", \"Goreng \"],\n            \"Air Fryer\": [\"Kukus \", \"Rebus \", \"Sup \"],\n        }\n\n        prefixes = contradictions.get(m, [])\n        for prefix in prefixes:\n            if clean_name.lower().startswith(prefix.lower()):\n                clean_name = f\"{m} \" + clean_name[len(prefix):]\n                break\n\n        if m == \"Kukus\":\n            clean_name = re.sub(r\"(?i)\\bgoreng\\b\", \"kukus\", clean_name)\n            clean_name = re.sub(r\"(?i)\\btumis\\b\", \"kukus\", clean_name)\n        elif m == \"Goreng\":\n            clean_name = re.sub(r\"(?i)\\bkukus\\b\", \"goreng\", clean_name)\n        elif m == \"Rebus\":\n            clean_name = re.sub(r\"(?i)\\bgoreng\\b\", \"kuah\", clean_name)\n\n    return clean_name\n\n\ndef generate_method_technical_steps(recipe_name: str, method: str, ingredients: list[str]) -> list[str]:\n    clean_ing = [i.strip() for i in ingredients if i and i.strip()]\n    ing_text = \", \".join(clean_ing) if clean_ing else \"bahan utama\"\n    m = method.strip().title()\n\n    if m == \"Kukus\":\n        return [\n            f\"Persiapan Kukusan & Wadah: Siapkan kukusan/klakat, isi bagian bawah dengan air bersih ±1-1.5 liter, dan siapkan wadah tahan panas untuk bahan ({ing_text}).\",\n            \"Pendidihan Uap: Panaskan kukusan dengan api sedang hingga air mendidih dan uap tebal aktif mengepul keluar dari sela tutup.\",\n            f\"Penataan Bahan: Tata bahan masakan ({ing_text}) ke dalam wadah tahan panas, lalu masukkan wadah secara hati-hati ke dalam kukusan yang telah beruap.\",\n            \"Pengukusan Terkontrol: Tutup rapat kukusan (lapisi kain bersih pada tutup jika perlu agar uap air tidak menetes), kukus dengan api sedang selama 15-20 menit hingga matang merata.\",\n            f\"Pengujian Kematangan & Penyajian: Buka tutup kukusan hati-hati, uji kematangan dengan menusuk bagian tengah {recipe_name.lower()} (pastikan tekstur lembut/padat dan harum aromatik), lalu angkat dan sajikan selagi hangat.\",\n        ]\n\n    if m == \"Rebus\":\n        return [\n            f\"Persiapan Panci & Kuah: Siapkan panci, tuang 600-800 ml air bersih (atau kaldu), serta siapkan potongan bahan ({ing_text}).\",\n            \"Pendidihan Awal: Panaskan panci dengan api sedang-tinggi hingga air mendidih bergolak aktif selama 2-3 menit.\",\n            f\"Pemasukan Bahan Bertahap: Masukkan bahan bertekstur lebih padat terlebih dahulu ({ing_text}), masak dengan api sedang hingga setengah empuk.\",\n            \"Pembumbuan & Pematangan Kuah: Masukkan bumbu pelengkap, kecilkan api ke tingkat sedang-kecil (simmering), biarkan rasa meresap dan aroma harum menyatu sempurna selama 8-10 menit.\",\n            \"Penyelesaian: Uji keempukan bahan dan cicipi kuah hangat, matikan api, lalu tuangkan ke mangkuk saji selagi panas.\",\n        ]\n\n    if m == \"Goreng\":\n        return [\n            f\"Persiapan Bahan & Wajan: Keringkan permukaan bahan ({ing_text}) dari air berlebih agar tidak meletup, siapkan wajan dan tuang minyak goreng secukupnya.\",\n            \"Pemanasan Minyak Terkontrol: Panaskan minyak dengan api sedang hingga mencapai suhu optimal (±160-170°C, tandai dengan desisan halus saat spatula kayu disentuhkan).\",\n            f\"Penggorengan Bertahap: Masukkan bahan ({ing_text}) secara bertahap agar suhu minyak tidak drop drastis; jangan diaduk terlalu sering pada menit awal agar bentuknya kokoh.\",\n            \"Pembalikan & Pematangan: Balik bahan sekali saat sisi bawah sudah mulai kokoh dan berwarna kuning keemasan, goreng hingga matang merata dan renyah di luar.\",\n            \"Penirisan & Penyajian: Angkat menggunakan serokan kawat, tiriskan sisa minyak di atas rak kawat atau tisu dapur khusus, sajikan selagi renyah.\",\n        ]\n\n    if m == \"Tumis\":\n        return [\n            f\"Persiapan Wajan & Aromatik: Siapkan wajan/wok, tuang 1-2 sdm minyak, serta siapkan bahan ({ing_text}) yang sudah dipotong seragam.\",\n            \"Penumisan Bumbu Aromatik: Panaskan minyak dengan api sedang-tinggi, tumis bumbu aromatik selama 45-60 detik hingga harum semerbak dan layu keemasan.\",\n            f\"Pemasukan Bahan Cepat: Besarkan api sedikit, masukkan bahan utama ({ing_text}), tumis cepat (stir-fry) sambil dibolak-balik agar panas merata dan sayur tetap renyah segar.\",\n            \"Pembumbuan Cepat: Tuangkan bumbu pelengkap dan sedikit air (1-2 sdm jika perlu), aduk rata selama 1-2 menit hingga saus menyelimuti seluruh bahan.\",\n            \"Penyajian: Angkat segera sebelum bahan menjadi terlalu layu (overcooked), pindahkan ke piring saji dan hidangkan hangat.\",\n        ]\n\n    if m == \"Panggang\":\n        return [\n            f\"Prapemanasan Alat: Panaskan oven pada suhu 180°C (atau panaskan wajan grill/pan panggangan di atas api sedang-kecil).\",\n            f\"Marinasi & Penataan: Lumuri bahan ({ing_text}) dengan sedikit minyak dan bumbu, lalu tata rapi dengan jarak di atas loyang atau pan panggang.\",\n            \"Pemanggangan: Panggang selama 15-20 menit, balik sekali di pertengahan waktu agar kedua sisi matang merata dengan jejak karamelisasi yang cantik.\",\n            \"Penyelesaian: Pastikan bagian dalam matang sempurna dan aroma panggang semerbak, angkat dan sajikan.\",\n        ]\n\n    if m == \"Air Fryer\":\n        return [\n            f\"Prapemanasan Unit: Prapanaskan air fryer pada suhu 180°C selama 3 menit.\",\n            f\"Penataan Bahan: Tata bahan ({ing_text}) di dalam keranjang air fryer dalam satu lapisan (single layer, tidak menumpuk). Olesi atau semprot tipis minyak.\",\n            \"Pemasakan & Pengocokan: Masak selama 10-15 menit pada suhu 180°C. Buka keranjang dan kocok/balik bahan di pertengahan waktu (menit ke-6 atau 7).\",\n            \"Penyajian: Periksa kerenyahan permukaan dan kematangan dalam, angkat menggunakan capitan tahan panas dan sajikan hangat.\",\n        ]\n\n    # Default generic\n    return [\n        f\"Persiapan Bahan: Siapkan dan potong bahan ({ing_text}) dengan ukuran seragam.\",\n        f\"Proses Memasak {m}: Olah bahan menggunakan metode {m} dengan api sedang secara terkontrol.\",\n        \"Pembumbuan & Koreksi Rasa: Tambahkan bumbu pelengkap, aduk rata dan koreksi rasa.\",\n        \"Penyajian: Angkat dan sajikan hidangan selagi hangat.\",\n    ]\n\n\nclass RecipeValidatorFormatter(Component):\n    display_name = \"Recipe Validator & Formatter\"\n    description = (\n        \"Memvalidasi output resep dari LLM, memastikan root key recommendations ada, \"\n        \"memvalidasi konsistensi metode masak, menolak bahan halusinasi, membersihkan langkah teknis, \"\n        \"dan memastikan format JSON bersih dan siap dikonsumsi oleh Nomz Mobile App & FastAPI.\"\n    )\n    icon = \"check-check\"\n    name = \"RecipeValidatorFormatter\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"interpreted_brief\",\n            display_name=\"Interpreted Brief\",\n            info=\"Brief dari Cooking Style Interpreter.\",\n        ),\n        MessageTextInput(\n            name=\"llm_output\",\n            display_name=\"LLM Raw Output\",\n            info=\"Teks respons dari model Gemini.\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Formatted JSON\", name=\"formatted_json\", method=\"validate_and_format\"),\n    ]\n\n    def _clean_markdown(self, text: str) -> str:\n        cleaned = text.strip()\n        if cleaned.startswith(\"```\"):\n            cleaned = re.sub(r\"^```[a-zA-Z]*\\n?\", \"\", cleaned)\n            cleaned = re.sub(r\"\\n?```$\", \"\", cleaned)\n        return cleaned.strip()\n\n    def validate_and_format(self) -> Message:\n        raw_llm = getattr(self.llm_output, \"text\", None) or str(self.llm_output or \"\")\n        cleaned_str = self._clean_markdown(raw_llm)\n\n        brief_str = getattr(self.interpreted_brief, \"text\", None) or str(self.interpreted_brief or \"{}\")\n        brief = {}\n        try:\n            brief = json.loads(brief_str)\n        except Exception:\n            brief = {}\n\n        target_style = brief.get(\"cooking_style\")\n        allowed_user_ingredients = [i.lower().strip() for i in brief.get(\"ingredient_names\", [])]\n        user_displays = brief.get(\"ingredient_displays\", [])\n\n        # Parse JSON\n        parsed = None\n        try:\n            parsed = json.loads(cleaned_str)\n        except Exception:\n            m = re.search(r\"\\{[\\s\\S]*\\}\", cleaned_str)\n            if m:\n                try:\n                    parsed = json.loads(m.group(0))\n                except Exception:\n                    pass\n\n        if not parsed or not isinstance(parsed, dict) or \"recommendations\" not in parsed:\n            self.status = \"Fallback: could not parse recommendations\"\n            # Fallback output safe structure\n            fb_method = target_style or \"Tumis\"\n            fb_recs = [{\n                \"nama\": f\"{fb_method} Bahan Segar Dapur\",\n                \"deskripsi\": f\"Hidangan lezat dan bernutrisi dimasak dengan metode {fb_method}.\",\n                \"metode_masak\": fb_method,\n                \"bahan_tersedia\": user_displays if user_displays else [\"bahan utama\"],\n                \"bahan_tambahan\": [\"1 sdm minyak / air\", \"garam secukupnya\", \"merica secukupnya\"],\n                \"estimasi_waktu\": \"20 menit\",\n                \"tingkat_kesulitan\": \"Mudah\",\n                \"alasan\": \"Memaksimalkan bahan makanan yang tersedia di dapur Anda.\",\n                \"langkah\": generate_method_technical_steps(f\"{fb_method} Bahan Segar Dapur\", fb_method, user_displays),\n                \"porsi\": \"1-2 porsi\",\n            }]\n            return Message(text=json.dumps({\"recommendations\": fb_recs}, ensure_ascii=False, indent=2))\n\n        recs = parsed.get(\"recommendations\", [])\n        if not isinstance(recs, list):\n            recs = []\n\n        validated_recs = []\n        for r in recs:\n            if not isinstance(r, dict):\n                continue\n\n            nama = r.get(\"nama\") or \"Kreasi Makanan Nomz\"\n            metode = r.get(\"metode_masak\") or target_style or \"Tumis\"\n            if target_style:\n                metode = target_style\n\n            # Normalisasi nama resep agar tidak kontradiktif\n            nama = normalize_recipe_title(nama, metode, target_style)\n\n            # Validasi bahan_tersedia\n            raw_tersedia = r.get(\"bahan_tersedia\", [])\n            valid_tersedia = []\n            valid_tambahan = list(r.get(\"bahan_tambahan\", []))\n\n            for bt in raw_tersedia:\n                bt_str = str(bt).strip()\n                # Bersihkan label kategori jika LLM menyalinnya (contoh: '2 butir telur (protein)' -> '2 butir telur')\n                bt_clean = re.sub(r\"\\s*\\((?:protein|karbohidrat|sayur|bumbu|lainnya)\\)\", \"\", bt_str, flags=re.I).strip()\n                bt_lower = bt_clean.lower()\n                if allowed_user_ingredients:\n                    matched = any(u in bt_lower or bt_lower in u for u in allowed_user_ingredients)\n                    if matched:\n                        valid_tersedia.append(bt_clean)\n                    else:\n                        if bt_clean not in valid_tambahan:\n                            valid_tambahan.append(bt_clean)\n                else:\n                    valid_tersedia.append(bt_clean)\n\n            if not valid_tersedia:\n                valid_tersedia = user_displays[:1] if user_displays else [\"bahan utama\"]\n\n            # Batasi bahan tambahan jika ada kendala hemat bahan\n            max_extra = brief.get(\"constraint_rules\", {}).get(\"max_extra_ingredients\")\n            if max_extra and len(valid_tambahan) > max_extra:\n                valid_tambahan = valid_tambahan[:max_extra]\n\n            # Validasi langkah memasak teknis\n            raw_steps = r.get(\"langkah\", [])\n            if not isinstance(raw_steps, list):\n                raw_steps = [str(raw_steps)]\n\n            # Cek kontradiksi langkah terhadap gaya masak\n            steps_joined = \" \".join(raw_steps).lower()\n            contradictions = CONTRADICTORY_KEYWORDS.get(metode, [])\n            has_contradiction = any(c in steps_joined for c in contradictions)\n\n            if has_contradiction or len(raw_steps) < 3:\n                # Gunakan langkah teknis standar yang konsisten\n                final_steps = generate_method_technical_steps(nama, metode, valid_tersedia)\n            else:\n                final_steps = [s.strip() for s in raw_steps if s and s.strip()]\n\n            validated_recs.append({\n                \"nama\": nama,\n                \"deskripsi\": r.get(\"deskripsi\") or f\"Hidangan lezat dengan metode {metode}.\",\n                \"metode_masak\": metode,\n                \"bahan_tersedia\": valid_tersedia,\n                \"bahan_tambahan\": valid_tambahan,\n                \"estimasi_waktu\": r.get(\"estimasi_waktu\") or \"20 menit\",\n                \"tingkat_kesulitan\": r.get(\"tingkat_kesulitan\") or \"Mudah\",\n                \"alasan\": r.get(\"alasan\") or \"Memaksimalkan bahan makanan yang tersedia di dapur Anda.\",\n                \"langkah\": final_steps,\n                \"porsi\": r.get(\"porsi\") or \"1-2 porsi\",\n            })\n\n        if not validated_recs:\n            fb_method = target_style or \"Tumis\"\n            validated_recs = [{\n                \"nama\": f\"{fb_method} Bahan Dapur Nomz\",\n                \"deskripsi\": f\"Hidangan praktis dengan teknik {fb_method}.\",\n                \"metode_masak\": fb_method,\n                \"bahan_tersedia\": user_displays if user_displays else [\"bahan utama\"],\n                \"bahan_tambahan\": [\"garam secukupnya\", \"bumbu pelengkap\"],\n                \"estimasi_waktu\": \"20 menit\",\n                \"tingkat_kesulitan\": \"Mudah\",\n                \"alasan\": \"Memaksimalkan bahan makanan yang tersedia.\",\n                \"langkah\": generate_method_technical_steps(f\"{fb_method} Bahan Dapur Nomz\", fb_method, user_displays),\n                \"porsi\": \"1-2 porsi\",\n            }]\n\n        result = {\"recommendations\": validated_recs}\n        self.status = f\"Validated {len(validated_recs)} resep ({metode})\"\n        return Message(text=json.dumps(result, ensure_ascii=False, indent=2))\n",
                 "fileTypes": [],
                 "file_path": "",
                 "password": false,
@@ -1193,14 +1192,396 @@
           },
           "type": "RecipeValidatorFormatter",
           "showNode": true,
-          "id": "RecipeValidatorFormatter-c3e52"
+          "id": "RecipeValidatorFormatter-22693"
+        }
+      },
+      {
+        "id": "VideoSearchIntent-c7b74",
+        "type": "genericNode",
+        "position": {
+          "x": 1750,
+          "y": 200
+        },
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "import json\nimport re\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import MessageTextInput, Output\nfrom lfx.schema.message import Message\n\n\nclass VideoSearchIntent(Component):\n    display_name = \"Video Search Intent\"\n    description = (\n        \"Membangun query pencarian video YouTube yang kaya konteks kuliner berdasarkan hasil rekomendasi resep, \"\n        \"gaya masak, dan bahan utama (bukan sekadar pencarian generik).\"\n    )\n    icon = \"search\"\n    name = \"VideoSearchIntent\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"validated_recipes\",\n            display_name=\"Validated Recipes\",\n            info=\"JSON hasil validasi dari RecipeValidatorFormatter.\",\n        ),\n        MessageTextInput(\n            name=\"interpreted_brief\",\n            display_name=\"Interpreted Brief\",\n            info=\"Brief dari Cooking Style Interpreter.\",\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Search Intent\", name=\"intent\", method=\"build_intent\"),\n    ]\n\n    def build_intent(self) -> Message:\n        raw_recipes = getattr(self.validated_recipes, \"text\", None) or str(self.validated_recipes or \"{}\")\n        brief_str = getattr(self.interpreted_brief, \"text\", None) or str(self.interpreted_brief or \"{}\")\n\n        try:\n            recipes_data = json.loads(raw_recipes)\n        except Exception:\n            recipes_data = {\"recommendations\": []}\n\n        try:\n            brief = json.loads(brief_str)\n        except Exception:\n            brief = {}\n\n        recs = recipes_data.get(\"recommendations\", [])\n        if recs:\n            top_rec = recs[0]\n            recipe_name = top_rec.get(\"nama\") or \"Masakan Rumahan\"\n            metode = top_rec.get(\"metode_masak\") or brief.get(\"cooking_style\") or \"\"\n            bahan_list = top_rec.get(\"bahan_tersedia\", [])\n        else:\n            recipe_name = \"Masakan Rumahan\"\n            metode = brief.get(\"cooking_style\") or \"\"\n            bahan_list = brief.get(\"ingredient_names\", [])\n\n        # Buat query YouTube terarah\n        clean_name = re.sub(r\"[^\\w\\s]\", \"\", recipe_name).strip()\n        query_parts = [\"resep\", clean_name]\n        if metode and metode.lower() not in clean_name.lower():\n            query_parts.append(metode)\n        query_parts.append(\"tutorial\")\n\n        search_query = \" \".join(query_parts)\n\n        intent_payload = {\n            \"search_query\": search_query,\n            \"recipe_name\": recipe_name,\n            \"cooking_style\": metode,\n            \"key_ingredients\": bahan_list[:3],\n            \"recipes_data\": recipes_data,\n        }\n\n        self.status = f\"Query intent: '{search_query}'\"\n        return Message(text=json.dumps(intent_payload, ensure_ascii=False, indent=2))\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "interpreted_brief": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "interpreted_brief",
+                "value": "",
+                "display_name": "Interpreted Brief",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "Brief dari Cooking Style Interpreter.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MessageTextInput"
+              },
+              "validated_recipes": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "validated_recipes",
+                "value": "",
+                "display_name": "Validated Recipes",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "JSON hasil validasi dari RecipeValidatorFormatter.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MessageTextInput"
+              }
+            },
+            "description": "Membangun query pencarian video YouTube yang kaya konteks kuliner berdasarkan hasil rekomendasi resep, gaya masak, dan bahan utama (bukan sekadar pencarian generik).",
+            "icon": "search",
+            "base_classes": [
+              "Message"
+            ],
+            "display_name": "Video Search Intent",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "intent",
+                "display_name": "Search Intent",
+                "method": "build_intent",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "VideoSearchIntent",
+          "showNode": true,
+          "id": "VideoSearchIntent-c7b74"
+        }
+      },
+      {
+        "id": "YouTubeSearchTool-09358",
+        "type": "genericNode",
+        "position": {
+          "x": 2050,
+          "y": 200
+        },
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "api_key": {
+                "load_from_db": true,
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "api_key",
+                "value": "YOUTUBE_API_KEY",
+                "display_name": "YouTube API Key",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [],
+                "dynamic": false,
+                "info": "Kunci API YouTube Data v3 (dari kredensial Langflow).",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "password": true,
+                "type": "str",
+                "_input_type": "SecretStrInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "import json\nimport logging\nimport os\nimport re\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import IntInput, MessageTextInput, Output, SecretStrInput\nfrom lfx.schema.message import Message\n\nlogger = logging.getLogger(__name__)\n\n\ndef parse_youtube_duration(duration_str: str) -> str:\n    \"\"\"Parses ISO 8601 duration string (e.g. PT1H2M10S) to HH:MM:SS or MM:SS.\"\"\"\n    match = re.match(r\"PT(\\d+H)?(\\d+M)?(\\d+S)?\", duration_str)\n    if not match:\n        return \"\"\n    h, m, s = match.groups()\n    h = int(h[:-1]) if h else 0\n    m = int(m[:-1]) if m else 0\n    s = int(s[:-1]) if s else 0\n    if h > 0:\n        return f\"{h}:{m:02d}:{s:02d}\"\n    return f\"{m}:{s:02d}\"\n\n\nclass YouTubeSearchTool(Component):\n    display_name = \"YouTube Search Tool\"\n    description = (\n        \"Mengeksekusi pencarian video kuliner terkurasi langsung ke YouTube Data API v3, \"\n        \"mengambil metadata durasi teknis nyata (ISO 8601), thumbnail, dan channel.\"\n    )\n    icon = \"video\"\n    name = \"YouTubeSearchTool\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"intent\",\n            display_name=\"Search Intent\",\n            info=\"Pesan intent pencarian dari VideoSearchIntent.\",\n        ),\n        SecretStrInput(\n            name=\"api_key\",\n            display_name=\"YouTube API Key\",\n            info=\"Kunci API YouTube Data v3 (dari kredensial Langflow).\",\n            value=\"YOUTUBE_API_KEY\",\n        ),\n        IntInput(\n            name=\"max_results\",\n            display_name=\"Max Results\",\n            info=\"Jumlah kandidat video yang dicari (default 15).\",\n            value=15,\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Candidate Videos\", name=\"candidates\", method=\"search_youtube\"),\n    ]\n\n    def search_youtube(self) -> Message:\n        intent_raw = getattr(self.intent, \"text\", None) or str(self.intent or \"{}\")\n        try:\n            intent_data = json.loads(intent_raw)\n        except Exception:\n            intent_data = {}\n\n        query = intent_data.get(\"search_query\") or \"resep masakan nusantara\"\n        max_res = int(self.max_results or 15)\n\n        # Ambil api_key dari konfigurasi node atau environment\n        yt_key = self.api_key or os.environ.get(\"YOUTUBE_API_KEY\", \"\")\n        if hasattr(yt_key, \"get_secret_value\"):\n            yt_key = yt_key.get_secret_value()\n        yt_key = str(yt_key or \"\").strip()\n\n        videos = []\n        if yt_key:\n            try:\n                from googleapiclient.discovery import build\n\n                youtube = build(\"youtube\", \"v3\", developerKey=yt_key)\n                search_resp = youtube.search().list(\n                    q=query,\n                    part=\"id,snippet\",\n                    type=\"video\",\n                    maxResults=min(max_res, 50),\n                ).execute()\n\n                candidate_ids = []\n                for item in search_resp.get(\"items\", []):\n                    vid = item.get(\"id\", {}).get(\"videoId\")\n                    if vid and vid not in candidate_ids:\n                        candidate_ids.append(vid)\n\n                details_map = {}\n                if candidate_ids:\n                    v_resp = youtube.videos().list(\n                        id=\",\".join(candidate_ids),\n                        part=\"contentDetails,snippet\",\n                    ).execute()\n                    for item in v_resp.get(\"items\", []):\n                        details_map[item[\"id\"]] = item\n\n                for vid in candidate_ids:\n                    detail = details_map.get(vid)\n                    if not detail:\n                        continue\n                    snippet = detail.get(\"snippet\", {})\n                    content_details = detail.get(\"contentDetails\", {})\n                    duration = parse_youtube_duration(content_details.get(\"duration\", \"\"))\n                    thumbnails = snippet.get(\"thumbnails\", {})\n                    thumbnail_url = (\n                        thumbnails.get(\"high\", {}).get(\"url\")\n                        or thumbnails.get(\"medium\", {}).get(\"url\")\n                        or thumbnails.get(\"default\", {}).get(\"url\")\n                        or f\"https://i.ytimg.com/vi/{vid}/hqdefault.jpg\"\n                    )\n\n                    videos.append({\n                        \"video_id\": vid,\n                        \"title\": snippet.get(\"title\", \"\"),\n                        \"channel_title\": snippet.get(\"channelTitle\", \"\"),\n                        \"thumbnail_url\": thumbnail_url,\n                        \"duration\": duration,\n                        \"url\": f\"https://www.youtube.com/watch?v={vid}\",\n                    })\n            except Exception as e:\n                logger.warning(\"Eksekusi YouTubeSearchTool error: %s\", e)\n\n        result_payload = {\n            \"query\": query,\n            \"candidates\": videos,\n            \"intent\": intent_data,\n        }\n        self.status = f\"Found {len(videos)} videos for '{query[:30]}...'\"\n        return Message(text=json.dumps(result_payload, ensure_ascii=False, indent=2))\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "intent": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "intent",
+                "value": "",
+                "display_name": "Search Intent",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "Pesan intent pencarian dari VideoSearchIntent.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MessageTextInput"
+              },
+              "max_results": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "max_results",
+                "value": 15,
+                "display_name": "Max Results",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Jumlah kandidat video yang dicari (default 15).",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              }
+            },
+            "description": "Mengeksekusi pencarian video kuliner terkurasi langsung ke YouTube Data API v3, mengambil metadata durasi teknis nyata (ISO 8601), thumbnail, dan channel.",
+            "icon": "video",
+            "base_classes": [
+              "Message"
+            ],
+            "display_name": "YouTube Search Tool",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "candidates",
+                "display_name": "Candidate Videos",
+                "method": "search_youtube",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "YouTubeSearchTool",
+          "showNode": true,
+          "id": "YouTubeSearchTool-09358"
+        }
+      },
+      {
+        "id": "VideoRelevanceRanker-ce7b9",
+        "type": "genericNode",
+        "position": {
+          "x": 2350,
+          "y": 200
+        },
+        "data": {
+          "node": {
+            "template": {
+              "_type": "Component",
+              "candidate_videos": {
+                "tool_mode": false,
+                "trace_as_input": true,
+                "trace_as_metadata": true,
+                "load_from_db": false,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "candidate_videos",
+                "value": "",
+                "display_name": "Candidate Videos",
+                "advanced": false,
+                "api_editable": false,
+                "input_types": [
+                  "Message"
+                ],
+                "dynamic": false,
+                "info": "Pesan berisi daftar kandidat video dari YouTubeSearchTool.",
+                "title_case": false,
+                "track_in_telemetry": false,
+                "type": "str",
+                "_input_type": "MessageTextInput"
+              },
+              "code": {
+                "type": "code",
+                "required": true,
+                "placeholder": "",
+                "list": false,
+                "show": true,
+                "multiline": true,
+                "value": "import json\nimport re\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.io import IntInput, MessageTextInput, Output\nfrom lfx.schema.message import Message\n\n\nclass VideoRelevanceRanker(Component):\n    display_name = \"Video Relevance & Ranking\"\n    description = (\n        \"Melakukan perangkingan relevansi video tutorial memasak terhadap resep terpilih, \"\n        \"memastikan tidak ada video duplikat, dan menggabungkan video ke dalam kontrak respons terstruktur Nomz.\"\n    )\n    icon = \"sparkles\"\n    name = \"VideoRelevanceRanker\"\n\n    inputs = [\n        MessageTextInput(\n            name=\"candidate_videos\",\n            display_name=\"Candidate Videos\",\n            info=\"Pesan berisi daftar kandidat video dari YouTubeSearchTool.\",\n        ),\n        IntInput(\n            name=\"top_k\",\n            display_name=\"Top K Videos\",\n            info=\"Batas maksimal video yang disertakan dalam rekomendasi (default 8).\",\n            value=8,\n        ),\n    ]\n\n    outputs = [\n        Output(display_name=\"Final Response\", name=\"final_response\", method=\"rank_and_merge\"),\n    ]\n\n    def _score_relevance(self, video_title: str, recipe_name: str, method: str) -> int:\n        title_lower = video_title.lower()\n        recipe_words = [w for w in re.split(r\"\\s+\", recipe_name.lower()) if len(w) > 2]\n        score = 0\n        for w in recipe_words:\n            if w in title_lower:\n                score += 3\n        if method and method.lower() in title_lower:\n            score += 2\n        if \"resep\" in title_lower:\n            score += 1\n        if \"cara\" in title_lower or \"tutorial\" in title_lower:\n            score += 1\n        return score\n\n    def rank_and_merge(self) -> Message:\n        raw_candidates = getattr(self.candidate_videos, \"text\", None) or str(self.candidate_videos or \"{}\")\n        try:\n            payload = json.loads(raw_candidates)\n        except Exception:\n            payload = {}\n\n        candidates = payload.get(\"candidates\", [])\n        intent = payload.get(\"intent\", {})\n        recipe_name = intent.get(\"recipe_name\", \"\")\n        method = intent.get(\"cooking_style\", \"\")\n        recipes_data = intent.get(\"recipes_data\", {})\n        if not isinstance(recipes_data, dict):\n            recipes_data = {\"recommendations\": []}\n\n        top_k = int(self.top_k or 8)\n\n        # 1. Deduplikasi ketat berdasarkan video_id\n        seen_ids = set()\n        deduped = []\n        for v in candidates:\n            vid = v.get(\"video_id\")\n            if vid and vid not in seen_ids:\n                seen_ids.add(vid)\n                deduped.append(v)\n\n        # 2. Perangkingan relevansi\n        scored = []\n        for v in deduped:\n            s = self._score_relevance(v.get(\"title\", \"\"), recipe_name, method)\n            scored.append((s, v))\n\n        # Urutkan berdasarkan skor tertinggi\n        scored.sort(key=lambda x: x[0], reverse=True)\n        top_videos = [item[1] for item in scored[:top_k]]\n\n        # 3. Integrasi ke dalam struktur rekomendasi Nomz\n        recs = recipes_data.get(\"recommendations\", [])\n        if recs and isinstance(recs, list):\n            # Lampirkan video relevan ke rekomendasi utama\n            for r in recs:\n                if isinstance(r, dict) and \"videos\" not in r:\n                    r[\"videos\"] = top_videos\n\n        recipes_data[\"videos\"] = top_videos\n        self.status = f\"Ranked & attached {len(top_videos)} videos (deduped from {len(candidates)})\"\n        return Message(text=json.dumps(recipes_data, ensure_ascii=False, indent=2))\n",
+                "fileTypes": [],
+                "file_path": "",
+                "password": false,
+                "name": "code",
+                "advanced": true,
+                "api_editable": false,
+                "dynamic": true,
+                "info": "",
+                "load_from_db": false,
+                "title_case": false
+              },
+              "top_k": {
+                "tool_mode": false,
+                "trace_as_metadata": true,
+                "list": false,
+                "list_add_label": "Add More",
+                "override_skip": false,
+                "required": false,
+                "placeholder": "",
+                "show": true,
+                "name": "top_k",
+                "value": 8,
+                "display_name": "Top K Videos",
+                "advanced": false,
+                "api_editable": false,
+                "dynamic": false,
+                "info": "Batas maksimal video yang disertakan dalam rekomendasi (default 8).",
+                "title_case": false,
+                "track_in_telemetry": true,
+                "type": "int",
+                "_input_type": "IntInput"
+              }
+            },
+            "description": "Melakukan perangkingan relevansi video tutorial memasak terhadap resep terpilih, memastikan tidak ada video duplikat, dan menggabungkan video ke dalam kontrak respons terstruktur Nomz.",
+            "icon": "sparkles",
+            "base_classes": [
+              "Message"
+            ],
+            "display_name": "Video Relevance & Ranking",
+            "documentation": "",
+            "minimized": false,
+            "custom_fields": {},
+            "output_types": [],
+            "pinned": false,
+            "conditional_paths": [],
+            "frozen": false,
+            "outputs": [
+              {
+                "types": [
+                  "Message"
+                ],
+                "selected": "Message",
+                "name": "final_response",
+                "display_name": "Final Response",
+                "method": "rank_and_merge",
+                "value": "__UNDEFINED__",
+                "cache": true,
+                "allows_loop": false,
+                "group_outputs": false,
+                "tool_mode": true
+              }
+            ],
+            "field_order": [],
+            "beta": false,
+            "legacy": false,
+            "edited": false,
+            "metadata": {},
+            "tool_mode": false
+          },
+          "type": "VideoRelevanceRanker",
+          "showNode": true,
+          "id": "VideoRelevanceRanker-ce7b9"
         }
       },
       {
         "id": "ChatOutput-uj4qo",
         "type": "genericNode",
         "position": {
-          "x": 2050,
+          "x": 2650,
           "y": 200
         },
         "data": {
@@ -1510,8 +1891,8 @@
       {
         "source": "ChatInput-mZhYn",
         "sourceHandle": "{\"dataType\": \"ChatInput\", \"id\": \"ChatInput-mZhYn\", \"name\": \"message\", \"output_types\": [\"Message\"]}",
-        "target": "IngredientNormalizer-67967",
-        "targetHandle": "{\"fieldName\": \"request\", \"id\": \"IngredientNormalizer-67967\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "target": "IngredientNormalizer-71120",
+        "targetHandle": "{\"fieldName\": \"request\", \"id\": \"IngredientNormalizer-71120\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "data": {
           "sourceHandle": {
             "dataType": "ChatInput",
@@ -1523,27 +1904,27 @@
           },
           "targetHandle": {
             "fieldName": "request",
-            "id": "IngredientNormalizer-67967",
+            "id": "IngredientNormalizer-71120",
             "inputTypes": [
               "Message"
             ],
             "type": "str"
           }
         },
-        "id": "xy-edge__ChatInput-mZhYn{\"dataType\": \"ChatInput\", \"id\": \"ChatInput-mZhYn\", \"name\": \"message\", \"output_types\": [\"Message\"]}-IngredientNormalizer-67967{\"fieldName\": \"request\", \"id\": \"IngredientNormalizer-67967\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "id": "xy-edge__ChatInput-mZhYn{\"dataType\": \"ChatInput\", \"id\": \"ChatInput-mZhYn\", \"name\": \"message\", \"output_types\": [\"Message\"]}-IngredientNormalizer-71120{\"fieldName\": \"request\", \"id\": \"IngredientNormalizer-71120\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "animated": false,
         "className": "",
         "selected": false
       },
       {
-        "source": "IngredientNormalizer-67967",
-        "sourceHandle": "{\"dataType\": \"IngredientNormalizer\", \"id\": \"IngredientNormalizer-67967\", \"name\": \"brief\", \"output_types\": [\"Message\"]}",
-        "target": "CookingStyleInterpreter-5f7b8",
-        "targetHandle": "{\"fieldName\": \"brief\", \"id\": \"CookingStyleInterpreter-5f7b8\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "source": "IngredientNormalizer-71120",
+        "sourceHandle": "{\"dataType\": \"IngredientNormalizer\", \"id\": \"IngredientNormalizer-71120\", \"name\": \"brief\", \"output_types\": [\"Message\"]}",
+        "target": "CookingStyleInterpreter-c20e8",
+        "targetHandle": "{\"fieldName\": \"brief\", \"id\": \"CookingStyleInterpreter-c20e8\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "data": {
           "sourceHandle": {
             "dataType": "IngredientNormalizer",
-            "id": "IngredientNormalizer-67967",
+            "id": "IngredientNormalizer-71120",
             "name": "brief",
             "output_types": [
               "Message"
@@ -1551,27 +1932,27 @@
           },
           "targetHandle": {
             "fieldName": "brief",
-            "id": "CookingStyleInterpreter-5f7b8",
+            "id": "CookingStyleInterpreter-c20e8",
             "inputTypes": [
               "Message"
             ],
             "type": "str"
           }
         },
-        "id": "xy-edge__IngredientNormalizer-67967{\"dataType\": \"IngredientNormalizer\", \"id\": \"IngredientNormalizer-67967\", \"name\": \"brief\", \"output_types\": [\"Message\"]}-CookingStyleInterpreter-5f7b8{\"fieldName\": \"brief\", \"id\": \"CookingStyleInterpreter-5f7b8\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "id": "xy-edge__IngredientNormalizer-71120{\"dataType\": \"IngredientNormalizer\", \"id\": \"IngredientNormalizer-71120\", \"name\": \"brief\", \"output_types\": [\"Message\"]}-CookingStyleInterpreter-c20e8{\"fieldName\": \"brief\", \"id\": \"CookingStyleInterpreter-c20e8\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "animated": false,
         "className": "",
         "selected": false
       },
       {
-        "source": "CookingStyleInterpreter-5f7b8",
-        "sourceHandle": "{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-5f7b8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}",
-        "target": "RescuePromptBuilder-87587",
-        "targetHandle": "{\"fieldName\": \"interpreted_brief\", \"id\": \"RescuePromptBuilder-87587\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "source": "CookingStyleInterpreter-c20e8",
+        "sourceHandle": "{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-c20e8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}",
+        "target": "RescuePromptBuilder-61f23",
+        "targetHandle": "{\"fieldName\": \"interpreted_brief\", \"id\": \"RescuePromptBuilder-61f23\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "data": {
           "sourceHandle": {
             "dataType": "CookingStyleInterpreter",
-            "id": "CookingStyleInterpreter-5f7b8",
+            "id": "CookingStyleInterpreter-c20e8",
             "name": "interpreted",
             "output_types": [
               "Message"
@@ -1579,27 +1960,27 @@
           },
           "targetHandle": {
             "fieldName": "interpreted_brief",
-            "id": "RescuePromptBuilder-87587",
+            "id": "RescuePromptBuilder-61f23",
             "inputTypes": [
               "Message"
             ],
             "type": "str"
           }
         },
-        "id": "xy-edge__CookingStyleInterpreter-5f7b8{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-5f7b8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}-RescuePromptBuilder-87587{\"fieldName\": \"interpreted_brief\", \"id\": \"RescuePromptBuilder-87587\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "id": "xy-edge__CookingStyleInterpreter-c20e8{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-c20e8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}-RescuePromptBuilder-61f23{\"fieldName\": \"interpreted_brief\", \"id\": \"RescuePromptBuilder-61f23\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "animated": false,
         "className": "",
         "selected": false
       },
       {
-        "source": "RescuePromptBuilder-87587",
-        "sourceHandle": "{\"dataType\": \"RescuePromptBuilder\", \"id\": \"RescuePromptBuilder-87587\", \"name\": \"prompt\", \"output_types\": [\"Message\"]}",
+        "source": "RescuePromptBuilder-61f23",
+        "sourceHandle": "{\"dataType\": \"RescuePromptBuilder\", \"id\": \"RescuePromptBuilder-61f23\", \"name\": \"prompt\", \"output_types\": [\"Message\"]}",
         "target": "ext:google:GoogleGenerativeAIComponent@official-Gtk78",
         "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ext:google:GoogleGenerativeAIComponent@official-Gtk78\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "data": {
           "sourceHandle": {
             "dataType": "RescuePromptBuilder",
-            "id": "RescuePromptBuilder-87587",
+            "id": "RescuePromptBuilder-61f23",
             "name": "prompt",
             "output_types": [
               "Message"
@@ -1614,20 +1995,20 @@
             "type": "str"
           }
         },
-        "id": "xy-edge__RescuePromptBuilder-87587{\"dataType\": \"RescuePromptBuilder\", \"id\": \"RescuePromptBuilder-87587\", \"name\": \"prompt\", \"output_types\": [\"Message\"]}-ext:google:GoogleGenerativeAIComponent@official-Gtk78{\"fieldName\": \"input_value\", \"id\": \"ext:google:GoogleGenerativeAIComponent@official-Gtk78\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "id": "xy-edge__RescuePromptBuilder-61f23{\"dataType\": \"RescuePromptBuilder\", \"id\": \"RescuePromptBuilder-61f23\", \"name\": \"prompt\", \"output_types\": [\"Message\"]}-ext:google:GoogleGenerativeAIComponent@official-Gtk78{\"fieldName\": \"input_value\", \"id\": \"ext:google:GoogleGenerativeAIComponent@official-Gtk78\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "animated": false,
         "className": "",
         "selected": false
       },
       {
-        "source": "CookingStyleInterpreter-5f7b8",
-        "sourceHandle": "{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-5f7b8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}",
-        "target": "RecipeValidatorFormatter-c3e52",
-        "targetHandle": "{\"fieldName\": \"interpreted_brief\", \"id\": \"RecipeValidatorFormatter-c3e52\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "source": "CookingStyleInterpreter-c20e8",
+        "sourceHandle": "{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-c20e8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}",
+        "target": "RecipeValidatorFormatter-22693",
+        "targetHandle": "{\"fieldName\": \"interpreted_brief\", \"id\": \"RecipeValidatorFormatter-22693\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "data": {
           "sourceHandle": {
             "dataType": "CookingStyleInterpreter",
-            "id": "CookingStyleInterpreter-5f7b8",
+            "id": "CookingStyleInterpreter-c20e8",
             "name": "interpreted",
             "output_types": [
               "Message"
@@ -1635,14 +2016,14 @@
           },
           "targetHandle": {
             "fieldName": "interpreted_brief",
-            "id": "RecipeValidatorFormatter-c3e52",
+            "id": "RecipeValidatorFormatter-22693",
             "inputTypes": [
               "Message"
             ],
             "type": "str"
           }
         },
-        "id": "xy-edge__CookingStyleInterpreter-5f7b8{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-5f7b8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}-RecipeValidatorFormatter-c3e52{\"fieldName\": \"interpreted_brief\", \"id\": \"RecipeValidatorFormatter-c3e52\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "id": "xy-edge__CookingStyleInterpreter-c20e8{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-c20e8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}-RecipeValidatorFormatter-22693{\"fieldName\": \"interpreted_brief\", \"id\": \"RecipeValidatorFormatter-22693\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "animated": false,
         "className": "",
         "selected": false
@@ -1650,8 +2031,8 @@
       {
         "source": "ext:google:GoogleGenerativeAIComponent@official-Gtk78",
         "sourceHandle": "{\"dataType\": \"ext:google:GoogleGenerativeAIComponent@official\", \"id\": \"ext:google:GoogleGenerativeAIComponent@official-Gtk78\", \"name\": \"text_output\", \"output_types\": [\"Message\"]}",
-        "target": "RecipeValidatorFormatter-c3e52",
-        "targetHandle": "{\"fieldName\": \"llm_output\", \"id\": \"RecipeValidatorFormatter-c3e52\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "target": "RecipeValidatorFormatter-22693",
+        "targetHandle": "{\"fieldName\": \"llm_output\", \"id\": \"RecipeValidatorFormatter-22693\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "data": {
           "sourceHandle": {
             "dataType": "ext:google:GoogleGenerativeAIComponent@official",
@@ -1663,28 +2044,140 @@
           },
           "targetHandle": {
             "fieldName": "llm_output",
-            "id": "RecipeValidatorFormatter-c3e52",
+            "id": "RecipeValidatorFormatter-22693",
             "inputTypes": [
               "Message"
             ],
             "type": "str"
           }
         },
-        "id": "xy-edge__ext:google:GoogleGenerativeAIComponent@official-Gtk78{\"dataType\": \"ext:google:GoogleGenerativeAIComponent@official\", \"id\": \"ext:google:GoogleGenerativeAIComponent@official-Gtk78\", \"name\": \"text_output\", \"output_types\": [\"Message\"]}-RecipeValidatorFormatter-c3e52{\"fieldName\": \"llm_output\", \"id\": \"RecipeValidatorFormatter-c3e52\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "id": "xy-edge__ext:google:GoogleGenerativeAIComponent@official-Gtk78{\"dataType\": \"ext:google:GoogleGenerativeAIComponent@official\", \"id\": \"ext:google:GoogleGenerativeAIComponent@official-Gtk78\", \"name\": \"text_output\", \"output_types\": [\"Message\"]}-RecipeValidatorFormatter-22693{\"fieldName\": \"llm_output\", \"id\": \"RecipeValidatorFormatter-22693\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
         "animated": false,
         "className": "",
         "selected": false
       },
       {
-        "source": "RecipeValidatorFormatter-c3e52",
-        "sourceHandle": "{\"dataType\": \"RecipeValidatorFormatter\", \"id\": \"RecipeValidatorFormatter-c3e52\", \"name\": \"formatted_json\", \"output_types\": [\"Message\"]}",
+        "source": "RecipeValidatorFormatter-22693",
+        "sourceHandle": "{\"dataType\": \"RecipeValidatorFormatter\", \"id\": \"RecipeValidatorFormatter-22693\", \"name\": \"formatted_json\", \"output_types\": [\"Message\"]}",
+        "target": "VideoSearchIntent-c7b74",
+        "targetHandle": "{\"fieldName\": \"validated_recipes\", \"id\": \"VideoSearchIntent-c7b74\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "RecipeValidatorFormatter",
+            "id": "RecipeValidatorFormatter-22693",
+            "name": "formatted_json",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "validated_recipes",
+            "id": "VideoSearchIntent-c7b74",
+            "inputTypes": [
+              "Message"
+            ],
+            "type": "str"
+          }
+        },
+        "id": "xy-edge__RecipeValidatorFormatter-22693{\"dataType\": \"RecipeValidatorFormatter\", \"id\": \"RecipeValidatorFormatter-22693\", \"name\": \"formatted_json\", \"output_types\": [\"Message\"]}-VideoSearchIntent-c7b74{\"fieldName\": \"validated_recipes\", \"id\": \"VideoSearchIntent-c7b74\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "animated": false,
+        "className": "",
+        "selected": false
+      },
+      {
+        "source": "CookingStyleInterpreter-c20e8",
+        "sourceHandle": "{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-c20e8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}",
+        "target": "VideoSearchIntent-c7b74",
+        "targetHandle": "{\"fieldName\": \"interpreted_brief\", \"id\": \"VideoSearchIntent-c7b74\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "CookingStyleInterpreter",
+            "id": "CookingStyleInterpreter-c20e8",
+            "name": "interpreted",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "interpreted_brief",
+            "id": "VideoSearchIntent-c7b74",
+            "inputTypes": [
+              "Message"
+            ],
+            "type": "str"
+          }
+        },
+        "id": "xy-edge__CookingStyleInterpreter-c20e8{\"dataType\": \"CookingStyleInterpreter\", \"id\": \"CookingStyleInterpreter-c20e8\", \"name\": \"interpreted\", \"output_types\": [\"Message\"]}-VideoSearchIntent-c7b74{\"fieldName\": \"interpreted_brief\", \"id\": \"VideoSearchIntent-c7b74\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "animated": false,
+        "className": "",
+        "selected": false
+      },
+      {
+        "source": "VideoSearchIntent-c7b74",
+        "sourceHandle": "{\"dataType\": \"VideoSearchIntent\", \"id\": \"VideoSearchIntent-c7b74\", \"name\": \"intent\", \"output_types\": [\"Message\"]}",
+        "target": "YouTubeSearchTool-09358",
+        "targetHandle": "{\"fieldName\": \"intent\", \"id\": \"YouTubeSearchTool-09358\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "VideoSearchIntent",
+            "id": "VideoSearchIntent-c7b74",
+            "name": "intent",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "intent",
+            "id": "YouTubeSearchTool-09358",
+            "inputTypes": [
+              "Message"
+            ],
+            "type": "str"
+          }
+        },
+        "id": "xy-edge__VideoSearchIntent-c7b74{\"dataType\": \"VideoSearchIntent\", \"id\": \"VideoSearchIntent-c7b74\", \"name\": \"intent\", \"output_types\": [\"Message\"]}-YouTubeSearchTool-09358{\"fieldName\": \"intent\", \"id\": \"YouTubeSearchTool-09358\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "animated": false,
+        "className": "",
+        "selected": false
+      },
+      {
+        "source": "YouTubeSearchTool-09358",
+        "sourceHandle": "{\"dataType\": \"YouTubeSearchTool\", \"id\": \"YouTubeSearchTool-09358\", \"name\": \"candidates\", \"output_types\": [\"Message\"]}",
+        "target": "VideoRelevanceRanker-ce7b9",
+        "targetHandle": "{\"fieldName\": \"candidate_videos\", \"id\": \"VideoRelevanceRanker-ce7b9\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "data": {
+          "sourceHandle": {
+            "dataType": "YouTubeSearchTool",
+            "id": "YouTubeSearchTool-09358",
+            "name": "candidates",
+            "output_types": [
+              "Message"
+            ]
+          },
+          "targetHandle": {
+            "fieldName": "candidate_videos",
+            "id": "VideoRelevanceRanker-ce7b9",
+            "inputTypes": [
+              "Message"
+            ],
+            "type": "str"
+          }
+        },
+        "id": "xy-edge__YouTubeSearchTool-09358{\"dataType\": \"YouTubeSearchTool\", \"id\": \"YouTubeSearchTool-09358\", \"name\": \"candidates\", \"output_types\": [\"Message\"]}-VideoRelevanceRanker-ce7b9{\"fieldName\": \"candidate_videos\", \"id\": \"VideoRelevanceRanker-ce7b9\", \"inputTypes\": [\"Message\"], \"type\": \"str\"}",
+        "animated": false,
+        "className": "",
+        "selected": false
+      },
+      {
+        "source": "VideoRelevanceRanker-ce7b9",
+        "sourceHandle": "{\"dataType\": \"VideoRelevanceRanker\", \"id\": \"VideoRelevanceRanker-ce7b9\", \"name\": \"final_response\", \"output_types\": [\"Message\"]}",
         "target": "ChatOutput-uj4qo",
         "targetHandle": "{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-uj4qo\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"other\"}",
         "data": {
           "sourceHandle": {
-            "dataType": "RecipeValidatorFormatter",
-            "id": "RecipeValidatorFormatter-c3e52",
-            "name": "formatted_json",
+            "dataType": "VideoRelevanceRanker",
+            "id": "VideoRelevanceRanker-ce7b9",
+            "name": "final_response",
             "output_types": [
               "Message"
             ]
@@ -1702,28 +2195,30 @@
             "type": "other"
           }
         },
-        "id": "xy-edge__RecipeValidatorFormatter-c3e52{\"dataType\": \"RecipeValidatorFormatter\", \"id\": \"RecipeValidatorFormatter-c3e52\", \"name\": \"formatted_json\", \"output_types\": [\"Message\"]}-ChatOutput-uj4qo{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-uj4qo\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"other\"}",
+        "id": "xy-edge__VideoRelevanceRanker-ce7b9{\"dataType\": \"VideoRelevanceRanker\", \"id\": \"VideoRelevanceRanker-ce7b9\", \"name\": \"final_response\", \"output_types\": [\"Message\"]}-ChatOutput-uj4qo{\"fieldName\": \"input_value\", \"id\": \"ChatOutput-uj4qo\", \"inputTypes\": [\"Data\", \"JSON\", \"DataFrame\", \"Table\", \"Message\"], \"type\": \"other\"}",
         "animated": false,
         "className": "",
         "selected": false
       }
     ],
     "viewport": {
-      "x": 100,
+      "x": 50,
       "y": 100,
-      "zoom": 0.8
+      "zoom": 0.75
     }
   },
   "is_component": false,
   "mcp_enabled": true,
   "action_name": "find_meals_v2",
-  "action_description": "Nomz AI Culinary Orchestration V2 for recipe recommendation and food rescue",
+  "action_description": "Nomz AI Culinary and Tool Orchestration V2",
   "endpoint_name": "find_meals_v2",
   "tags": [
     "nomz",
     "orchestration",
     "v2",
     "culinary",
-    "food-rescue"
+    "food-rescue",
+    "youtube",
+    "video-ranking"
   ]
 }

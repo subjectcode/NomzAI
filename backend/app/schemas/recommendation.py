@@ -2,6 +2,8 @@ import uuid
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
+from app.schemas.video import VideoRecommendation
+
 
 class RecommendationRequest(BaseModel):
     ingredients: List[str] = Field(
@@ -71,9 +73,17 @@ class RecipeRecommendationItem(BaseModel):
         default="1-2 porsi",
         description="Estimasi porsi sajian",
     )
+    videos: Optional[List[VideoRecommendation]] = Field(
+        default=None,
+        description="Rekomendasi video tutorial memasak yang relevan (bila diorkestrasi oleh flow)",
+    )
 
 
 class RecommendationResponse(BaseModel):
     recommendations: List[RecipeRecommendationItem]
     source: str = Field(default="langflow", description="Execution engine source (e.g. langflow, gemini)")
     flow_id: str | None = Field(default=None, description="Langflow Flow ID")
+    videos: Optional[List[VideoRecommendation]] = Field(
+        default=None,
+        description="Pool video tutorial relevan yang dihasilkan langsung oleh orkestrasi Langflow",
+    )

@@ -12,10 +12,26 @@ export interface RecipeRecommendation {
   langkah?: string[];
   langkah_memasak?: string[];
   porsi?: string;
+  videos?: Array<{
+    video_id: string;
+    title: string;
+    channel_title: string;
+    thumbnail_url: string;
+    duration?: string;
+    url: string;
+  }>;
 }
 
 export interface RecommendationResponse {
   recommendations: RecipeRecommendation[];
   source?: string;
   flow_id?: string | null;
+  videos?: Array<{
+    video_id: string;
+    title: string;
+    channel_title: string;
+    thumbnail_url: string;
+    duration?: string;
+    url: string;
+  }>;
 }

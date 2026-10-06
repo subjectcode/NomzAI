@@ -41,6 +41,13 @@ export function DetailResepScreen({
 
     let isMounted = true;
     const loadVideos = async () => {
+      // Jika flow Langflow sudah menyertakan video relevan yang diorkestrasi
+      if (recipe.videos && recipe.videos.length > 0) {
+        setVideos(recipe.videos);
+        setLoadingVideos(false);
+        return;
+      }
+
       setLoadingVideos(true);
       setVideoError(false);
       try {
