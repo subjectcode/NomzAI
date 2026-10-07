@@ -1,4 +1,5 @@
 import { Linking } from 'react-native';
+import { API_BASE_URL } from '../config';
 
 export interface VideoRecommendation {
   video_id: string;
@@ -25,7 +26,7 @@ export async function fetchVideoRecommendations(
   offset: number = 0,
   limit: number = 50
 ): Promise<VideoRecommendation[]> {
-  const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:8000';
+  const API_URL = API_BASE_URL;
   const query = `resep ${recipeName} cara memasak`;
 
   try {
