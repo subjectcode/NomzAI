@@ -1,195 +1,299 @@
-# Nomz
+# Nomz — AI Food Rescue Assistant
 
-Nomz adalah mobile food assistant untuk membantu pengguna merencanakan masakan dari bahan-bahan yang sudah ada di dapur. Aplikasi mendeteksi bahan dari foto, memvalidasi bahan bersama pengguna, dan menghasilkan rekomendasi masakan praktis melalui orkestrasi workflow Langflow.
+[![Release](https://img.shields.io/badge/Release-v1.0.0-emerald.svg)](https://github.com/subjectcode/NomzAI/releases/tag/v1.0.0)
+[![Backend Status](https://img.shields.io/badge/Railway-Production%20Online-success.svg)](https://nomz-backend-production.up.railway.app/api/health)
+[![Tests](https://img.shields.io/badge/Backend%20Pytest-78%2F78%20PASS-brightgreen.svg)]()
+[![TypeScript](https://img.shields.io/badge/TypeScript-0%20Errors-blue.svg)]()
+[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20FastAPI-orange.svg)]()
 
----
-
-## Masalah yang Diselesaikan
-
-Banyak bahan makanan di dapur terbuang karena pengguna bingung harus memasak apa dari bahan sisa yang ada. Nomz membalik alur pencarian resep konvensional: alih-alih mencari resep lalu berbelanja bahan, Nomz memulai dari bahan yang benar-benar tersedia di dapur pengguna.
-
----
-
-## Cara Kerja
-
-1. **Pindai Bahan**: Pengguna mengambil foto bahan masakan di dapur atau memilih foto dari galeri.
-2. **Deteksi Multimodal**: Backend vision mendeteksi bahan makanan secara otomatis dalam Bahasa Indonesia terstruktur.
-3. **Konfirmasi Bahan**: Pengguna dapat menyunting, menghapus, atau menambahkan bumbu dapur secara manual.
-4. **Eksekusi Workflow Langflow**: Daftar bahan terkonfirmasi dikirim ke workflow Langflow `find_meals` pada backend.
-5. **Rekomendasi Terstruktur**: Langflow memproses prompt dan model untuk menghasilkan 2-3 rekomendasi masakan realistis dengan pemisahan jelas antara bahan yang dimiliki pengguna vs bahan tambahan yang diperlukan.
-6. **Detail Masakan**: Pengguna memilih masakan untuk melihat metrik waktu, tingkat kesulitan, serta rincian bahan.
+Nomz is a mobile food assistant designed to reduce kitchen food waste by helping users transform whatever ingredients they already have into practical, delicious meals. Nomz flips the traditional recipe workflow: instead of searching for a recipe and buying ingredients, Nomz starts with what is already in your kitchen.
 
 ---
 
-## Arsitektur Sistem
+## Table of Contents
 
-```text
-React Native / Expo (Mobile Frontend)
-         │  HTTP / REST
-         ▼
-      FastAPI (Backend Gateway)
-         │  POST /api/v1/run/{flow_id}
-         ▼
- Langflow `find_meals` (Workflow Engine)
-         │
-         ▼
-      AI Model (Gemini)
+- [Problem Statement](#problem-statement)
+- [Solution](#solution)
+- [Core Features](#core-features)
+- [End-to-End User Flow](#end-to-end-user-flow)
+- [System Architecture](#system-architecture)
+- [Technology Stack](#technology-stack)
+- [AI & Workflow Orchestration](#ai--workflow-orchestration)
+  - [Langflow V2 Orchestration](#langflow-v2-orchestration)
+  - [Gemini Multimodal Vision](#gemini-multimodal-vision)
+  - [IBM Bob & Model Context Protocol (MCP)](#ibm-bob--model-context-protocol-mcp)
+  - [Composio & YouTube Video Discovery](#composio--youtube-video-discovery)
+- [Production Infrastructure (Railway + PostgreSQL)](#production-infrastructure-railway--postgresql)
+- [Responsible AI & Safety](#responsible-ai--safety)
+- [Screenshots](#screenshots)
+- [Local Development Setup](#local-development-setup)
+- [Environment Variables](#environment-variables)
+- [Automated Testing & QA](#automated-testing--qa)
+- [Release APK & Installation](#release-apk--installation)
+- [Project Directory Structure](#project-directory-structure)
+- [Contributors & License](#contributors--license)
+
+---
+
+## Problem Statement
+
+Household food waste frequently occurs because people forget perishable items in their refrigerator or struggle to assemble cohesive recipes from disconnected pantry leftovers. Consumers end up discarding usable ingredients and ordering takeout, wasting both food and household budget.
+
+## Solution
+
+Nomz provides an instant, intelligent bridge from pantry contents to dinner table:
+1. **Visual Ingredient Scanning**: Users snap a single photo of ingredients on their kitchen counter or inside their fridge.
+2. **AI Multimodal Recognition**: Vision models detect and structure ingredient names automatically in natural Indonesian.
+3. **Smart Food Rescue Recipes**: Langflow orchestration synthesizes realistic recipes that prioritize utilizing on-hand items before they spoil, explicitly distinguishing pantry items from minor supplementary staples.
+4. **Cooking Assistance & Video Discovery**: Step-by-step cooking timers, instruction checklists, and relevant YouTube tutorials.
+
+---
+
+## Core Features
+
+- **Multimodal Ingredient Detection**: High-accuracy detection via Google Gemini multimodal vision.
+- **Recipe Recommendations (Langflow V2)**: Real-time meal generation via Langflow workflows with automatic fallback routing.
+- **5-Tab Mobile Navigation**:
+  - **Beranda (Home)**: Quick scan shortcuts, food-rescue impact stats, and recommended recipes.
+  - **Jelajahi (Explore)**: Recipe exploration by category and cooking style.
+  - **Scan (Medallion Action)**: Central quick-access photo capture & ingredient recognition.
+  - **Tersimpan (Saved)**: Bookmarked favorite recipes for quick access.
+  - **Profil (Profile)**: Account profile management, food waste metrics, pantry stock, cooking history, and meal planner.
+- **Authentication & Security**:
+  - Google Sign-In (native Google Play Services OAuth 2.0 with backend `id_token` verification).
+  - Secure Email/Password registration with 6-digit OTP verification.
+  - Persistent encrypted session storage (Remember Me support).
+  - Strict account data isolation across PostgreSQL.
+- **Kitchen Utilities**:
+  - Interactive Pantry inventory management.
+  - Guided step-by-step cooking interface with built-in timers.
+  - YouTube recipe tutorial video search.
+
+---
+
+## End-to-End User Flow
+
+```mermaid
+graph TD
+    A[Launch Nomz App] --> B{Authenticated?}
+    B -->|No| C[Auth Welcome / Login / Register / Google OAuth]
+    C -->|Success| D[Home Screen]
+    B -->|Yes| D
+    D --> E[Tap Central Scan Button]
+    E --> F[Capture or Pick Kitchen Photo]
+    F --> G[Multimodal Ingredient Detection]
+    G --> H[User Confirms / Edits Ingredients]
+    H --> I[Langflow V2 Recipe Generation]
+    I --> J[Review Matched Recipes]
+    J --> K[Detail Resep & Step-by-Step Cooking]
+    K --> L[Tutorial Videos via YouTube]
 ```
 
-- **Ingredient Vision**: Diproses langsung oleh backend FastAPI menggunakan Gemini Multimodal dengan structured schema JSON.
-- **Recipe Recommendation**: Dikelola dan dieksekusi oleh workflow Langflow (`find_meals`).
-- **Data Boundary**: FastAPI bertindak sebagai API gateway yang memvalidasi request mobile, mengeksekusi Langflow via REST, serta memvalidasi response schema sebelum dikembalikan ke mobile client.
+---
+
+## System Architecture
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                 Nomz Android Mobile Client                  │
+│       React Native (Expo SDK 52) · TypeScript · Native UI    │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ HTTPS (Railway)
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 FastAPI Gateway Backend                     │
+│  PostgreSQL (Railway) · JWT Session · Strict Route Security │
+└───┬──────────────────────────┬──────────────────────────┬───┘
+    │                          │                          │
+    ▼                          ▼                          ▼
+┌────────────────────┐  ┌───────────────┐  ┌──────────────────┐
+│ Gemini Multimodal  │  │  Langflow V2  │  │ Video Discovery  │
+│  Vision Processing │  │ Orchestration │  │ Composio/YouTube │
+└────────────────────┘  └───────┬───────┘  └──────────────────┘
+                                │
+                                ▼
+                        ┌───────────────┐
+                        │    IBM Bob    │
+                        │ MCP Protocol  │
+                        └───────────────┘
+```
 
 ---
 
-## Fitur yang Berjalan
+## Technology Stack
 
-- [x] Health check backend dan koneksi database SQLite (`GET /api/health`).
-- [x] Upload foto bahan masakan dengan validasi MIME dan batas ukuran file (`POST /api/vision/detect-ingredients`).
-- [x] Deteksi bahan makanan berbasis multimodal AI dalam Bahasa Indonesia alami.
-- [x] Antarmuka mobile untuk pemilihan foto, pratinjau, pengeditan nama bahan, penambahan bahan manual, dan konfirmasi.
-- [x] Eksekusi workflow rekomendasi masakan via Langflow runtime (`POST /api/recommendations`).
-- [x] Kartu rekomendasi masakan dengan pemisahan bahan tersedia vs bahan tambahan.
-- [x] Layar detail masakan dan navigasi bolak-balik tanpa merusak state bahan.
-- [x] Kompatibilitas cross-platform: Expo Web dan physical Android (Expo Go via network IP).
-
----
-
-## Status Pengembangan
-
-| Milestone | Ruang Lingkup | Status |
-| :--- | :--- | :--- |
-| **M0** | Foundation: FastAPI + SQLite + Expo boilerplate + Health check | **Complete** |
-| **M1** | Ingredient Vision: Multimodal detection + mobile confirmation flow | **Complete** |
-| **M2** | Meal Recommendation: Structured recipe generation + mobile screens | **Complete** |
-| **M3** | Real Langflow Integration: Runtime execution of `find_meals` flow | **Complete** |
-| **M4** | IBM Bob & Model Context Protocol (MCP) Integration | **Complete** |
+- **Mobile Client**: React Native 0.76, Expo SDK 52, TypeScript 5.3, React Native Paper / Feather icons.
+- **Backend API**: Python 3.11, FastAPI, Pydantic v2, SQLAlchemy, Uvicorn, HTTPX.
+- **Database**: PostgreSQL (Production on Railway) with local SQLite compatibility for testing.
+- **AI & Orchestration**:
+  - Google Gemini (`gemini-3.8-flash` via `google-genai`).
+  - Langflow 1.12+ runtime workflows (`find_meals_v2` with V1 fallback).
+  - IBM Bob MCP integration (`bob/mcp-config.example.json`).
+  - Composio Tool Routing & YouTube Data API v3.
+- **Deployment**: Railway HTTPS container deployment with Docker.
 
 ---
 
-## Tech Stack
+## AI & Workflow Orchestration
 
-- **Frontend**: React Native, Expo SDK 52, TypeScript, `@expo/vector-icons` (Feather).
-- **Backend**: Python 3.11, FastAPI, Pydantic v2, SQLAlchemy, HTTPX, Uvicorn.
-- **Workflow / AI Engine**: Langflow 1.12.3 (Docker), Google Gemini via `google-genai` / Langflow Google Component.
-- **Testing**: Pytest, FastAPI TestClient.
+### Langflow V2 Orchestration
+Nomz utilizes Langflow for structured recipe synthesis. The workflow normalizes detected ingredient lists, matches flavor profiles, identifies necessary staples, and outputs structured JSON recipes tailored to minimize food waste.
+
+### Gemini Multimodal Vision
+Captured images are sent directly to the FastAPI vision service, which prompts Gemini with strict JSON schemas to extract ingredient names in natural Indonesian, filtering non-food objects.
+
+### IBM Bob & Model Context Protocol (MCP)
+Nomz includes full support for IBM Bob via Model Context Protocol:
+- Configured in `bob/mcp-config.example.json` to expose the `find_meals` workflow to IBM Bob agents.
+- Agent instructions in `bob/agent-instructions.md` guide automated tool use and multi-step recipe queries.
+
+### Composio & YouTube Video Discovery
+For cooking guidance, Nomz searches verified recipe tutorial videos via Composio orchestration, with seamless fallback to YouTube Data API v3.
 
 ---
 
-## Struktur Direktori
+## Production Infrastructure (Railway + PostgreSQL)
+
+Nomz is deployed live on Railway:
+- **Base URL**: `https://nomz-backend-production.up.railway.app`
+- **Health Check**: `https://nomz-backend-production.up.railway.app/api/health`
+- **Database**: Hosted managed PostgreSQL instance (`railway.internal`).
+- **Containerization**: Optimized multi-stage Docker build with zero host-specific dependencies.
+
+---
+
+## Responsible AI & Safety
+
+- **Food Safety & Disclaimer**: The application explicitly reminds users to inspect ingredients for freshness and proper storage condition before consumption.
+- **Allergen & Dietary Integrity**: Recipe recommendations flag secondary ingredients that users must independently verify.
+- **Data Privacy**: No captured kitchen images or personal credentials are stored permanently or exposed publicly.
+
+---
+
+## Screenshots
+
+| Pindai Bahan (Vision) | Rekomendasi Resep | Detail & Langkah Memasak |
+| :---: | :---: | :---: |
+| ![Scan Screen](screenshots/m2_01_initial_screen.png) | ![Rekomendasi](screenshots/m2_02_recommendations_list.png) | ![Detail Resep](screenshots/m2_03_detail_screen.png) |
+
+---
+
+## Local Development Setup
+
+### 1. Prerequisites
+- Python 3.11+
+- Node.js 18+ & npm
+- Docker (for local Langflow, optional if pointing to existing instance)
+
+### 2. Backend Setup
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate    # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env         # Populate GEMINI_API_KEY, DATABASE_URL, etc.
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 3. Frontend Setup
+```bash
+cd frontend
+npm install
+cp .env.example .env         # Set EXPO_PUBLIC_API_URL
+npx expo start
+```
+
+---
+
+## Environment Variables
+
+### Backend (`backend/.env`)
+| Variable | Description |
+| :--- | :--- |
+| `DATABASE_URL` | PostgreSQL connection URL (or `sqlite:///./nomz.db`) |
+| `GEMINI_API_KEY` | Google Gemini API key for vision and fallback |
+| `LANGFLOW_BASE_URL` | Langflow server URL (e.g. `http://127.0.0.1:7860`) |
+| `LANGFLOW_V2_FLOW_ID` | Langflow V2 flow UUID |
+| `GOOGLE_CLIENT_ID` | Google OAuth Web Client ID for backend verification |
+| `JWT_SECRET_KEY` | Secret key for signing authentication tokens |
+| `YOUTUBE_API_KEY` | Google Cloud API key for YouTube video search |
+| `COMPOSIO_API_KEY` | Optional Composio integration key |
+
+### Frontend (`frontend/.env`)
+| Variable | Description |
+| :--- | :--- |
+| `EXPO_PUBLIC_API_URL` | Nomz Backend base URL (`https://nomz-backend-production.up.railway.app`) |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Google OAuth Web Client ID |
+
+---
+
+## Automated Testing & QA
+
+Nomz maintains a comprehensive test suite across backend API, AI pipelines, and mobile contract layers:
+
+```bash
+# Run 78/78 Pytest test suite
+export PYTHONPATH=backend
+pytest tests/ -v
+
+# Run TypeScript type check
+cd frontend
+npx tsc --noEmit
+```
+
+- **Backend Pytest**: 78/78 passed (auth, video service, account isolation, Langflow, MCP).
+- **TypeScript**: 0 errors.
+- **Android E2E & Release QA**: Verified on Android emulators and physical release APK builds.
+
+---
+
+## Release APK & Installation
+
+A standalone release APK is available under [Releases](https://github.com/subjectcode/NomzAI/releases):
+- **Download**: [Nomz-v1.0.0-android.apk](https://github.com/subjectcode/NomzAI/releases/download/v1.0.0/Nomz-v1.0.0-android.apk)
+- **Application ID**: `com.nomz.app`
+- **Min Android SDK**: Android 7.0 (API 24)
+- **Target Android SDK**: Android 15 (API 35)
+
+---
+
+## Project Directory Structure
 
 ```text
 Nomz/
 ├── backend/
 │   ├── app/
-│   │   ├── api/routes/          # Endpoint health, vision, dan recommendations
-│   │   ├── core/config.py       # Pydantic Settings (env loader)
-│   │   ├── db/                  # Database session & models
-│   │   ├── schemas/             # Pydantic request/response schemas
-│   │   └── services/            # Services: vision, langflow client, recommendation
-│   ├── requirements.txt
-│   └── .env.example
+│   │   ├── api/routes/          # Auth, Health, Vision, Recommendations, Videos
+│   │   ├── core/                # Configuration and security settings
+│   │   ├── db/                  # SQLAlchemy models and session engine
+│   │   ├── schemas/             # Pydantic validation schemas
+│   │   └── services/            # Vision, Auth, OTP, Langflow client, YouTube
+│   ├── Dockerfile               # Railway deployment configuration
+│   ├── Procfile                 # Process launcher
+│   └── requirements.txt
 ├── bob/
-│   ├── agent-instructions.md    # Instruksi sistem agent IBM Bob (delegasi find_meals)
-│   └── mcp-config.example.json  # Template aman MCP config untuk IBM Bob
+│   ├── agent-instructions.md    # IBM Bob system prompts
+│   └── mcp-config.example.json  # MCP tool specification for IBM Bob
 ├── frontend/
+│   ├── android/                 # Bare Android native release project
 │   ├── src/
-│   │   ├── screens/             # ScanBahanScreen, RekomendasiScreen, DetailResepScreen
-│   │   ├── services/api.ts      # Client HTTP & upload multipart
-│   │   └── types/               # TypeScript interfaces
-│   ├── App.tsx                  # Root navigation stack
-│   ├── package.json
-│   └── .env.example
+│   │   ├── components/          # BottomNavBar, GoogleSignInButton, NomzLogo
+│   │   ├── context/             # AuthContext session provider
+│   │   ├── screens/             # Beranda, Jelajahi, Scan, Detail, Profile, Auth
+│   │   ├── services/            # API clients, Google Auth, Storage
+│   │   └── theme/               # Design tokens, palette
+│   └── package.json
 ├── langflow/
-│   ├── find_meals.json          # Export flow Langflow M3
-│   └── README.md                # Dokumentasi node & runtime endpoint
-├── screenshots/                 # Dokumentasi visual prototype M0-M3
-├── tests/                       # Pytest automated test suites
-├── .env.example                 # Root environment template
-└── README.md
+│   ├── components/              # Custom Langflow Python nodes
+│   └── flows/                   # Exported workflow graphs (V1, V2, OTP)
+├── screenshots/                 # Application preview screenshots
+├── tests/                       # Pytest test suite (78 tests)
+└── .github/                     # Issue & PR templates
 ```
 
 ---
 
-## Panduan Menjalankan Project
+## Contributors & License
 
-### 1. Prasyarat
-- Python 3.11+
-- Node.js 18+ & npm
-- Docker (untuk menjalankan Langflow)
-
-### 2. Langflow Setup
-Jalankan instance Langflow lokal (port default `7860`):
-```bash
-docker run -d -p 7860:7860 --name langflow langflowai/langflow-all:latest
-```
-Import flow [langflow/find_meals.json](file:///d:/Projects/Bob/Nomz/langflow/find_meals.json) ke instance Langflow Anda, atau gunakan flow ID yang telah terdaftar.
-
-### 3. Backend Setup
-```bash
-cd backend
-python -m venv .venv
-
-# Windows:
-.venv\Scripts\activate
-# Linux/macOS:
-# source .venv/bin/activate
-
-pip install -r requirements.txt
-copy .env.example .env   # isi GEMINI_API_KEY dan LANGFLOW_API_KEY
-
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-Verifikasi endpoint:
-- Health check: `http://localhost:8000/api/health`
-- Swagger docs: `http://localhost:8000/api/docs`
-
-### 4. Frontend Setup
-```bash
-cd frontend
-npm install
-copy .env.example .env   # sesuaikan EXPO_PUBLIC_API_URL
-
-# Jalankan Expo:
-npx expo start
-```
-- Tekan `w` untuk menjalankan di web browser (`http://localhost:8081`).
-- Untuk testing di smartphone fisik via Expo Go, set `EXPO_PUBLIC_API_URL=http://<IP_LAN>:8000` di `frontend/.env`.
-
-### 5. IBM Bob & MCP Integration (M4)
-
-Nomz mendukung integrasi dengan IBM Bob melalui Model Context Protocol (MCP) untuk menghubungkan agen AI langsung ke workflow Langflow `find_meals`:
-
-1. Salin template MCP:
-   ```bash
-   # Windows PowerShell:
-   copy bob\mcp-config.example.json .bob\mcp.json
-   ```
-2. Isi nilai header `x-api-key` di `.bob/mcp.json` dengan API key Langflow lokal Anda. (File `.bob/mcp.json` otomatis diabaikan oleh `.gitignore` demi keamanan kredensial).
-3. Buka project Nomz di IBM Bob. Agent IBM Bob akan otomatis mendeteksi tool `find_meals` dan panduan delegasi dari `bob/agent-instructions.md`.
-
----
-
-## Menjalankan Automated Tests
-
-Eksekusi seluruh test suite (M0–M4) dari root direktori project:
-```bash
-# Windows PowerShell:
-$env:PYTHONPATH="backend"
-backend\.venv\Scripts\python -m pytest -v tests/
-```
-
-Typecheck TypeScript pada frontend:
-```bash
-cd frontend
-npx tsc --noEmit
-```
-
----
-
-## Screenshot Aplikasi
-
-| Pindai Bahan & Deteksi (M1) | Daftar Rekomendasi Langflow (M2-M3) | Detail Resep Masakan (M2) |
-| :---: | :---: | :---: |
-| ![Scan Screen](screenshots/m2_01_initial_screen.png) | ![Rekomendasi](screenshots/m2_02_recommendations_list.png) | ![Detail](screenshots/m2_03_detail_screen.png) |
+- **Repository**: [subjectcode/NomzAI](https://github.com/subjectcode/NomzAI)
+- **Developed for**: Hackathon 2026
