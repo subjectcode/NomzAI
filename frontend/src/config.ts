@@ -6,15 +6,18 @@ import { Platform } from 'react-native';
  * - Web and iOS Simulator can reach host machine at localhost
  */
 const getDefaultBaseUrl = (): string => {
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:8000';
+  if (__DEV__) {
+    if (Platform.OS === 'android') {
+      return 'http://10.0.2.2:8000';
+    }
+    return 'http://localhost:8000';
   }
-  return 'http://localhost:8000';
+  return 'https://nomz-backend-production.up.railway.app';
 };
 
 /**
  * Backend base URL read from Expo environment variable: EXPO_PUBLIC_API_URL
- * Defaults to localhost / emulator address if not explicitly set.
+ * Defaults to Railway HTTPS in production or localhost in development.
  */
 export const API_BASE_URL: string =
   process.env.EXPO_PUBLIC_API_URL || getDefaultBaseUrl();

@@ -20,12 +20,14 @@ interface OtpVerificationScreenProps {
   email: string;
   onVerificationSuccess: () => void;
   onBackToRegister: () => void;
+  onSkipVerification?: () => void;
 }
 
 export function OtpVerificationScreen({
   email,
   onVerificationSuccess,
   onBackToRegister,
+  onSkipVerification,
 }: OtpVerificationScreenProps) {
   const insets = useSafeAreaInsets();
   const [otpCode, setOtpCode] = useState('');
@@ -207,6 +209,17 @@ export function OtpVerificationScreen({
                 )}
               </TouchableOpacity>
             </View>
+
+            {onSkipVerification && (
+              <TouchableOpacity
+                style={styles.skipBtn}
+                onPress={onSkipVerification}
+                activeOpacity={0.7}
+                disabled={isVerifying}
+              >
+                <Text style={styles.skipBtnText}>Verifikasi Nanti & Masuk ke Akun</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -366,5 +379,17 @@ const styles = StyleSheet.create({
   },
   resendLinkDisabled: {
     color: colors.textMuted,
+  },
+  skipBtn: {
+    marginTop: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  skipBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textDecorationLine: 'underline',
   },
 });

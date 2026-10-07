@@ -1,15 +1,14 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, shadows } from '../theme';
 
 /**
  * Rute navigasi bottom bar Nomz.
- * Target arsitektur final: Beranda | Jelajahi | Scan (Center Action) | Tersimpan.
- * Catatan: Profil diakses via avatar di header sesuai DESIGN.md Section 19.
+ * Arsitektur final 5 Tab: Beranda | Jelajahi | Scan (Center Action) | Tersimpan | Profil.
  */
-export type TabRoute = 'beranda' | 'jelajahi' | 'scan' | 'tersimpan';
+export type TabRoute = 'beranda' | 'jelajahi' | 'scan' | 'tersimpan' | 'profil';
 
 export interface TabConfig {
   id: TabRoute;
@@ -23,6 +22,7 @@ export const ALL_TABS: TabConfig[] = [
   { id: 'jelajahi', label: 'Jelajahi', icon: 'compass', isAvailable: true },
   { id: 'scan', label: 'Scan', icon: 'camera', isAvailable: true },
   { id: 'tersimpan', label: 'Tersimpan', icon: 'bookmark', isAvailable: true },
+  { id: 'profil', label: 'Profil', icon: 'user', isAvailable: true },
 ];
 
 interface BottomNavBarProps {
@@ -37,7 +37,7 @@ export function BottomNavBar({ currentTab, onSelectTab }: BottomNavBarProps) {
   return (
     <View style={[styles.wrapper, { paddingBottom: bottomPadding }]}>
       <View style={styles.barContainer}>
-        {/* Tab: Beranda */}
+        {/* Tab 1: Beranda */}
         <TouchableOpacity
           style={styles.tabButton}
           onPress={() => onSelectTab('beranda')}
@@ -60,7 +60,7 @@ export function BottomNavBar({ currentTab, onSelectTab }: BottomNavBarProps) {
           </Text>
         </TouchableOpacity>
 
-        {/* Tab: Jelajahi */}
+        {/* Tab 2: Jelajahi */}
         <TouchableOpacity
           style={styles.tabButton}
           onPress={() => onSelectTab('jelajahi')}
@@ -83,7 +83,7 @@ export function BottomNavBar({ currentTab, onSelectTab }: BottomNavBarProps) {
           </Text>
         </TouchableOpacity>
 
-        {/* Center Primary Action: Scan Medallion (DESIGN.md Section 19) */}
+        {/* Tab 3: Center Primary Action (Scan Medallion) */}
         <TouchableOpacity
           style={styles.scanButtonWrapper}
           onPress={() => onSelectTab('scan')}
@@ -104,7 +104,7 @@ export function BottomNavBar({ currentTab, onSelectTab }: BottomNavBarProps) {
           </Text>
         </TouchableOpacity>
 
-        {/* Tab: Tersimpan */}
+        {/* Tab 4: Tersimpan */}
         <TouchableOpacity
           style={styles.tabButton}
           onPress={() => onSelectTab('tersimpan')}
@@ -126,6 +126,29 @@ export function BottomNavBar({ currentTab, onSelectTab }: BottomNavBarProps) {
             Tersimpan
           </Text>
         </TouchableOpacity>
+
+        {/* Tab 5: Profil */}
+        <TouchableOpacity
+          style={styles.tabButton}
+          onPress={() => onSelectTab('profil')}
+          activeOpacity={0.7}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: currentTab === 'profil' }}
+        >
+          <Feather
+            name="user"
+            size={22}
+            color={currentTab === 'profil' ? colors.primary : colors.textMuted}
+          />
+          <Text
+            style={[
+              styles.tabLabel,
+              currentTab === 'profil' ? styles.tabLabelActive : styles.tabLabelInactive,
+            ]}
+          >
+            Profil
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -137,14 +160,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.borderSubtle,
     paddingTop: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     ...shadows.level1,
   },
   barContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     alignItems: 'center',
-    maxWidth: 420,
+    maxWidth: 440,
     width: '100%',
     alignSelf: 'center',
   },
@@ -159,12 +182,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -16, // subtle elevation above bar
+    marginTop: -14, // Subtle elevation above bar
     minHeight: 56,
   },
   scanMedallion: {
-    width: 50,
-    height: 50,
+    width: 48,
+    height: 48,
     borderRadius: radius.full,
     backgroundColor: colors.primary,
     alignItems: 'center',

@@ -82,7 +82,7 @@ def send_otp_email_via_composio(email: str, otp_code: str, name: str | None = No
                 headers=headers,
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=25) as resp:
+            with urllib.request.urlopen(req, timeout=5) as resp:
                 resp_json = json.loads(resp.read().decode("utf-8"))
 
                 # Jika pemanggil adalah mock yang mengembalikan respons Composio langsung:

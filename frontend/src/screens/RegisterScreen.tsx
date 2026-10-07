@@ -21,7 +21,7 @@ interface RegisterScreenProps {
   onNavigateToLogin: () => void;
   onNavigateToWelcome?: () => void;
   onGoogleSignInSuccess?: () => void;
-  onNavigateToOtp?: (registeredEmail: string) => void;
+  onNavigateToOtp?: (registeredEmail: string, session?: { token: string; user: any }) => void;
 }
 
 export function RegisterScreen({
@@ -122,7 +122,7 @@ export function RegisterScreen({
 
     const cleanEmail = email.trim().toLowerCase();
     try {
-      await register({
+      const response = await register({
         displayName: displayName.trim(),
         username: username.trim().toLowerCase(),
         email: cleanEmail,
@@ -138,7 +138,7 @@ export function RegisterScreen({
       }
 
       if (onNavigateToOtp) {
-        onNavigateToOtp(cleanEmail);
+        onNavigateToOtp(cleanEmail, { token: response.access_token, user: response.user });
       }
     } catch (err: any) {
       const message = err.message || '';

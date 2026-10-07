@@ -88,7 +88,8 @@ def _call_langflow_api(
     logger.info("Mengeksekusi flow Langflow (%s) dengan input: %s", flow_id, payload.get("input_value"))
 
     try:
-        with httpx.Client(timeout=settings.LANGFLOW_TIMEOUT_SECONDS) as client:
+        timeout_cfg = httpx.Timeout(timeout=settings.LANGFLOW_TIMEOUT_SECONDS, connect=5.0)
+        with httpx.Client(timeout=timeout_cfg) as client:
             response = client.post(run_url, json=payload, headers=headers)
     except httpx.ConnectError as conn_err:
         logger.error("Gagal terhubung ke Langflow di %s: %s", base_url, conn_err)

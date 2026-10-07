@@ -34,7 +34,8 @@ export interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  register: (input: RegisterInput) => Promise<User>;
+  register: (input: RegisterInput) => Promise<{ access_token: string; user: User }>;
+  establishSession: (accessToken: string, userData: User) => Promise<void>;
   login: (input: LoginInput, rememberMe?: boolean) => Promise<User>;
   loginWithGoogle: (idToken: string) => Promise<User>;
   logout: () => Promise<void>;
@@ -110,18 +111,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [restoreSession]);
 
   /**
-   * Mendaftarkan pengguna baru, mengikat active user ID, dan membersihkan legacy data.
+   * Mengaktifkan sesi pengguna secara persisten (setelah login / verifikasi OTP).
    */
-  const handleRegister = async (input: RegisterInput): Promise<User> => {
+  const establishSession = async (accessToken: string, userData: User): Promise<void> => {
+    setIsLoading(true);
+    try {
+      await saveAuthToken(accessToken);
+      await saveActiveUserId(userData.id);
+      await cleanupLegacyGlobalStorage();
+      setToken(accessToken);
+      setUser(userData);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Mendaftarkan pengguna baru (mengembalikan kredensial untuk dilanjutkan dengan verifikasi OTP).
+   */
+  const handleRegister = async (input: RegisterInput): Promise<{ access_token: string; user: User }> => {
     setIsLoading(true);
     try {
       const response = await registerUser(input);
-      await saveAuthToken(response.access_token);
-      await saveActiveUserId(response.user.id);
-      await cleanupLegacyGlobalStorage();
-      setToken(response.access_token);
-      setUser(response.user);
-      return response.user;
+      return response;
     } finally {
       setIsLoading(false);
     }
@@ -235,6 +247,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated,
     isLoading,
     register: handleRegister,
+    establishSession,
     login: handleLogin,
     loginWithGoogle: handleGoogleLogin,
     logout: handleLogout,

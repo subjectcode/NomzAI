@@ -47,7 +47,7 @@ interface NavState {
 }
 
 function MainApp() {
-  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: isAuthLoading, establishSession } = useAuth();
 
   // Status onboarding lokal (AsyncStorage)
   const [isOnboardingCompleted, setIsOnboardingCompleted] = useState<boolean | null>(null);
@@ -55,8 +55,9 @@ function MainApp() {
   // Sub-layar alur autentikasi (welcome | login | register | otp)
   const [authSubScreen, setAuthSubScreen] = useState<AuthSubScreen>('login');
   const [pendingOtpEmail, setPendingOtpEmail] = useState<string>('');
+  const [pendingSession, setPendingSession] = useState<{ token: string; user: any } | null>(null);
 
-  // State Navigasi Tab Utama (Beranda | Jelajahi | Scan | Tersimpan)
+  // State Navigasi Tab Utama (Beranda | Jelajahi | Scan | Tersimpan | Profil)
   const [activeTab, setActiveTab] = useState<TabRoute>('beranda');
 
   // Modal / Sub-layar tingkat atas (profile | pantry | history | planner | none)
@@ -119,8 +120,15 @@ function MainApp() {
     }
 
     // 2. Fallback deterministik jika stack kosong
-    if (subScreen === 'edit_profile' || subScreen === 'settings') {
-      setSubScreen('profile');
+    if (
+      subScreen === 'edit_profile' ||
+      subScreen === 'settings' ||
+      subScreen === 'pantry' ||
+      subScreen === 'history' ||
+      subScreen === 'planner'
+    ) {
+      setSubScreen('none');
+      setActiveTab('profil');
       return true;
     }
     if (subScreen !== 'none') {
@@ -230,8 +238,11 @@ function MainApp() {
         <RegisterScreen
           onNavigateToLogin={() => setAuthSubScreen('login')}
           onNavigateToWelcome={() => setAuthSubScreen('welcome')}
-          onNavigateToOtp={(registeredEmail: string) => {
+          onNavigateToOtp={(registeredEmail: string, session?: { token: string; user: any }) => {
             setPendingOtpEmail(registeredEmail);
+            if (session) {
+              setPendingSession(session);
+            }
             setAuthSubScreen('otp');
           }}
         />
@@ -242,8 +253,21 @@ function MainApp() {
       return (
         <OtpVerificationScreen
           email={pendingOtpEmail}
-          onVerificationSuccess={() => {
-            setAuthSubScreen('login');
+          onVerificationSuccess={async () => {
+            if (pendingSession) {
+              await establishSession(pendingSession.token, pendingSession.user);
+              setPendingSession(null);
+            } else {
+              setAuthSubScreen('login');
+            }
+          }}
+          onSkipVerification={async () => {
+            if (pendingSession) {
+              await establishSession(pendingSession.token, pendingSession.user);
+              setPendingSession(null);
+            } else {
+              setAuthSubScreen('login');
+            }
           }}
           onBackToRegister={() => setAuthSubScreen('register')}
         />
@@ -295,10 +319,10 @@ function MainApp() {
   };
 
   // Navigasi Sub-layar (Profile / Pantry / History / Planner)
-  const handleOpenProfile = () => pushNav(activeTab, 'profile', cookingStep);
-  const handleOpenPantry = () => pushNav(activeTab, 'pantry', cookingStep);
-  const handleOpenHistory = () => pushNav(activeTab, 'history', cookingStep);
-  const handleOpenPlanner = () => pushNav(activeTab, 'planner', cookingStep);
+  const handleOpenProfile = () => handleSelectTab('profil');
+  const handleOpenPantry = () => pushNav('profil', 'pantry', cookingStep);
+  const handleOpenHistory = () => pushNav('profil', 'history', cookingStep);
+  const handleOpenPlanner = () => pushNav('profil', 'planner', cookingStep);
   const handleCloseSubScreen = () => handleGoBack();
 
   // Menentukan apakah BottomNavBar harus tampil
@@ -437,6 +461,19 @@ function MainApp() {
                   />
                 )}
               </>
+            )}
+
+            {/* TAB: Profil */}
+            {activeTab === 'profil' && (
+              <ProfileScreen
+                onBack={handleGoBack}
+                onNavigateToEditProfile={() => pushNav('profil', 'edit_profile', cookingStep)}
+                onNavigateToPantry={handleOpenPantry}
+                onNavigateToHistory={handleOpenHistory}
+                onNavigateToPlanner={handleOpenPlanner}
+                onNavigateToSaved={() => handleSelectTab('tersimpan')}
+                onNavigateToSettings={() => pushNav('profil', 'settings', cookingStep)}
+              />
             )}
           </>
         )}
