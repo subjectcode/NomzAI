@@ -7,16 +7,23 @@ Nomz backend maintains a comprehensive suite of unit, integration, and scenario 
 
 - **Command**:
   ```bash
+  export PYTHONPATH=backend
   pytest -v tests/
   ```
-- **Verified Result**: `78 passed, 0 failures` (100% PASS).
-- **Scope**:
+- **Verified Result**: `83 passed, 0 failures` (100% PASS).
+- **Scope (12 Test Suites)**:
   - `test_auth.py`: Password hashing, JWT token lifecycle, Google Sign-In JWKS verification.
-  - `test_database_isolation.py`: Multitenant data boundary checks preventing cross-account data leaks.
-  - `test_cooking_steps.py`: Step timer validation, instruction parsing, step status updates.
-  - `test_otp.py`: 6-digit numeric OTP generation, expiry windows, Composio delivery mock.
+  - `test_account_hardening.py`: Multitenant data boundary checks preventing cross-account data leaks.
+  - `test_p0_auth_and_recommendation.py`: Recommendation caching, deduplication, back-navigation persistence, and auth onboarding.
+  - `test_backend_cooking_hardening.py`: Cooking step validation, timer parsing, boundary conditions and edge cases.
+  - `test_backend_health.py`: FastAPI server health endpoint and database connectivity.
+  - `test_backend_langflow.py`: Langflow integration and JSON payload normalization.
+  - `test_backend_recommendation.py`: Recommendation fallback routing and culinary catalogs.
+  - `test_backend_videos.py`: Video search relevance ranking and deduplication.
+  - `test_backend_vision.py`: Gemini vision ingredient extraction schema validation.
+  - `test_m4_mcp.py`: IBM Bob Model Context Protocol tool contracts and diagnostics.
+  - `test_navigation_stack.py`: Mobile contract routes and navigation consistency.
   - `test_v2_scenarios.py`: Langflow V2 recipe ranking, pantry matching, and multi-tier fallbacks.
-  - `test_backend_cooking_hardening.py`: Boundary conditions and edge case inputs.
 
 ### B. Frontend TypeScript Type Safety
 - **Command**:
@@ -44,14 +51,14 @@ Previous release APKs explicitly configured `reactNativeArchitectures=x86_64` in
 When multi-ABI support (`armeabi-v7a,arm64-v8a,x86_64`) was initially enabled, the resulting universal APK ballooned to 75.52 MB (75,521,782 bytes). Detailed APK analysis revealed:
 1. Native libraries (`.so`) were stored uncompressed in the APK due to default `expo.useLegacyPackaging=false` (totaling 53.71 MB across all 3 architectures).
 2. By setting `expo.useLegacyPackaging=true` in `frontend/android/gradle.properties`, Gradle packages compressed `.so` files into the APK archive, shrinking native libraries from 53.71 MB to 21.70 MB.
-3. Universal APK size was reduced from **75.52 MB** to **38.89 MB** (**46.0% reduction**), while maintaining full backwards compatibility across all architectures.
+3. Universal APK size was reduced from **75.52 MB** to **38.91 MB** (**46.0% reduction**), while maintaining full backwards compatibility across all architectures.
 4. Dedicated single-architecture APKs were also built, reducing the 64-bit ARM APK to **25.05 MB** (**65.2% reduction**).
 
 ### Specifications & Checksums (v1.0.0)
 
 | Artifact | Purpose | ABIs | Size | SHA-256 Checksum |
 | :--- | :--- | :--- | :--- | :--- |
-| **`Nomz-v1.0.0-android-universal.apk`** | **Recommended (Universal)** | `arm64-v8a`, `armeabi-v7a`, `x86_64` | **38.89 MB** (40,783,794 B) | `2e892663d8a120273232b30d49a6d6655deea817eb7b51cf31142173ef4a470d` |
+| **`Nomz-v1.0.0-android-universal.apk`** | **Recommended (Universal)** | `arm64-v8a`, `armeabi-v7a`, `x86_64` | **38.91 MB** (40,798,146 B) | `6e1c656324934ee819756b2830614c6f5d038ec90569ff08fe191a290a1f253a` |
 | **`Nomz-v1.0.0-android-arm64.apk`** | Modern 64-bit phones | `arm64-v8a` | **25.05 MB** (26,265,678 B) | `8a8b7d7af4d0008555abbc962fed5a51a73fcfebaa4f17bde2f369d755bea761` |
 | **`Nomz-v1.0.0-android-arm32.apk`** | Budget 32-bit phones | `armeabi-v7a` | **24.10 MB** (25,271,718 B) | `f88436eaea804381252f0ec1080b79fe845dfe7fe6bd61013c5e358703f46180` |
 | **`Nomz-v1.0.0-android.aab`** | Google Play Store Bundle | `arm64-v8a`, `armeabi-v7a`, `x86_64` | **49.00 MB** (51,378,449 B) | `cb5cf26ec2b605a67497d02342fa531572426cbedd0343a22b0e08e54da0d83f` |

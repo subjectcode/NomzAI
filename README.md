@@ -173,9 +173,13 @@ Nomz is deployed live on Railway:
 
 ## Screenshots
 
-| Pindai Bahan (Vision) | Rekomendasi Resep | Detail & Langkah Memasak |
+| Beranda (Home) | Hasil Deteksi Bahan | Rekomendasi Resep |
 | :---: | :---: | :---: |
-| ![Scan Screen](screenshots/m2_01_initial_screen.png) | ![Rekomendasi](screenshots/m2_02_recommendations_list.png) | ![Detail Resep](screenshots/m2_03_detail_screen.png) |
+| <img src="screenshots/01_beranda_home.png" width="240" alt="Beranda Nomz" /><br><sub>**Beranda**: Ringkasan dampak, aksi cepat, dan navigasi 5-tab</sub> | <img src="screenshots/02_deteksi_bahan_editor.png" width="240" alt="Hasil Deteksi Bahan" /><br><sub>**Deteksi Bahan**: Confidence score, quantity editor, tambah manual, & tombol resep</sub> | <img src="screenshots/03_rekomendasi_masakan.png" width="240" alt="Rekomendasi Resep" /><br><sub>**Rekomendasi**: Langflow V2 recipe scoring & pantry match</sub> |
+
+| Detail Resep & Panduan | Profil & Dampak Dapur |
+| :---: | :---: |
+| <img src="screenshots/04_detail_resep_panduan.png" width="240" alt="Detail Resep" /><br><sub>**Detail Resep**: Estimasi waktu/biaya, checklist bumbu, & 9 langkah</sub> | <img src="screenshots/05_profil_dapur.png" width="240" alt="Profil Saya" /><br><sub>**Profil**: Metrik kg diselamatkan, penghematan, & inventaris pantry</sub> |
 
 ---
 
@@ -242,7 +246,7 @@ cd frontend
 npx tsc --noEmit
 ```
 
-- **Backend Pytest**: 83/83 passed (P0 recommendation reliability, auth consistency, password setup, video service, account isolation, Langflow, MCP).
+- **Backend Pytest**: 83/83 passed (P0 recommendation reliability & deduplication, auth consistency & Google link, password setup, video service, account isolation, Langflow, MCP).
 - **TypeScript**: 0 errors.
 - **Android E2E & Release QA**: Verified on Android emulators (`emulator-5554`) with complete end-to-end user flows (register/login, profile identity avatar, camera scan, ingredient confirmation, recipe recommendations with back navigation persistence, settings password creation, logout).
 
@@ -254,7 +258,7 @@ Nomz provides production-signed standalone Android release artifacts engineered 
 
 | Artifact | Recommended Use | ABIs | Size | SHA-256 Checksum |
 | :--- | :--- | :--- | :--- | :--- |
-| **[Nomz-v1.0.0-android-universal.apk](https://github.com/subjectcode/NomzAI/releases/download/v1.0.0/Nomz-v1.0.0-android-universal.apk)** | **Recommended (Universal)** | `arm64-v8a`, `armeabi-v7a`, `x86_64` | **38.89 MB** (40,783,794 B) | `2e892663d8a120273232b30d49a6d6655deea817eb7b51cf31142173ef4a470d` |
+| **[Nomz-v1.0.0-android-universal.apk](https://github.com/subjectcode/NomzAI/releases/download/v1.0.0/Nomz-v1.0.0-android-universal.apk)** | **Recommended (Universal)** | `arm64-v8a`, `armeabi-v7a`, `x86_64` | **38.91 MB** (40,798,146 B) | `6e1c656324934ee819756b2830614c6f5d038ec90569ff08fe191a290a1f253a` |
 | **[Nomz-v1.0.0-android-arm64.apk](https://github.com/subjectcode/NomzAI/releases/download/v1.0.0/Nomz-v1.0.0-android-arm64.apk)** | Optional (Modern 64-bit phones) | `arm64-v8a` | **25.05 MB** (26,265,678 B) | `8a8b7d7af4d0008555abbc962fed5a51a73fcfebaa4f17bde2f369d755bea761` |
 | **[Nomz-v1.0.0-android-arm32.apk](https://github.com/subjectcode/NomzAI/releases/download/v1.0.0/Nomz-v1.0.0-android-arm32.apk)** | Optional (Older 32-bit phones) | `armeabi-v7a` | **24.10 MB** (25,271,718 B) | `f88436eaea804381252f0ec1080b79fe845dfe7fe6bd61013c5e358703f46180` |
 | **Nomz-v1.0.0-android.aab** | Google Play Store Bundle | `arm64-v8a`, `armeabi-v7a`, `x86_64` | **49.00 MB** (51,378,449 B) | `cb5cf26ec2b605a67497d02342fa531572426cbedd0343a22b0e08e54da0d83f` |
@@ -263,7 +267,7 @@ Nomz provides production-signed standalone Android release artifacts engineered 
 - **Min Android SDK**: Android 7.0 (API 24) — covers 99.5%+ of active devices globally
 - **Target Android SDK**: Android 16 (API 36)
 - **Compatibility Fix**: Resolved earlier `INSTALL_FAILED_NO_MATCHING_ABIS` failure caused by emulator-only architecture targeting; the APK now bundles full ARM native libraries (`lib/arm64-v8a/` and `lib/armeabi-v7a/`).
-- **Size Optimization**: Native `.so` libraries were uncompressed by default (`expo.useLegacyPackaging=false`), resulting in a 75.52 MB universal APK. By enabling legacy ZIP packaging (`expo.useLegacyPackaging=true`), the universal APK compressed size dropped by **46.0%** to **38.89 MB**, while dedicated ARM64 dropped by **65.2%** to **25.05 MB**.
+- **Size Optimization**: Native `.so` libraries were uncompressed by default (`expo.useLegacyPackaging=false`), resulting in a 75.52 MB universal APK. By enabling legacy ZIP packaging (`expo.useLegacyPackaging=true`), the universal APK compressed size dropped by **46.0%** to **38.91 MB**, while dedicated ARM64 dropped by **65.2%** to **25.05 MB**.
 - **Signature Verification**: Verified with v2 scheme using official Nomz production certificate (`SHA-256: 6c82dc39869fbf39ae591b6d64c21f0a141807b45c6d49413d97cdd102162b34`).
 
 ---
@@ -310,7 +314,7 @@ Nomz/
 │   ├── components/              # Custom Langflow Python nodes
 │   └── flows/                   # Exported workflow graphs (V1, V2, OTP)
 ├── screenshots/                 # Application preview screenshots
-├── tests/                       # Pytest test suite (78 tests)
+├── tests/                       # Pytest test suite (83 tests)
 └── .github/                     # Issue & PR templates
 ```
 

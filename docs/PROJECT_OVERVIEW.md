@@ -51,8 +51,8 @@ Nomz flips the traditional recipe discovery flow:
 ## 6. User Journey
 1. **Launch & Authenticate**: Open Nomz, log in via Google Sign-In or verified email OTP.
 2. **Scan Kitchen**: Tap the central Scan button; photograph counter ingredients or fridge contents.
-3. **Verify Ingredients**: Confirm detected ingredients (e.g., Telur, Tomat, Bawang Merah).
-4. **Choose Recipe**: Review recommended recipes ranked by food-rescue score.
+3. **Verify & Fine-tune Ingredients**: Inspect confidence badges, adjust quantities with steppers, and add manual seasonings or ingredients.
+4. **Choose Recipe**: Review recommended recipes ranked by food-rescue match score (cached for instant back navigation).
 5. **Cook with Guidance**: Follow step-by-step cooking instructions with integrated timers and YouTube tutorials.
 6. **Save & Track**: Bookmark dishes, log cooked meals, and monitor reduced food waste in user profile.
 

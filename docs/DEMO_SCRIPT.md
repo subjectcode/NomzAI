@@ -7,7 +7,7 @@
 ---
 
 ## 1. Demo Preparation Checklist (Before Going on Stage)
-- [ ] Install latest release APK (`Nomz-v1.0.0-android.apk`).
+- [ ] Install latest release APK (`Nomz-v1.0.0-android-universal.apk`).
 - [ ] Confirm active internet connectivity (Wi-Fi or cellular).
 - [ ] Verify test user login credentials (do NOT show sensitive passwords on presentation screen).
 - [ ] Pre-load sample kitchen ingredient photos in Android gallery as backup.
@@ -39,17 +39,18 @@
 
 ---
 
-### Scene 3: The Core Rescue Moment — Multimodal Scan (1:30 - 2:45)
-- **Screen**: `Scan` (Central Medallion Tab) -> Detection Confirmation.
+### Scene 3: The Core Rescue Moment — Multimodal Scan & Ingredient Editor (1:30 - 2:45)
+- **Screen**: `Scan` (Central Medallion Tab) -> Detection Confirmation (`Hasil Deteksi Bahan`).
 - **Action**:
   - Tap the prominent central `Scan` button.
   - Aim camera at sample ingredients (or select sample counter photo from gallery).
   - Tap "Deteksi Bahan".
-  - Show the AI detecting items (e.g. `Telur`, `Tomat`, `Bawang Merah`, `Cabai`).
-  - Demonstrate the interactive chips: tap "+ Tambah Bahan" or remove an unwanted item to demonstrate human-in-the-loop flexibility.
-  - Tap "Cari Resep".
+  - Show the AI detecting items with confidence badge (e.g. `telur, tomat, bawang putih` with `95% yakin`).
+  - Demonstrate the quantity stepper `[-] 2 butir [+]` to adjust portion or unit.
+  - Show the "+ Tambah Bahan Manual" card for uncaptured items or seasonings.
+  - Tap "Lihat Rekomendasi Resep ->".
 - **Speaker Dialogue**:
-  > *"Here is the magic moment. Instead of searching a recipe index, I tap the center Scan medallion and capture what's in front of me. Powered by Google Gemini multimodal vision, Nomz instantly structures the raw image into verified ingredients in Indonesian. Notice our Responsible AI design: the user always retains full control to adjust the detected items before recipes are synthesized."*
+  > *"Here is the magic moment. Instead of searching a recipe index, I tap the center Scan medallion and capture what's in front of me. Powered by Google Gemini multimodal vision, Nomz instantly structures raw photos into verified ingredients with confidence scores. Notice our human-in-the-loop design: home cooks can fine-tune quantities with the stepper, add extra condiments manually, or remove items before generating recommendations."*
 
 ---
 

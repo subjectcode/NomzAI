@@ -84,9 +84,10 @@ graph TD
 ### B. Langflow V2 Orchestration
 - Orchestrates recipe synthesis based on on-hand ingredients, user dietary preferences, and target meal categories.
 - Implements resilient multi-engine routing:
-  1. Langflow remote pipeline invocation.
+  1. Langflow remote pipeline invocation (`find_meals_v2`).
   2. Local Gemini structured generation if Langflow remote is unavailable.
   3. Curated culinary catalog fallback if external AI endpoints encounter rate limits or network partitions.
+- Implements deterministic recipe deduplication and recommendation caching to ensure sub-second response times and preserve state when users navigate back from recipe details.
 
 ### C. IBM Bob & Model Context Protocol (MCP)
 - IBM Bob serves as the autonomous coding and systems development partner.
