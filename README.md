@@ -248,14 +248,23 @@ npx tsc --noEmit
 
 ## Universal Android Compatibility & Release APK
 
-Nomz provides a standalone, production-signed Android APK engineered for universal physical device compatibility:
-- **Download Official APK**: [Nomz-v1.0.0-android.apk](https://github.com/subjectcode/NomzAI/releases/download/v1.0.0/Nomz-v1.0.0-android.apk)
+Nomz provides production-signed standalone Android release artifacts engineered for universal physical device compatibility and optimized download sizes:
+
+### Release Download Options (v1.0.0)
+
+| Artifact | Recommended Use | ABIs | Size | SHA-256 Checksum |
+| :--- | :--- | :--- | :--- | :--- |
+| **[Nomz-v1.0.0-android-universal.apk](https://github.com/subjectcode/NomzAI/releases/download/v1.0.0/Nomz-v1.0.0-android-universal.apk)** | **Recommended (Universal)** | `arm64-v8a`, `armeabi-v7a`, `x86_64` | **38.89 MB** (40,783,794 B) | `2e892663d8a120273232b30d49a6d6655deea817eb7b51cf31142173ef4a470d` |
+| **[Nomz-v1.0.0-android-arm64.apk](https://github.com/subjectcode/NomzAI/releases/download/v1.0.0/Nomz-v1.0.0-android-arm64.apk)** | Optional (Modern 64-bit phones) | `arm64-v8a` | **25.05 MB** (26,265,678 B) | `8a8b7d7af4d0008555abbc962fed5a51a73fcfebaa4f17bde2f369d755bea761` |
+| **[Nomz-v1.0.0-android-arm32.apk](https://github.com/subjectcode/NomzAI/releases/download/v1.0.0/Nomz-v1.0.0-android-arm32.apk)** | Optional (Older 32-bit phones) | `armeabi-v7a` | **24.10 MB** (25,271,718 B) | `f88436eaea804381252f0ec1080b79fe845dfe7fe6bd61013c5e358703f46180` |
+| **Nomz-v1.0.0-android.aab** | Google Play Store Bundle | `arm64-v8a`, `armeabi-v7a`, `x86_64` | **49.00 MB** (51,378,449 B) | `cb5cf26ec2b605a67497d02342fa531572426cbedd0343a22b0e08e54da0d83f` |
+
 - **Application ID**: `com.nomz.app`
-- **Supported ABIs**: `arm64-v8a` (modern physical phones), `armeabi-v7a` (legacy 32-bit ARM), `x86_64` (emulators)
 - **Min Android SDK**: Android 7.0 (API 24) — covers 99.5%+ of active devices globally
 - **Target Android SDK**: Android 16 (API 36)
 - **Compatibility Fix**: Resolved earlier `INSTALL_FAILED_NO_MATCHING_ABIS` failure caused by emulator-only architecture targeting; the APK now bundles full ARM native libraries (`lib/arm64-v8a/` and `lib/armeabi-v7a/`).
-- **Signature Verification**: Verified with v2 scheme using official Nomz production certificate.
+- **Size Optimization**: Native `.so` libraries were uncompressed by default (`expo.useLegacyPackaging=false`), resulting in a 75.52 MB universal APK. By enabling legacy ZIP packaging (`expo.useLegacyPackaging=true`), the universal APK compressed size dropped by **46.0%** to **38.89 MB**, while dedicated ARM64 dropped by **65.2%** to **25.05 MB**.
+- **Signature Verification**: Verified with v2 scheme using official Nomz production certificate (`SHA-256: 6c82dc39869fbf39ae591b6d64c21f0a141807b45c6d49413d97cdd102162b34`).
 
 ---
 
