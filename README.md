@@ -29,7 +29,8 @@ Nomz is a mobile food assistant designed to reduce kitchen food waste by helping
 - [Local Development Setup](#local-development-setup)
 - [Environment Variables](#environment-variables)
 - [Automated Testing & QA](#automated-testing--qa)
-- [Release APK & Installation](#release-apk--installation)
+- [Universal Android Compatibility & Release APK](#universal-android-compatibility--release-apk)
+- [Presentation & Comprehensive Documentation](#presentation--comprehensive-documentation)
 - [Project Directory Structure](#project-directory-structure)
 - [Contributors & License](#contributors--license)
 
@@ -245,15 +246,28 @@ npx tsc --noEmit
 - **TypeScript**: 0 errors.
 - **Android E2E & Release QA**: Verified on Android emulators and physical release APK builds.
 
+## Universal Android Compatibility & Release APK
+
+Nomz provides a standalone, production-signed Android APK engineered for universal physical device compatibility:
+- **Download Official APK**: [Nomz-v1.0.0-android.apk](https://github.com/subjectcode/NomzAI/releases/download/v1.0.0/Nomz-v1.0.0-android.apk)
+- **Application ID**: `com.nomz.app`
+- **Supported ABIs**: `arm64-v8a` (modern physical phones), `armeabi-v7a` (legacy 32-bit ARM), `x86_64` (emulators)
+- **Min Android SDK**: Android 7.0 (API 24) — covers 99.5%+ of active devices globally
+- **Target Android SDK**: Android 16 (API 36)
+- **Compatibility Fix**: Resolved earlier `INSTALL_FAILED_NO_MATCHING_ABIS` failure caused by emulator-only architecture targeting; the APK now bundles full ARM native libraries (`lib/arm64-v8a/` and `lib/armeabi-v7a/`).
+- **Signature Verification**: Verified with v2 scheme using official Nomz production certificate.
+
 ---
 
-## Release APK & Installation
+## Presentation & Comprehensive Documentation
 
-A standalone release APK is available under [Releases](https://github.com/subjectcode/NomzAI/releases):
-- **Download**: [Nomz-v1.0.0-android.apk](https://github.com/subjectcode/NomzAI/releases/download/v1.0.0/Nomz-v1.0.0-android.apk)
-- **Application ID**: `com.nomz.app`
-- **Min Android SDK**: Android 7.0 (API 24)
-- **Target Android SDK**: Android 15 (API 35)
+Comprehensive materials prepared for hackathon judges, developers, and deployment engineers:
+- **[Project Overview](docs/PROJECT_OVERVIEW.md)**: Problem statement, UVP, user journey, impact model, and monetization.
+- **[System Architecture](docs/ARCHITECTURE.md)**: End-to-end architecture diagrams, security isolation, and service contracts.
+- **[11-Slide Pitch Outline](docs/PRESENTATION_OUTLINE.md)**: Slide-by-slide messages, visuals, speaker notes, and transitions.
+- **[Live Demo Script](docs/DEMO_SCRIPT.md)**: 3–5 minute step-by-step demonstration walkthrough with edge-case fallbacks.
+- **[Testing & Release Guide](docs/TESTING_AND_RELEASE.md)**: Pytest verification, device compatibility matrix, and APK installation guide.
+- **[Responsible AI Manifesto](docs/RESPONSIBLE_AI.md)**: Food-safety boundaries, sensory limitations, and user-confirmation safeguards.
 
 ---
 
