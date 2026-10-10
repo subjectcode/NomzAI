@@ -10,8 +10,8 @@
 - [ ] Install latest release APK (`Nomz-v1.0.0-android-universal.apk`).
 - [ ] Confirm active internet connectivity (Wi-Fi or cellular).
 - [ ] Verify test user login credentials (do NOT show sensitive passwords on presentation screen).
-- [ ] Pre-load sample kitchen ingredient photos in Android gallery as backup.
-- [ ] Have physical ingredients or clear photos of: Telur, Tomat, Bawang Merah, Cabai.
+- [ ] Pre-load sample kitchen photo (`screenshots/demo_bahan_makanan_anak_kos.png`) in Android gallery as backup.
+- [ ] Have physical ingredients or sample photos available for demonstration.
 
 ---
 
@@ -43,7 +43,7 @@
 - **Screen**: `Scan` (Central Medallion Tab) -> Detection Confirmation (`Hasil Deteksi Bahan`).
 - **Action**:
   - Tap the prominent central `Scan` button.
-  - Aim camera at sample ingredients (or select sample counter photo from gallery).
+  - Aim camera at kitchen ingredients (or select bundled simulation photo `screenshots/demo_bahan_makanan_anak_kos.png` from gallery).
   - Tap "Deteksi Bahan".
   - Show the AI detecting items with confidence badge (e.g. `telur, tomat, bawang putih` with `95% yakin`).
   - Demonstrate the quantity stepper `[-] 2 butir [+]` to adjust portion or unit.
@@ -84,6 +84,6 @@ If unexpected edge cases occur during the presentation, execute these predefined
 
 | Edge Case | Fallback Action | Speaker Pivot |
 | :--- | :--- | :--- |
-| **No Camera Access / Low Light** | Tap gallery icon -> Select bundled sample image (`sample_ingredients.jpg`). | *"Let me demonstrate using our standard pantry photo."* |
+| **No Camera Access / Low Light** | Tap gallery icon -> Select bundled sample image (`screenshots/demo_bahan_makanan_anak_kos.png`). | *"Let me demonstrate using our standard kitchen simulation photo."* |
 | **Slow Conference Wi-Fi / API Timeout** | The app's resilient multi-tier fallback automatically serves curated local recipe recommendations. | *"Nomz includes built-in offline resiliency to ensure users always receive recipes even on weak kitchen Wi-Fi."* |
 | **Google Sign-In Account Prompt Cancelled** | Use pre-registered test email: `demo@nomz.app` with saved password. | *"Let's jump directly into our pre-configured demo account."* |

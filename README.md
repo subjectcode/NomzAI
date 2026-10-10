@@ -181,6 +181,16 @@ Nomz is deployed live on Railway:
 | :---: | :---: |
 | <img src="screenshots/04_detail_resep_panduan.png" width="240" alt="Detail Resep" /><br><sub>**Detail Resep**: Estimasi waktu/biaya, checklist bumbu, & 9 langkah</sub> | <img src="screenshots/05_profil_dapur.png" width="240" alt="Profil Saya" /><br><sub>**Profil**: Metrik kg diselamatkan, penghematan, & inventaris pantry</sub> |
 
+### Sample Input: Pengujian Deteksi Bahan (Simulasi Bahan Meja Dapur)
+
+> [!NOTE]
+> Foto di bawah ini merupakan **gambar input simulasi** bahan makanan nyata di meja dapur (menampilkan sisa nasi kotak, potongan ayam mentah, tomat, wortel, selada, bawang merah, bawang putih, dan cabai rawit) yang disiapkan untuk pengujian pemindaian fitur *Multimodal Ingredient Detection*, **bukan merupakan tangkapan layar antarmuka aplikasi**. Hasil deteksi aktual pada aplikasi tetap divalidasi melalui layar konfirmasi interaktif pengguna.
+
+<p align="center">
+  <img src="screenshots/demo_bahan_makanan_anak_kos.png" width="520" alt="Sample Input Bahan Makanan Meja Dapur" /><br>
+  <sub><b>Sample Input Demo:</b> Bahan makanan nyata di meja dapur anak kos untuk simulasi pengujian scan bahan AI</sub>
+</p>
+
 ---
 
 ## Local Development Setup
