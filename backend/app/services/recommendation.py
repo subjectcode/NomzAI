@@ -70,8 +70,12 @@ def _generate_recommendations_gemini_fallback(
     )
     user_prompt = "\n\n".join(prompt_lines)
 
-    candidate_models: List[str] = [settings.VISION_MODEL]
-    for fallback in ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-flash-latest"]:
+    # Prioritaskan gemini-3.5-flash-lite (p50 ~5s) untuk responsivitas instan,
+    # fallback ke gemini-3.8-flash dan gemini-flash-latest jika diperlukan.
+    candidate_models: List[str] = ["gemini-3.5-flash-lite"]
+    if settings.VISION_MODEL not in candidate_models:
+        candidate_models.append(settings.VISION_MODEL)
+    for fallback in ["gemini-3.8-flash", "gemini-flash-latest"]:
         if fallback not in candidate_models:
             candidate_models.append(fallback)
 

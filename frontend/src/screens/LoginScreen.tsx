@@ -37,6 +37,7 @@ export function LoginScreen({
   const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isGoogleAccount, setIsGoogleAccount] = useState(false);
 
   const validate = (): boolean => {
     setErrorMessage(null);
@@ -82,16 +83,35 @@ export function LoginScreen({
     } catch (err: any) {
       const status = err.status;
       const message = err.message || '';
+      const lower = message.toLowerCase();
 
-      if (status === 401 || message.includes('401') || message.toLowerCase().includes('credential')) {
+      if (
+        message.includes('GOOGLE_ACCOUNT_NO_PASSWORD') ||
+        (lower.includes('google') && (lower.includes('password') || lower.includes('sandi')))
+      ) {
+        setIsGoogleAccount(true);
+        setErrorMessage(
+          'Akun ini terdaftar melalui Google Sign-In. Silakan gunakan tombol Masuk dengan Google di bawah.'
+        );
+      } else if (
+        status === 401 ||
+        message.includes('401') ||
+        lower.includes('credential') ||
+        lower.includes('salah') ||
+        lower.includes('tidak cocok')
+      ) {
+        setIsGoogleAccount(false);
         setErrorMessage('Email atau kata sandi tidak cocok. Silakan coba lagi.');
       } else if (
-        message.toLowerCase().includes('network') ||
-        message.toLowerCase().includes('failed to fetch') ||
-        message.toLowerCase().includes('koneksi')
+        lower.includes('network') ||
+        lower.includes('failed to fetch') ||
+        lower.includes('koneksi') ||
+        lower.includes('abort')
       ) {
+        setIsGoogleAccount(false);
         setErrorMessage('Tidak dapat terhubung ke server. Periksa jaringan Anda.');
       } else {
+        setIsGoogleAccount(false);
         setErrorMessage(message || 'Terjadi kesalahan saat masuk. Silakan coba lagi.');
       }
     } finally {

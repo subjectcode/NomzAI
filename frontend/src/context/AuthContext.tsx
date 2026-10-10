@@ -18,6 +18,7 @@ import {
   googleAuth,
   updateUserProfile,
   deleteUserAccount,
+  setPassword as setPasswordApi,
 } from '../services/authApi';
 import {
   saveAuthToken,
@@ -28,6 +29,7 @@ import {
   cleanupLegacyGlobalStorage,
 } from '../services/authStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearRecommendationCache } from '../services/api';
 
 export interface AuthContextType {
   user: User | null;
@@ -41,6 +43,7 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   updateProfile: (data: { displayName?: string; username?: string; avatarUrl?: string }) => Promise<User>;
   deleteAccount: () => Promise<void>;
+  setPassword: (password: string) => Promise<User>;
   restoreSession: () => Promise<void>;
 }
 
@@ -185,6 +188,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const handleLogout = async (): Promise<void> => {
     setIsLoading(true);
     try {
+      clearRecommendationCache();
       await deleteAuthToken();
       await clearActiveUserId();
       setToken(null);
@@ -221,6 +225,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const currentUserId = user?.id;
     setIsLoading(true);
     try {
+      clearRecommendationCache();
       await deleteUserAccount(token);
       if (currentUserId) {
         await AsyncStorage.multiRemove([
@@ -241,6 +246,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  /**
+   * Mengatur atau memperbarui password akun yang sedang login.
+   */
+  const handleSetPassword = async (newPassword: string): Promise<User> => {
+    if (!token) throw new Error('Pengguna belum terautentikasi.');
+    setIsLoading(true);
+    try {
+      const updatedUser = await setPasswordApi(token, newPassword);
+      setUser(updatedUser);
+      return updatedUser;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     token,
@@ -253,6 +273,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout: handleLogout,
     updateProfile: handleUpdateProfile,
     deleteAccount: handleDeleteAccount,
+    setPassword: handleSetPassword,
     restoreSession,
   };
 

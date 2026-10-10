@@ -49,3 +49,6 @@ Thumbs.db
 # Brand asset archive and extraction
 Nomz_Brand_Assets.zip
 Nomz_Brand_Assets/
+
+# Temporary scratch
+scratch/

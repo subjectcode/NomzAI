@@ -8,6 +8,8 @@ import {
   Alert,
   Switch,
   ActivityIndicator,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors, radius, shadows, spacing } from '../theme';
@@ -28,16 +30,50 @@ export function SettingsScreen({
   onNavigateToEditProfile,
   onDataCleared,
 }: SettingsScreenProps) {
-  const { user, logout, deleteAccount } = useAuth();
+  const { user, logout, deleteAccount, setPassword } = useAuth();
 
   const [defaultMode, setDefaultMode] = useState<string>('rescue');
   const [defaultPortion, setDefaultPortion] = useState<string>('1-2 porsi');
   const [expiryReminderEnabled, setExpiryReminderEnabled] = useState<boolean>(true);
   const [isDeletingAccount, setIsDeletingAccount] = useState<boolean>(false);
 
+  // State pembuatan/pengubahan kata sandi (Google users)
+  const [showPasswordModal, setShowPasswordModal] = useState<boolean>(false);
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const [isSubmittingPassword, setIsSubmittingPassword] = useState<boolean>(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
   const displayName =
     (user as any)?.display_name || (user as any)?.displayName || 'Pengguna Nomz';
   const email = user?.email || 'user@nomz.id';
+
+  const handleSavePassword = async () => {
+    if (newPassword.length < 8) {
+      setPasswordError('Password minimal 8 karakter.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Konfirmasi password tidak cocok.');
+      return;
+    }
+    setIsSubmittingPassword(true);
+    setPasswordError(null);
+    try {
+      await setPassword(newPassword);
+      setShowPasswordModal(false);
+      setNewPassword('');
+      setConfirmPassword('');
+      Alert.alert(
+        'Kata Sandi Berhasil Disimpan',
+        'Akun Anda kini dapat digunakan untuk masuk menggunakan email dan password.'
+      );
+    } catch (err: any) {
+      setPasswordError(err.message || 'Gagal menyimpan kata sandi. Coba lagi.');
+    } finally {
+      setIsSubmittingPassword(false);
+    }
+  };
 
   // Handler: Clear History
   const handleClearHistory = () => {
@@ -298,6 +334,31 @@ export function SettingsScreen({
             <Feather name="chevron-right" size={16} color={colors.textMuted} />
           </TouchableOpacity>
 
+          {/* Kata Sandi Akun (Bisa dibuat oleh user Google atau diubah oleh user password) */}
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={() => {
+              setPasswordError(null);
+              setShowPasswordModal(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.actionIconBox, { backgroundColor: '#EEF2FF' }]}>
+              <Feather name="lock" size={17} color="#4F46E5" />
+            </View>
+            <View style={styles.actionInfo}>
+              <Text style={styles.actionTitle}>
+                {user?.has_password ? 'Ubah Kata Sandi' : 'Buat Kata Sandi'}
+              </Text>
+              <Text style={styles.actionSubtitle}>
+                {user?.has_password
+                  ? 'Kata sandi aktif untuk login email'
+                  : 'Aktifkan login email untuk akun Google ini'}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.actionRow} onPress={handleLogout} activeOpacity={0.7}>
             <View style={[styles.actionIconBox, { backgroundColor: '#FEF2F2' }]}>
               <Feather name="log-out" size={17} color={colors.error} />
@@ -337,6 +398,96 @@ export function SettingsScreen({
           <Text style={styles.versionSubtext}>AI Food Rescue Assistant • Built with IBM Bob & Langflow</Text>
         </View>
       </ScrollView>
+
+      {/* MODAL: Buat / Ubah Kata Sandi */}
+      <Modal
+        visible={showPasswordModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPasswordModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {user?.has_password ? 'Ubah Kata Sandi' : 'Buat Kata Sandi Akun'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowPasswordModal(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Feather name="x" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalDesc}>
+              {user?.has_password
+                ? 'Masukkan kata sandi baru untuk akun Anda (minimal 8 karakter).'
+                : 'Tambahkan kata sandi agar Anda dapat masuk menggunakan email dan password selain menggunakan Google.'}
+            </Text>
+
+            {passwordError && (
+              <View style={styles.modalErrorBox}>
+                <Feather name="alert-circle" size={14} color={colors.error} style={{ marginRight: 6 }} />
+                <Text style={styles.modalErrorText}>{passwordError}</Text>
+              </View>
+            )}
+
+            <View style={styles.modalInputWrap}>
+              <Feather name="lock" size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Kata sandi baru (min 8 karakter)"
+                placeholderTextColor={colors.textMuted}
+                secureTextEntry={true}
+                value={newPassword}
+                onChangeText={(val) => {
+                  setNewPassword(val);
+                  if (passwordError) setPasswordError(null);
+                }}
+              />
+            </View>
+
+            <View style={styles.modalInputWrap}>
+              <Feather name="check" size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Konfirmasi kata sandi baru"
+                placeholderTextColor={colors.textMuted}
+                secureTextEntry={true}
+                value={confirmPassword}
+                onChangeText={(val) => {
+                  setConfirmPassword(val);
+                  if (passwordError) setPasswordError(null);
+                }}
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowPasswordModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCancelText}>Batal</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalSaveBtn}
+                onPress={handleSavePassword}
+                disabled={isSubmittingPassword}
+                activeOpacity={0.8}
+              >
+                {isSubmittingPassword ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalSaveText}>Simpan Kata Sandi</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -491,5 +642,102 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textMuted,
     marginTop: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    ...shadows.level3,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  modalDesc: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  modalErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.errorContainer,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+    marginBottom: 12,
+  },
+  modalErrorText: {
+    fontSize: 12,
+    color: colors.error,
+    flex: 1,
+  },
+  modalInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    borderRadius: radius.lg,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    height: 48,
+  },
+  modalInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textPrimary,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+    gap: 10,
+  },
+  modalCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: radius.lg,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  modalSaveBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 120,
+  },
+  modalSaveText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

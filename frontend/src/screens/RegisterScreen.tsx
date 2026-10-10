@@ -43,6 +43,7 @@ export function RegisterScreen({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isGoogleConflict, setIsGoogleConflict] = useState(false);
 
   const validate = (): boolean => {
     setErrorMessage(null);
@@ -144,17 +145,29 @@ export function RegisterScreen({
       const message = err.message || '';
       const lower = message.toLowerCase();
 
-      if (lower.includes('username sudah digunakan') || lower.includes('username already')) {
+      if (
+        message.includes('EMAIL_REGISTERED_WITH_GOOGLE') ||
+        (lower.includes('google') && lower.includes('email'))
+      ) {
+        setIsGoogleConflict(true);
+        setErrorMessage(
+          'Email ini sudah terdaftar menggunakan Google Sign-In. Silakan masuk menggunakan Google.'
+        );
+      } else if (lower.includes('username sudah digunakan') || lower.includes('username already')) {
+        setIsGoogleConflict(false);
         setErrorMessage('Username sudah digunakan.');
       } else if (
         lower.includes('email sudah terdaftar') ||
         lower.includes('already registered') ||
         lower.includes('email already')
       ) {
-        setErrorMessage('Email sudah terdaftar.');
+        setIsGoogleConflict(false);
+        setErrorMessage('Email sudah terdaftar. Silakan masuk ke akun Anda.');
       } else if (lower.includes('password minimal 8')) {
+        setIsGoogleConflict(false);
         setErrorMessage('Password minimal 8 karakter.');
       } else if (lower.includes('username hanya boleh')) {
+        setIsGoogleConflict(false);
         setErrorMessage('Username hanya boleh berisi huruf, angka, dan underscore.');
       } else if (
         lower.includes('network') ||
@@ -162,8 +175,10 @@ export function RegisterScreen({
         lower.includes('koneksi') ||
         lower.includes('abort')
       ) {
+        setIsGoogleConflict(false);
         setErrorMessage('Koneksi bermasalah. Coba lagi.');
       } else {
+        setIsGoogleConflict(false);
         setErrorMessage(message || 'Gagal mendaftar. Silakan periksa kembali data Anda.');
       }
     } finally {
@@ -217,8 +232,21 @@ export function RegisterScreen({
           {/* Error Banner */}
           {errorMessage && (
             <View style={styles.errorBanner}>
-              <Feather name="alert-circle" size={16} color={colors.error} style={{ marginRight: 8 }} />
-              <Text style={styles.errorText}>{errorMessage}</Text>
+              <Feather name="alert-circle" size={16} color={colors.error} style={{ marginRight: 8, marginTop: 2 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.errorText}>{errorMessage}</Text>
+                {isGoogleConflict && onNavigateToLogin && (
+                  <TouchableOpacity
+                    style={{ marginTop: 8 }}
+                    onPress={onNavigateToLogin}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>
+                      Masuk dengan Google di Halaman Login →
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           )}
 

@@ -2,7 +2,7 @@
 
 [![Release](https://img.shields.io/badge/Release-v1.0.0-emerald.svg)](https://github.com/subjectcode/NomzAI/releases/tag/v1.0.0)
 [![Backend Status](https://img.shields.io/badge/Railway-Production%20Online-success.svg)](https://nomz-backend-production.up.railway.app/api/health)
-[![Tests](https://img.shields.io/badge/Backend%20Pytest-78%2F78%20PASS-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Backend%20Pytest-83%2F83%20PASS-brightgreen.svg)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-0%20Errors-blue.svg)]()
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20FastAPI-orange.svg)]()
 
@@ -233,7 +233,7 @@ npx expo start
 Nomz maintains a comprehensive test suite across backend API, AI pipelines, and mobile contract layers:
 
 ```bash
-# Run 78/78 Pytest test suite
+# Run 83/83 Pytest test suite
 export PYTHONPATH=backend
 pytest tests/ -v
 
@@ -242,9 +242,9 @@ cd frontend
 npx tsc --noEmit
 ```
 
-- **Backend Pytest**: 78/78 passed (auth, video service, account isolation, Langflow, MCP).
+- **Backend Pytest**: 83/83 passed (P0 recommendation reliability, auth consistency, password setup, video service, account isolation, Langflow, MCP).
 - **TypeScript**: 0 errors.
-- **Android E2E & Release QA**: Verified on Android emulators and physical release APK builds.
+- **Android E2E & Release QA**: Verified on Android emulators (`emulator-5554`) with complete end-to-end user flows (register/login, profile identity avatar, camera scan, ingredient confirmation, recipe recommendations with back navigation persistence, settings password creation, logout).
 
 ## Universal Android Compatibility & Release APK
 

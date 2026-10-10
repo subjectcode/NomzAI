@@ -12,6 +12,7 @@ import { Feather } from '@expo/vector-icons';
 import { colors, radius, shadows, spacing } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import { ImpactStats, getImpactStats } from '../services/historyStorage';
+import { UserAvatar } from '../components/UserAvatar';
 
 interface ProfileScreenProps {
   onBack: () => void;
@@ -96,11 +97,7 @@ export function ProfileScreen({
             onPress={onNavigateToEditProfile}
             activeOpacity={0.8}
           >
-            {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
-            ) : (
-              <Text style={styles.avatarText}>{initial}</Text>
-            )}
+            <UserAvatar user={user} size={72} />
             <View style={styles.avatarBadge}>
               <Feather name="camera" size={10} color="#FFFFFF" />
             </View>

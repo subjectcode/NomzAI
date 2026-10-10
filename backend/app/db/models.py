@@ -33,6 +33,11 @@ class User(Base):
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
+    @property
+    def has_password(self) -> bool:
+        """Mengetahui apakah pengguna memiliki hash password tersimpan."""
+        return bool(self.password_hash)
+
 
 class EmailVerificationToken(Base):
     """Model token OTP verifikasi email untuk registrasi akun baru."""

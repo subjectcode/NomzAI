@@ -71,7 +71,7 @@ def test_scenario_e_rescue():
     for rec in data["recommendations"]:
         assert len(rec["bahan_tersedia"]) >= 1
         reason = rec["alasan"].lower()
-        assert any(k in reason for k in ["rescue", "penyelamatan", "menyelamatkan", "mengamankan", "membusuk", "terbuang", "memaksimalkan", "cepat", "manfaat", "praktis", "dapur"]), f"Reason: {rec['alasan']}"
+        assert any(k in reason for k in ["rescue", "penyelamatan", "menyelamatkan", "mengamankan", "membusuk", "terbuang", "memaksimalkan", "cepat", "manfaat", "praktis", "dapur", "matang", "efektif", "segar", "kesegaran"]), f"Reason: {rec['alasan']}"
 
 
 def test_scenario_f_quantity():

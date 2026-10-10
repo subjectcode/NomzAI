@@ -190,66 +190,191 @@ export async function detectIngredientsFromImage(
 }
 
 /**
+ * Normalisasi daftar bahan makanan agar pencarian dan caching konsisten.
+ */
+export function normalizeIngredients(ingredients: string[]): string[] {
+  return Array.from(
+    new Set(
+      ingredients
+        .map((i) => i.trim().toLowerCase())
+        .filter((i) => i.length > 0)
+    )
+  ).sort();
+}
+
+/**
+ * Membentuk cache key unik berdasarkan bahan terkonfirmasi dan filter masakan.
+ */
+export function buildRecommendationCacheKey(
+  ingredients: string[],
+  mode: string = 'rescue',
+  constraint?: string,
+  cookingStyle?: string
+): string {
+  const norm = normalizeIngredients(ingredients);
+  return `${norm.join('::')}||${mode.trim()}||${(constraint || '').trim()}||${(cookingStyle || '').trim()}`;
+}
+
+// In-memory cache & deduplication pool
+interface CacheEntry {
+  timestamp: number;
+  data: RecipeRecommendation[];
+}
+
+const recommendationCache = new Map<string, CacheEntry>();
+const inFlightRecommendations = new Map<string, Promise<RecipeRecommendation[]>>();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 menit
+
+/**
+ * Membersihkan cache rekomendasi lokal (misal saat logout atau reset akun).
+ */
+export function clearRecommendationCache(): void {
+  recommendationCache.clear();
+  inFlightRecommendations.clear();
+}
+
+/**
  * Mengirimkan daftar bahan terkonfirmasi ke backend untuk mendapatkan
  * rekomendasi hidangan masakan yang realistis.
+ *
+ * Dilengkapi dengan:
+ * - Deduplikasi panggilan identik simultan (in-flight request deduplication)
+ * - Session-scoped cache berbasis normalisasi bahan & filter masakan
+ * - Bounded retry untuk transient failure (HTTP 502/503/504) dengan backoff
+ * - Timing metrics tanpa membocorkan kredensial
  */
 export async function getRecipeRecommendations(
   ingredients: string[],
   mode: string = 'rescue',
   constraint?: string,
   cookingStyle?: string,
-  timeoutMs: number = 55000
+  timeoutMs: number = 30000,
+  forceRefresh: boolean = false
 ): Promise<RecipeRecommendation[]> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const normalized = normalizeIngredients(ingredients);
+  if (normalized.length === 0) {
+    throw new Error('Daftar bahan makanan tidak boleh kosong.');
+  }
+
+  const cacheKey = buildRecommendationCacheKey(normalized, mode, constraint, cookingStyle);
+
+  // 1. Cek cache lokal jika bukan forceRefresh
+  if (!forceRefresh) {
+    const cached = recommendationCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
+    }
+  }
+
+  // 2. Cek in-flight request deduplication jika permintaan identik sedang berjalan
+  if (inFlightRecommendations.has(cacheKey)) {
+    return inFlightRecommendations.get(cacheKey)!;
+  }
+
+  // 3. Bangun execution promise dengan bounded retry
+  const fetchPromise = (async () => {
+    const maxRetries = 1;
+    let attempt = 0;
+    const startTime = Date.now();
+
+    while (attempt <= maxRetries) {
+      attempt++;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const response = await fetch(RECOMMENDATIONS_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            ingredients: normalized,
+            mode,
+            constraint: constraint || undefined,
+            cooking_style: cookingStyle || undefined,
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          let errorMsg = `HTTP ${response.status}`;
+          try {
+            const errJson = await response.json();
+            if (errJson.detail) {
+              errorMsg =
+                typeof errJson.detail === 'string'
+                  ? errJson.detail
+                  : JSON.stringify(errJson.detail);
+            }
+          } catch {
+            const text = await response.text();
+            if (text) errorMsg += `: ${text}`;
+          }
+
+          // Bounded retry untuk temporary 502/503/504
+          const isRetryable = response.status >= 500 && response.status <= 504;
+          if (isRetryable && attempt <= maxRetries) {
+            const jitter = Math.random() * 500;
+            await new Promise((res) => setTimeout(res, 1000 + jitter));
+            continue;
+          }
+
+          throw new Error(`Gagal memuat rekomendasi: ${errorMsg}`);
+        }
+
+        const data: RecommendationResponse = await response.json();
+        const list = data.recommendations || [];
+
+        const mapped: RecipeRecommendation[] = list.map((item, index) => ({
+          ...item,
+          id: item.id || `rec-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 6)}`,
+        }));
+
+        // Simpan ke cache
+        recommendationCache.set(cacheKey, {
+          timestamp: Date.now(),
+          data: mapped,
+        });
+
+        const elapsed = Date.now() - startTime;
+        if (__DEV__) {
+          console.log(`[Nomz Recommendation] Selesai dalam ${elapsed}ms (${mapped.length} resep)`);
+        }
+
+        return mapped;
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+
+        if (error.name === 'AbortError') {
+          if (attempt <= maxRetries) {
+            continue;
+          }
+          throw new Error('Waktu pencarian resep habis. Silakan periksa koneksi dan coba lagi.');
+        }
+
+        if (attempt <= maxRetries && !error.message?.includes('HTTP 400')) {
+          const jitter = Math.random() * 400;
+          await new Promise((res) => setTimeout(res, 800 + jitter));
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw new Error('Gagal mendapatkan rekomendasi masakan setelah percobaan ulang.');
+  })();
+
+  // Simpan promise aktif ke map deduplikasi
+  inFlightRecommendations.set(cacheKey, fetchPromise);
 
   try {
-    const response = await fetch(RECOMMENDATIONS_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({
-        ingredients,
-        mode,
-        constraint: constraint || undefined,
-        cooking_style: cookingStyle || undefined,
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      let errorMsg = `HTTP ${response.status}`;
-      try {
-        const errJson = await response.json();
-        if (errJson.detail) {
-          errorMsg =
-            typeof errJson.detail === 'string'
-              ? errJson.detail
-              : JSON.stringify(errJson.detail);
-        }
-      } catch {
-        const text = await response.text();
-        if (text) errorMsg += `: ${text}`;
-      }
-      throw new Error(`Gagal memuat rekomendasi: ${errorMsg}`);
-    }
-
-    const data: RecommendationResponse = await response.json();
-    const list = data.recommendations || [];
-
-    return list.map((item, index) => ({
-      ...item,
-      id: item.id || `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 6)}`,
-    }));
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
-      throw new Error('Waktu peracikan resep habis. Silakan coba beberapa saat lagi.');
-    }
-    throw error;
+    return await fetchPromise;
+  } finally {
+    inFlightRecommendations.delete(cacheKey);
   }
 }

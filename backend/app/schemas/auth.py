@@ -110,8 +110,26 @@ class UserPublic(BaseModel):
     avatar_url: str | None = None
     auth_provider: str
     is_verified: bool = True
+    has_password: bool = False
 
     model_config = {"from_attributes": True}
+
+
+class SetPasswordRequest(BaseModel):
+    """Schema untuk pembuatan atau perubahan password akun."""
+
+    password: str = Field(
+        ..., min_length=8, max_length=128, description="Password minimal 8 karakter"
+    )
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password minimal 8 karakter.")
+        if not v.strip():
+            raise ValueError("Password tidak boleh hanya berisi spasi.")
+        return v
 
 
 class AuthResponse(BaseModel):

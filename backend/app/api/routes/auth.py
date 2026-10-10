@@ -13,6 +13,7 @@ from app.schemas.auth import (
     GoogleAuthRequest,
     OTPRequest,
     OTPVerifyRequest,
+    SetPasswordRequest,
     UserCreate,
     UserLogin,
     UserPublic,
@@ -24,6 +25,7 @@ from app.services.auth import (
     get_user_by_email,
     get_user_by_provider,
     get_user_by_username,
+    hash_password,
     verify_google_id_token,
     verify_password,
 )
@@ -48,9 +50,14 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     # 1. Validasi keunikan email
     existing_email = get_user_by_email(db, payload.email)
     if existing_email:
+        if existing_email.auth_provider == "google" and not existing_email.password_hash:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="EMAIL_REGISTERED_WITH_GOOGLE: Email ini sudah terdaftar menggunakan Google Sign-In. Silakan masuk menggunakan Google.",
+            )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Email sudah terdaftar.",
+            detail="Email sudah terdaftar. Silakan masuk dengan email dan password Anda.",
         )
 
     # 2. Validasi keunikan username (jika disediakan)
@@ -85,6 +92,12 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
 def login(payload: UserLogin, db: Session = Depends(get_db)):
     """Memverifikasi kredensial dan mengembalikan access token."""
     user = get_user_by_email(db, payload.email)
+    if user and not user.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="GOOGLE_ACCOUNT_NO_PASSWORD: Akun ini terdaftar melalui Google Sign-In. Silakan gunakan tombol Masuk dengan Google atau atur password di Pengaturan.",
+        )
+
     if not user or not user.password_hash:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -103,6 +116,26 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
         access_token=token,
         user=UserPublic.model_validate(user),
     )
+
+
+@router.post(
+    "/set-password",
+    response_model=UserPublic,
+    summary="Membuat atau memperbarui password akun yang sedang login",
+)
+def set_password(
+    payload: SetPasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Mengizinkan akun yang sedang terautentikasi (seperti pengguna Google)
+    untuk menambahkan atau memperbarui password login email/password.
+    """
+    current_user.password_hash = hash_password(payload.password)
+    db.commit()
+    db.refresh(current_user)
+    logger.info("Pengguna %s berhasil memperbarui password login", current_user.id)
+    return UserPublic.model_validate(current_user)
 
 
 @router.post(

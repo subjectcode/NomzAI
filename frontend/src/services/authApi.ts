@@ -3,6 +3,7 @@ import {
   AUTH_LOGIN_ENDPOINT,
   AUTH_ME_ENDPOINT,
   AUTH_GOOGLE_ENDPOINT,
+  AUTH_SET_PASSWORD_ENDPOINT,
 } from '../config';
 import {
   AuthResponse,
@@ -299,4 +300,42 @@ export async function verifyOtp(email: string, otp: string): Promise<{ verified:
     throw new Error(msg);
   }
   return await response.json();
+}
+
+/**
+ * Membuat atau memperbarui password akun yang sedang login (seperti akun Google).
+ */
+export async function setPassword(token: string, password: string): Promise<User> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(AUTH_SET_PASSWORD_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ password }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorMessage = await parseErrorResponse(response);
+      const error: any = new Error(errorMessage);
+      error.status = response.status;
+      throw error;
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Koneksi pembuatan password kehabisan waktu.');
+    }
+    throw error;
+  }
 }

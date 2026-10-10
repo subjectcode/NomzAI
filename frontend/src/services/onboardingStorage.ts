@@ -10,12 +10,26 @@ async function getOnboardingKey(userId?: string): Promise<string> {
 
 /**
  * Memeriksa apakah pengguna sudah menyelesaikan slide onboarding.
+ * Dianggap selesai jika sudah diselesaikan di level perangkat atau level user ini.
  */
 export async function getOnboardingCompleted(userId?: string): Promise<boolean> {
   try {
-    const key = await getOnboardingKey(userId);
-    const value = await AsyncStorage.getItem(key);
-    return value === 'true';
+    // 1. Cek status di tingkat perangkat
+    const deviceValue = await AsyncStorage.getItem(`${ONBOARDING_BASE_KEY}_device`);
+    if (deviceValue === 'true') {
+      return true;
+    }
+
+    // 2. Jika ada userId aktif, cek juga status spesifik akun
+    const uid = userId || (await getActiveUserId());
+    if (uid) {
+      const userValue = await AsyncStorage.getItem(`${ONBOARDING_BASE_KEY}_${uid}`);
+      if (userValue === 'true') {
+        return true;
+      }
+    }
+
+    return false;
   } catch (error) {
     console.warn('Gagal membaca status onboarding dari penyimpanan lokal');
     return false;
@@ -24,14 +38,19 @@ export async function getOnboardingCompleted(userId?: string): Promise<boolean> 
 
 /**
  * Menyimpan status bahwa pengguna telah menyelesaikan slide onboarding.
+ * Menyimpan ke level perangkat dan level user agar tidak berulang.
  */
 export async function setOnboardingCompleted(
   completed: boolean = true,
   userId?: string
 ): Promise<void> {
   try {
-    const key = await getOnboardingKey(userId);
-    await AsyncStorage.setItem(key, completed ? 'true' : 'false');
+    const val = completed ? 'true' : 'false';
+    await AsyncStorage.setItem(`${ONBOARDING_BASE_KEY}_device`, val);
+    const uid = userId || (await getActiveUserId());
+    if (uid) {
+      await AsyncStorage.setItem(`${ONBOARDING_BASE_KEY}_${uid}`, val);
+    }
   } catch (error) {
     console.warn('Gagal menyimpan status onboarding ke penyimpanan lokal');
   }
@@ -42,8 +61,11 @@ export async function setOnboardingCompleted(
  */
 export async function resetOnboarding(userId?: string): Promise<void> {
   try {
-    const key = await getOnboardingKey(userId);
-    await AsyncStorage.removeItem(key);
+    await AsyncStorage.removeItem(`${ONBOARDING_BASE_KEY}_device`);
+    const uid = userId || (await getActiveUserId());
+    if (uid) {
+      await AsyncStorage.removeItem(`${ONBOARDING_BASE_KEY}_${uid}`);
+    }
   } catch (error) {
     console.warn('Gagal mereset status onboarding');
   }

@@ -10,6 +10,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { colors, radius, shadows, spacing } from '../theme';
 import { NomzLogo } from '../components/NomzLogo';
+import { UserAvatar } from '../components/UserAvatar';
 import { RecipeRecommendation } from '../types';
 import { getCookingHistory, HistoryItem, getImpactStats, ImpactStats } from '../services/historyStorage';
 import { getPantryItems, PantryItem } from '../services/pantryStorage';
@@ -129,12 +130,11 @@ export function BerandaScreen({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.profileAvatar}
             onPress={onOpenProfile}
             activeOpacity={0.7}
             accessibilityLabel="Profil Pengguna"
           >
-            <Feather name="user" size={18} color={colors.primary} />
+            <UserAvatar user={user} size={38} />
           </TouchableOpacity>
         </View>
       </View>

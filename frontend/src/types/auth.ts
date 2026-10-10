@@ -10,6 +10,7 @@ export interface User {
   avatar_url: string | null;
   auth_provider: 'email' | 'google' | string;
   is_verified?: boolean;
+  has_password?: boolean;
 }
 
 export interface AuthResponse {

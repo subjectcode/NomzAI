@@ -31,7 +31,7 @@ import {
 import { BottomNavBar, TabRoute } from './src/components';
 import { colors } from './src/theme';
 import { RecipeRecommendation } from './src/types';
-import { getOnboardingCompleted } from './src/services/onboardingStorage';
+import { getOnboardingCompleted, setOnboardingCompleted } from './src/services/onboardingStorage';
 import { initializeGoogleAuth } from './src/services/googleAuth';
 
 type CookingStep = 'scan' | 'recommendations' | 'detail' | 'guided_cooking';
@@ -51,6 +51,9 @@ function MainApp() {
 
   // Status onboarding lokal (AsyncStorage)
   const [isOnboardingCompleted, setIsOnboardingCompleted] = useState<boolean | null>(null);
+
+  // Cache rekomendasi resep saat navigasi bolak-balik antara Rekomendasi & Detail
+  const [cachedRecommendations, setCachedRecommendations] = useState<RecipeRecommendation[]>([]);
 
   // Sub-layar alur autentikasi (welcome | login | register | otp)
   const [authSubScreen, setAuthSubScreen] = useState<AuthSubScreen>('login');
@@ -204,18 +207,27 @@ function MainApp() {
     };
   }, [user?.id]);
 
+  // Pastikan status onboarding ditandai selesai jika pengguna sudah terautentikasi
+  useEffect(() => {
+    if (isAuthenticated) {
+      setIsOnboardingCompleted(true);
+      setOnboardingCompleted(true, user?.id);
+    }
+  }, [isAuthenticated, user?.id]);
+
   // 1. SPLASH: Menunggu resolusi session auth dan onboarding lokal tanpa fake delay
   const isAppLoading = isAuthLoading || isOnboardingCompleted === null;
   if (isAppLoading) {
     return <SplashScreen />;
   }
 
-  // 2. ONBOARDING: Pengguna baru pertama kali membuka aplikasi
-  if (!isOnboardingCompleted) {
+  // 2. ONBOARDING: Pengguna baru pertama kali membuka aplikasi (HANYA jika belum terautentikasi dan belum selesai onboarding)
+  if (!isAuthenticated && !isOnboardingCompleted) {
     return (
       <OnboardingScreen
         onComplete={() => {
           setIsOnboardingCompleted(true);
+          setOnboardingCompleted(true, user?.id);
           setAuthSubScreen('welcome');
         }}
       />
@@ -288,6 +300,11 @@ function MainApp() {
   };
 
   const handleNavigateToRecommendations = (ingredients: string[]) => {
+    const currentNorm = activeIngredients.slice().sort().join(',');
+    const nextNorm = ingredients.slice().sort().join(',');
+    if (currentNorm !== nextNorm) {
+      setCachedRecommendations([]);
+    }
     pushNav('scan', 'none', 'recommendations', selectedRecipe, ingredients);
   };
 
@@ -442,6 +459,8 @@ function MainApp() {
                 {cookingStep === 'recommendations' && (
                   <RekomendasiScreen
                     ingredients={activeIngredients}
+                    initialRecommendations={cachedRecommendations}
+                    onRecommendationsLoaded={setCachedRecommendations}
                     onSelectRecipe={handleSelectRecipe}
                     onBack={handleGoBack}
                   />

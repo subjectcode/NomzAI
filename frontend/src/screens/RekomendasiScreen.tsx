@@ -15,6 +15,8 @@ import { colors, radius, shadows, spacing } from '../theme';
 
 interface RekomendasiScreenProps {
   ingredients: string[];
+  initialRecommendations?: RecipeRecommendation[];
+  onRecommendationsLoaded?: (recipes: RecipeRecommendation[]) => void;
   onSelectRecipe: (recipe: RecipeRecommendation) => void;
   onBack: () => void;
 }
@@ -51,15 +53,17 @@ const COOKING_STYLES: CookingStyleOption[] = [
 
 export function RekomendasiScreen({
   ingredients: initialIngredients,
+  initialRecommendations,
+  onRecommendationsLoaded,
   onSelectRecipe,
   onBack,
 }: RekomendasiScreenProps) {
   const [currentIngredients, setCurrentIngredients] = useState<string[]>(initialIngredients);
   const [activeConstraint, setActiveConstraint] = useState<string>('rescue');
   const [activeCookingStyle, setActiveCookingStyle] = useState<string>('all');
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(!initialRecommendations || initialRecommendations.length === 0);
   const [error, setError] = useState<string | null>(null);
-  const [recommendations, setRecommendations] = useState<RecipeRecommendation[]>([]);
+  const [recommendations, setRecommendations] = useState<RecipeRecommendation[]>(initialRecommendations || []);
 
   // State untuk "Tambah 1 Bahan"
   const [showAddOneInput, setShowAddOneInput] = useState<boolean>(false);
@@ -68,7 +72,8 @@ export function RekomendasiScreen({
   const fetchRecommendations = async (
     targetIngredients: string[] = currentIngredients,
     constraintId: string = activeConstraint,
-    cookingStyleId: string = activeCookingStyle
+    cookingStyleId: string = activeCookingStyle,
+    forceRefresh: boolean = false
   ) => {
     setLoading(true);
     setError(null);
@@ -79,9 +84,12 @@ export function RekomendasiScreen({
         targetIngredients,
         selected?.mode || 'rescue',
         selected?.label,
-        styleParam
+        styleParam,
+        30000,
+        forceRefresh
       );
       setRecommendations(data);
+      onRecommendationsLoaded?.(data);
     } catch (err: any) {
       setError(err?.message || 'Gagal memuat rekomendasi masakan.');
     } finally {
@@ -90,15 +98,19 @@ export function RekomendasiScreen({
   };
 
   useEffect(() => {
-    fetchRecommendations(currentIngredients, activeConstraint, activeCookingStyle);
+    if (!initialRecommendations || initialRecommendations.length === 0) {
+      fetchRecommendations(currentIngredients, activeConstraint, activeCookingStyle);
+    }
   }, []);
 
   const handleSelectConstraint = (constraintId: string) => {
+    if (constraintId === activeConstraint && !error) return;
     setActiveConstraint(constraintId);
     fetchRecommendations(currentIngredients, constraintId, activeCookingStyle);
   };
 
   const handleSelectCookingStyle = (styleId: string) => {
+    if (styleId === activeCookingStyle && !error) return;
     setActiveCookingStyle(styleId);
     fetchRecommendations(currentIngredients, activeConstraint, styleId);
   };
@@ -116,7 +128,7 @@ export function RekomendasiScreen({
     setCurrentIngredients(updated);
     setNewIngredientInput('');
     setShowAddOneInput(false);
-    fetchRecommendations(updated, activeConstraint, activeCookingStyle);
+    fetchRecommendations(updated, activeConstraint, activeCookingStyle, true);
   };
 
   const handleLeftoverRemix = () => {
@@ -289,16 +301,64 @@ export function RekomendasiScreen({
         {/* 5. ERROR STATE */}
         {!loading && error && (
           <View style={styles.errorBox}>
-            <Feather name="alert-circle" size={24} color={colors.error} style={{ marginBottom: 8 }} />
-            <Text style={styles.errorTitle}>Belum Dapat Menemukan Resep</Text>
+            <Feather
+              name={
+                error.toLowerCase().includes('koneksi') ||
+                error.toLowerCase().includes('waktu') ||
+                error.toLowerCase().includes('network')
+                  ? 'wifi-off'
+                  : error.toLowerCase().includes('500') ||
+                    error.toLowerCase().includes('502') ||
+                    error.toLowerCase().includes('503') ||
+                    error.toLowerCase().includes('504')
+                  ? 'cloud-off'
+                  : 'alert-circle'
+              }
+              size={26}
+              color={colors.error}
+              style={{ marginBottom: 8 }}
+            />
+            <Text style={styles.errorTitle}>
+              {error.toLowerCase().includes('koneksi') ||
+              error.toLowerCase().includes('waktu') ||
+              error.toLowerCase().includes('network')
+                ? 'Gangguan Koneksi atau Batas Waktu'
+                : 'Belum Dapat Menemukan Resep'}
+            </Text>
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity
               style={styles.retryBtn}
-              onPress={() => fetchRecommendations(currentIngredients, activeConstraint)}
+              onPress={() =>
+                fetchRecommendations(
+                  currentIngredients,
+                  activeConstraint,
+                  activeCookingStyle,
+                  true
+                )
+              }
               activeOpacity={0.8}
             >
               <Feather name="refresh-cw" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
               <Text style={styles.retryBtnText}>Coba Lagi</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* 6. GENUINE ZERO RESULTS STATE */}
+        {!loading && !error && recommendations.length === 0 && (
+          <View style={styles.errorBox}>
+            <Feather name="inbox" size={32} color={colors.textMuted} style={{ marginBottom: 8 }} />
+            <Text style={styles.errorTitle}>Belum Ada Resep yang Cocok</Text>
+            <Text style={styles.errorText}>
+              Kombinasi bahan saat ini belum memiliki hidangan yang pas untuk gaya masak atau filter ini. Coba ubah gaya masak atau tambahkan 1 bahan pendukung.
+            </Text>
+            <TouchableOpacity
+              style={styles.retryBtn}
+              onPress={() => setShowAddOneInput(true)}
+              activeOpacity={0.8}
+            >
+              <Feather name="plus" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.retryBtnText}>Tambah Bahan Pendukung</Text>
             </TouchableOpacity>
           </View>
         )}
