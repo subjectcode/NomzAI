@@ -285,17 +285,14 @@ Nomz provides production-signed standalone Android release artifacts engineered 
 ## Presentation & Comprehensive Documentation
 
 Comprehensive materials prepared for hackathon judges, developers, and deployment engineers:
-- **[Evidence & Proof Index](submission/evidence/README.md)**: Indeks 13 screenshot asli (Langflow V2 canvas/playground, IBM Bob chat MCP, Gemini vision, dan mobile APK).
-- **[Technical Evidence Audit](docs/TECHNICAL_EVIDENCE.md)**: Laporan audit teknis lengkap, verifikasi status (PASS), log Pytest 100%, dan sumber bukti.
-- **[System Architecture](docs/ARCHITECTURE.md)**: End-to-end architecture diagrams, security isolation, dan pemisahan runtime vs tooling.
-- **[Slide 8 Evidence Checklist](submission/SLIDE_8_EVIDENCE_CHECKLIST.md)**: Checklist bukti teknis terverifikasi untuk Canva & Slide 8.
-- **[Hackathon Submission Form Copy-Paste](submission/FORM_SUBMISSION.md)**: Jawaban lengkap dan terstruktur untuk pengisian formulir pendaftaran.
-- **[11-Slide Pitch Outline](docs/PRESENTATION_OUTLINE.md)**: Slide-by-slide messages, visuals, speaker notes, dan Canva layout guide.
-- **[Project Overview](docs/PROJECT_OVERVIEW.md)**: Problem statement, UVP, user journey, impact hypothesis, dan monetization.
-- **[Live Demo Script](docs/DEMO_SCRIPT.md)**: 3–5 minute step-by-step demonstration walkthrough with edge-case fallbacks.
-- **[Testing & Release Guide](docs/TESTING_AND_RELEASE.md)**: Pytest verification, device compatibility matrix, and APK installation guide.
-- **[Responsible AI Manifesto](docs/RESPONSIBLE_AI.md)**: Food-safety boundaries, sensory limitations, and user-confirmation safeguards.
-
+- **[Pitch Deck (PDF)](submission/Nomz_Pitching_Deck.pdf)** / **[(PPTX)](submission/Nomz_Pitching_Deck.pptx)**: Presentasi pitching resmi (12 slide final) mencakup visi, fitur, arsitektur, bukti Langflow V2, dan integrasi IBM Bob / MCP.
+- **[Evidence & Proof Index](submission/evidence/README.md)**: Indeks tangkapan layar bukti teknis (Langflow V2 canvas/playground, IBM Bob chat MCP, Gemini vision, dan Android release APK).
+- **[System Architecture](docs/ARCHITECTURE.md)**: Arsitektur end-to-end, spesifikasi teknis, isolasi tenant database, dan pemisahan runtime vs tooling.
+- **[12-Slide Pitch Outline](docs/PRESENTATION_OUTLINE.md)**: Narasi per-slide, visual breakdown, dan catatan presenter yang selaras dengan deck final.
+- **[Project Overview](docs/PROJECT_OVERVIEW.md)**: Latar belakang masalah, UVP, alur pengguna, hipotesis dampak, dan model keberlanjutan.
+- **[Live Demo Script](docs/DEMO_SCRIPT.md)**: Panduan demonstrasi langsung 3–5 menit dengan skenario fallback.
+- **[Testing & Release Guide](docs/TESTING_AND_RELEASE.md)**: Hasil pengujian Pytest, matriks kompatibilitas arsitektur perangkat, dan panduan instalasi APK.
+- **[Responsible AI Manifesto](docs/RESPONSIBLE_AI.md)**: Batasan keamanan pangan, sensory disclaimer, dan perlindungan privasi pengguna.
 
 ---
 
@@ -315,7 +312,7 @@ Nomz/
 │   └── requirements.txt
 ├── bob/
 │   ├── agent-instructions.md    # IBM Bob system prompts
-│   └── mcp-config.example.json  # MCP tool specification for IBM Bob
+│   └── mcp-config.example.json  # MCP tool specification template for IBM Bob
 ├── frontend/
 │   ├── android/                 # Bare Android native release project
 │   ├── src/
@@ -329,11 +326,15 @@ Nomz/
 │   ├── components/              # Custom Langflow Python nodes
 │   └── flows/                   # Exported workflow graphs (V1, V2, OTP)
 ├── screenshots/                 # Application preview screenshots
+├── submission/
+│   ├── Nomz_Pitching_Deck.pdf   # Official 12-slide Pitch Deck (Final PDF)
+│   ├── Nomz_Pitching_Deck.pptx  # Official 12-slide Pitch Deck (PowerPoint)
+│   └── evidence/                # Technical evidence screenshots & index
 ├── tests/                       # Pytest test suite (83 tests)
-└── .github/                     # Issue & PR templates
 ```
 
 ---
+
 
 ## Contributors & License
 
