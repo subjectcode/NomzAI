@@ -285,7 +285,7 @@ Nomz provides production-signed standalone Android release artifacts engineered 
 ## Presentation & Comprehensive Documentation
 
 Comprehensive materials prepared for hackathon judges, developers, and deployment engineers:
-- **[Pitch Deck (PDF)](submission/Nomz_Pitching_Deck.pdf)** / **[(PPTX)](submission/Nomz_Pitching_Deck.pptx)**: Presentasi pitching resmi (12 slide final) mencakup visi, fitur, arsitektur, bukti Langflow V2, dan integrasi IBM Bob / MCP.
+- **[Pitch Deck (PDF)](submission/Nomz_Pitching_Deck.pdf)**: Presentasi pitching resmi (12 slide final) mencakup visi, fitur, arsitektur, bukti Langflow V2, dan integrasi IBM Bob / MCP.
 - **[Evidence & Proof Index](submission/evidence/README.md)**: Indeks tangkapan layar bukti teknis (Langflow V2 canvas/playground, IBM Bob chat MCP, Gemini vision, dan Android release APK).
 - **[System Architecture](docs/ARCHITECTURE.md)**: Arsitektur end-to-end, spesifikasi teknis, isolasi tenant database, dan pemisahan runtime vs tooling.
 - **[12-Slide Pitch Outline](docs/PRESENTATION_OUTLINE.md)**: Narasi per-slide, visual breakdown, dan catatan presenter yang selaras dengan deck final.
@@ -328,7 +328,6 @@ Nomz/
 ├── screenshots/                 # Application preview screenshots
 ├── submission/
 │   ├── Nomz_Pitching_Deck.pdf   # Official 12-slide Pitch Deck (Final PDF)
-│   ├── Nomz_Pitching_Deck.pptx  # Official 12-slide Pitch Deck (PowerPoint)
 │   └── evidence/                # Technical evidence screenshots & index
 ├── tests/                       # Pytest test suite (83 tests)
 ```

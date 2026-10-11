@@ -1,7 +1,7 @@
 # Nomz — Pitch Deck Outline (12 Final Slides)
 
 **Target Durasi**: 5–7 Menit  
-**File Presentasi**: `submission/Nomz_Pitching_Deck.pdf` & `submission/Nomz_Pitching_Deck.pptx`  
+**File Presentasi**: `submission/Nomz_Pitching_Deck.pdf`  
 **Tema Utama**: Solusi Food Rescue Rumahan Berbasis Multi-Agent AI (Gemini, Langflow V2, IBM Bob / MCP)
 
 ---
