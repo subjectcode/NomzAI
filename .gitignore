@@ -50,5 +50,7 @@ Thumbs.db
 Nomz_Brand_Assets.zip
 Nomz_Brand_Assets/
 
-# Temporary scratch
+# Temporary scratch and office lockfiles
 scratch/
+~$*
+*.tmp

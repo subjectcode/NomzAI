@@ -1,110 +1,130 @@
 # Nomz — System Architecture & Technical Specifications
 
-## 1. System Overview
+## 1. System Overview & Dual-Ecosystem Model
 
-Nomz operates as a modern cloud-backed mobile application designed for low latency, high resilience, and multi-layered AI orchestration.
+Nomz dirancang dengan pemisahan tegas antara **Runtime Aplikasi Pengguna (Production)** dan **Lingkungan Bantuan Rekayasa (Development Tooling)**:
 
 ```mermaid
 graph TD
-    subgraph Mobile Client [Android Native / Expo 52]
+    subgraph Mobile Client [Android Native / Expo SDK 57]
         UI[React Native UI & 5-Tab Navigation]
         SecureStore[Expo SecureStore - Encrypted Tokens]
         GoogleAuthClient[Google Play Services OAuth Client]
         CameraEngine[Expo Camera & ImagePicker]
     end
 
-    subgraph Production Cloud [Railway PaaS]
+    subgraph Production Cloud [Railway PaaS & Localhost]
         FastAPI[FastAPI Backend - ASGI Server]
         AuthMiddleware[JWT Auth & Session Middleware]
-        PostgreSQL[(Production PostgreSQL DB)]
+        DB[(Database: PostgreSQL on Railway / SQLite Local)]
     end
 
-    subgraph AI Orchestration & External Services
-        Gemini[Google Gemini 2.5 Flash Multimodal]
-        Langflow[Langflow V2 Orchestrator]
-        Composio[Composio Gmail API - OTP Delivery]
+    subgraph AI Orchestration Runtime [Langflow V2 & External APIs]
+        Langflow[Langflow V2 Orchestration Server - Port 7860]
+        Gemini[Google Gemini Multimodal & Recipe LLM]
         YouTube[YouTube Data API v3 - Recipe Discovery]
-        IBMBob[IBM Bob & MCP Agent Infrastructure]
+        Composio[Composio Gmail API - OTP Delivery]
     end
 
+    subgraph Developer Tooling [Engineering & QA Partner]
+        IBMBob[IBM Bob Agentic IDE]
+        MCPConfig[.bob/mcp.json Configuration]
+    end
+
+    %% Application Runtime Flow
     UI -->|HTTPS REST API| FastAPI
     CameraEngine -->|Base64 JPEG| FastAPI
     GoogleAuthClient -->|id_token| FastAPI
     FastAPI --> AuthMiddleware
-    AuthMiddleware --> PostgreSQL
-    FastAPI -->|Ingredient Vision| Gemini
-    FastAPI -->|Flow Execution| Langflow
+    AuthMiddleware --> DB
+    FastAPI -->|Ingredient Vision Direct| Gemini
+    FastAPI -->|Flow Execution REST POST /api/v1/run| Langflow
+    Langflow -->|Recipe Generation| Gemini
+    Langflow -->|Video Discovery| YouTube
     FastAPI -->|Email Delivery| Composio
-    FastAPI -->|Video Queries| YouTube
-    IBMBob -.->|MCP Diagnostics & Tools| FastAPI
+
+    %% Developer / MCP Integration Flow (Non-Runtime)
+    IBMBob -.->|Reads Context| MCPConfig
+    MCPConfig -.->|Direct Streamable-HTTP SSE| Langflow
 ```
 
 ---
 
-## 2. Frontend Architecture
-- **Framework**: React Native 0.86 with Expo SDK 52.
-- **Language**: TypeScript (`npx tsc --noEmit` clean).
-- **Navigation**: Custom persistent bottom navigation bar (`BottomNavBar.tsx`):
-  - `Beranda` (Home)
-  - `Jelajahi` (Explore)
-  - `Scan` (Medallion floating action button)
-  - `Tersimpan` (Saved Recipes)
-  - `Profil` (Profile & Utilities)
+## 2. Klarifikasi Komponen: Runtime vs. Tooling
+
+| Aspek | Langflow V2 | IBM Bob | Model Context Protocol (MCP) |
+| :--- | :--- | :--- | :--- |
+| **Kategori** | Runtime AI Workflow Engine | Autonomous Coding & QA Assistant | Open Integration Protocol |
+| **Lokasi Eksekusi** | Docker Container (Port 7860) | Desktop Developer Environment | Standar komunikasi (JSON-RPC SSE) |
+| **Aktor Pemicu** | Panggilan backend FastAPI saat user meminta resep di HP | Engineer saat mengembangkan, merekayasa kode, atau menjalankan tes | Agent Bob saat memanggil tools di Langflow |
+| **Peran di Nomz** | Menjalankan pipeline multi-node `find_meals_v2` secara sinkron | Membantu refactoring kode, verifikasi schema Pydantic, dan hardening APK | Menyediakan interface tools `find_meals` dan `email_otp_sender` bagi Bob |
+
+---
+
+## 3. Frontend Architecture
+- **Framework**: React Native `0.86.3` with Expo SDK `57.0.25`, React `19.2.3`.
+- **Language**: TypeScript (`npx tsc --noEmit` clean, 0 errors).
+- **Navigation**: Custom persistent 5-tab navigation bar (`BottomNavBar.tsx`):
+  - `Beranda` (Home) — Ringkasan dampak, quick scan, resep unggulan.
+  - `Jelajahi` (Explore) — Katalog resep terorganisir per-kategori.
+  - `Scan` (Medallion FAB) — Scanner kamera & galeri foto bahan makanan.
+  - `Tersimpan` (Saved) — Resep favorit tersimpan lokal & cloud.
+  - `Profil` (Profile) — Inventaris dapur, histori memasak, meal planner, dan skor food-waste.
 - **Local State & Storage**:
-  - `AuthContext`: Centralized authentication provider managing tokens, user profile, and Remember-Me persistence.
-  - `@react-native-async-storage/async-storage`: Lightweight application preferences.
-  - `expo-secure-store`: Encrypted keystore/keychain storage for JWT tokens and refresh credentials.
+  - `AuthContext`: Pengelolaan sesi token JWT dan auto-restore credentials.
+  - `@react-native-async-storage/async-storage`: Preferensi tampilan dan cache resep.
+  - `expo-secure-store`: Penyimpanan terenkripsi untuk token akses sensitif.
 - **Network Resilience**:
-  - Configurable React Native fetch engine (`EXPO_PUBLIC_USE_RN_FETCH=1`).
-  - Production HTTPS endpoints with timeout fallbacks (`https://nomz-backend-production.up.railway.app`).
+  - Dukungan engine `RN fetch` (`EXPO_PUBLIC_USE_RN_FETCH=1`) untuk kompatibilitas upload multipart di berbagai platform mobile.
 
 ---
 
-## 3. Backend Architecture
-- **Framework**: Python 3.11 + FastAPI with Uvicorn ASGI.
-- **Data Persistence**: SQLAlchemy ORM with PostgreSQL on Railway (automatic fallback to SQLite for isolated local testing).
+## 4. Backend Architecture
+- **Framework**: Python 3.11 + FastAPI dengan Uvicorn ASGI server.
+- **Data Persistence**: SQLAlchemy ORM di `backend/app/db/database.py`.
+  - **Production**: PostgreSQL di Railway Cloud dengan connection pooling (`pool_pre_ping=True`).
+  - **Local Development & Automated Tests**: SQLite (`nomz.db`) terisolasi untuk eksekusi cepat dan reproducible.
 - **Database Schema**:
-  - `users`: Account identity, hashed passwords, provider type (local/google), creation timestamp.
-  - `user_profiles`: Preferences, food waste score, total saved items.
-  - `pantry_items`: User-specific ingredient inventory with quantity and expiration timestamps.
-  - `saved_recipes`: User bookmarks referencing recipe identifiers and metadata.
-  - `cooking_history`: Completed recipe logs with dates and meal ratings.
-  - `meal_plans`: Scheduled recipes across calendar days.
-- **Data Isolation**: Strict user-id scoping across all ORM queries; no user can access or modify another account's pantry, saved recipes, or cooking logs.
+  - `users`: Identitas akun, password hash (`bcrypt`), status verifikasi, dan provider Google OAuth.
+  - `user_profiles`: Profil preferensi dapur, skor penyelamatan pangan, kuota harian.
+  - `pantry_items`: Inventaris stok bahan pengguna dengan jumlah dan tanggal kedaluwarsa.
+  - `saved_recipes`: Bookmark resep masakan favorit per-pengguna.
+  - `cooking_history`: Riwayat memasak dengan timestamp dan rating kepuasan.
+  - `meal_plans`: Jadwal memasak mingguan terintegrasi.
+- **Data Isolation**: Isolasi ketat berbasis `user_id` di setiap query ORM (*Strict Tenant Isolation*).
 
 ---
 
-## 4. AI & Service Orchestrations
+## 5. AI & External Service Orchestrations
 
 ### A. Google Gemini Multimodal Vision
-- Receives kitchen counter or refrigerator images encoded in base64.
-- Prompt engineered to extract recognized ingredients strictly as structured JSON arrays with standard Indonesian ingredient names.
-- Returns confidence flags and distinguishes primary ingredients from pantry condiments.
+- Menerima foto bahan mentah (base64 JPEG) dari kamera aplikasi.
+- Dieksekusi melalui endpoint backend `/api/vision/detect-ingredients` menggunakan SDK resmi `google-genai` (`gemini-3.8-flash`).
+- Menghasilkan daftar bahan masakan terstandarisasi dalam Bahasa Indonesia.
 
-### B. Langflow V2 Orchestration
-- Orchestrates recipe synthesis based on on-hand ingredients, user dietary preferences, and target meal categories.
-- Implements resilient multi-engine routing:
-  1. Langflow remote pipeline invocation (`find_meals_v2`).
-  2. Local Gemini structured generation if Langflow remote is unavailable.
-  3. Curated culinary catalog fallback if external AI endpoints encounter rate limits or network partitions.
-- Implements deterministic recipe deduplication and recommendation caching to ensure sub-second response times and preserve state when users navigate back from recipe details.
+### B. Langflow V2 Orchestration (`find_meals_v2`)
+- Di-host pada Docker container port 7860 (`flow_id: 9b196854-4746-49e7-ad92-f67f06c054ff`).
+- Terdiri dari 10 nodes terintegrasi:
+  1. **Chat Input**: Menerima daftar bahan confirmed dari backend.
+  2. **Ingredient Normalizer**: Standarisasi penamaan bahan lokal.
+  3. **Cooking Style Interpreter**: Menyesuaikan preferensi (tumis, rebus, goreng, hemat bumbu).
+  4. **Rescue Prompt Builder**: Membangun system prompt anti-waste.
+  5. **Google Generative AI**: LLM inference menggunakan Gemini 2.5 Flash Lite.
+  6. **Recipe Validator & Formatter**: Menjamin integritas bahan (bahan wajib harus cocok dengan input user).
+  7. **Video Search Intent**: Merumuskan kata kunci pencarian video tutorial memasak.
+  8. **YouTube Search Tool**: Eksekusi pencarian API YouTube Data API v3 secara live.
+  9. **Video Relevance Ranker**: Menyaring dan memeringkat video tutorial Indonesia yang relevan.
+  10. **Chat Output**: Mengirimkan payload JSON terstruktur ke backend.
 
 ### C. IBM Bob & Model Context Protocol (MCP)
-- IBM Bob serves as the autonomous coding and systems development partner.
-- Standardized MCP server contracts provide tools for database inspection, pipeline tracing, and rapid backend debugging during hackathon iterations.
-
-### D. Composio Gmail OTP Integration
-- Generates secure, single-use 6-digit numeric verification codes.
-- Uses Composio tools connected to Gmail API to transmit responsive OTP emails for new account registration.
-- Backend verifies OTP against an HMAC-signed salt and expiration window (10 minutes).
-
-### E. YouTube Recipe Discovery
-- Leverages YouTube Data API v3 with a specialized relevance ranker (`video_relevance_ranker.py`).
-- Matches cooking tutorials matching Indonesian recipe names, filtering out irrelevant lifestyle vlogs.
+- IBM Bob bertindak sebagai mitra rekayasa perangkat lunak otonom selama siklus pengembangan.
+- File `.bob/mcp.json` menghubungkan Bob secara langsung ke Langflow MCP Server via SSE streamable-http.
+- Memungkinkan Bob melakukan verifikasi tools, testing respons masakan, dan inspeksi integritas sistem.
 
 ---
 
-## 5. Security & Session Integrity
-- **JWT Authentication**: Passwords hashed using `bcrypt` (cost factor 12). Sessions verified using HMAC-SHA256 JWTs.
-- **Google OAuth**: Mobile client acquires Google `id_token` via official Play Services SDK; FastAPI verifies token signature with Google's public JWKS endpoint.
-- **Secret Separation**: All production secrets (database URLs, API keys, JWT signing keys) injected strictly via environment variables. Zero credentials committed to version control.
+## 6. Security, Session & Quality Assurance
+- **Password Hashing**: Menggunakan `bcrypt` dengan salt dinamis.
+- **Token Security**: HMAC-SHA256 JWT dengan masa kedaluwarsa ketat.
+- **Google OAuth Verification**: Verifikasi cryptographic signature token Google menggunakan Google JWKS public certs.
+- **Testing Coverage**: Automated Pytest suite menguji health endpoint, integrasi Langflow REST, isolasi data, dan handshake protokol MCP.

@@ -94,72 +94,82 @@ graph TD
 
 ## System Architecture
 
+Nomz operates under a clear separation between **Application Production Runtime** and **Developer & QA Tooling**:
+
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                 Nomz Android Mobile Client                  │
-│       React Native (Expo SDK 52) · TypeScript · Native UI    │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ HTTPS (Railway)
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                 FastAPI Gateway Backend                     │
-│  PostgreSQL (Railway) · JWT Session · Strict Route Security │
-└───┬──────────────────────────┬──────────────────────────┬───┘
-    │                          │                          │
-    ▼                          ▼                          ▼
-┌────────────────────┐  ┌───────────────┐  ┌──────────────────┐
-│ Gemini Multimodal  │  │  Langflow V2  │  │ Video Discovery  │
-│  Vision Processing │  │ Orchestration │  │ Composio/YouTube │
-└────────────────────┘  └───────┬───────┘  └──────────────────┘
-                                │
-                                ▼
-                        ┌───────────────┐
-                        │    IBM Bob    │
-                        │ MCP Protocol  │
-                        └───────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                 APPLICATION RUNTIME ECOSYSTEM (MOBILE CLIENT)               │
+│                                                                             │
+│                 Nomz Android Mobile Client                                  │
+│         React Native 0.86 · Expo SDK 57 · TypeScript · Native UI            │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │ HTTPS REST / Multipart JPEG
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                 FastAPI Gateway Backend (Python 3.11)                       │
+│     JWT Auth · SQLAlchemy ORM · PostgreSQL (Railway) / SQLite (Local Test)   │
+└───┬──────────────────────────────────┬──────────────────────────────────┬───┘
+    │                                  │                                  │
+    ▼                                  ▼                                  ▼
+┌────────────────────┐  ┌───────────────────────────────┐  ┌──────────────────┐
+│ Gemini Multimodal  │  │  Langflow V2 Orchestration    │  │ Video Discovery  │
+│  Vision Processing │  │  Engine (Docker Port 7860)    │  │ Composio/YouTube │
+│ (gemini-3.8-flash) │  │  (10-Node find_meals_v2 Flow) │  │ Data API v3      │
+└────────────────────┘  └──────────────┬────────────────┘  └──────────────────┘
+                                       ▲
+                                       │ Direct Streamable-HTTP SSE (.bob/mcp.json)
+┌──────────────────────────────────────┴──────────────────────────────────────┐
+│                 DEVELOPER TOOLING ECOSYSTEM (ENGINEERING & QA)              │
+│                                                                             │
+│                 IBM Bob (Agentic Coding & QA Environment)                   │
+│      Tool Integration via Model Context Protocol (nomz-food-assistant)      │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Technology Stack
 
-- **Mobile Client**: React Native 0.76, Expo SDK 52, TypeScript 5.3, React Native Paper / Feather icons.
-- **Backend API**: Python 3.11, FastAPI, Pydantic v2, SQLAlchemy, Uvicorn, HTTPX.
-- **Database**: PostgreSQL (Production on Railway) with local SQLite compatibility for testing.
+- **Mobile Client**: React Native 0.86.3, Expo SDK 57.0.25, React 19.2.3, TypeScript ~6.0.3, Expo Camera, Expo ImagePicker, Expo SecureStore.
+- **Backend API**: Python 3.11, FastAPI, Pydantic v2, SQLAlchemy 2.0, Uvicorn, HTTPX.
+- **Database**:
+  - **Production**: PostgreSQL (configured on Railway PaaS with connection pooling).
+  - **Local Development & Automated Testing**: SQLite (`nomz.db`) for fast, isolated, reproducible test runs.
 - **AI & Orchestration**:
-  - Google Gemini (`gemini-3.8-flash` via `google-genai`).
-  - Langflow 1.12+ runtime workflows (`find_meals_v2` with V1 fallback).
-  - IBM Bob MCP integration (`bob/mcp-config.example.json`).
-  - Composio Tool Routing & YouTube Data API v3.
+  - **Google Gemini Multimodal Vision**: `gemini-3.8-flash` via official `google-genai` SDK for ingredient extraction.
+  - **Langflow V2 Workflow Runtime**: Dockerized 10-node orchestration pipeline (`find_meals_v2` with V1 fallback).
+  - **IBM Bob & Model Context Protocol (MCP)**: Autonomous developer toolchain connecting via direct streamable-http SSE.
+  - **Video Guidance**: YouTube Data API v3 with culinary relevance ranking algorithm.
 - **Deployment**: Railway HTTPS container deployment with Docker.
 
 ---
 
 ## AI & Workflow Orchestration
 
-### Langflow V2 Orchestration
-Nomz utilizes Langflow for structured recipe synthesis. The workflow normalizes detected ingredient lists, matches flavor profiles, identifies necessary staples, and outputs structured JSON recipes tailored to minimize food waste.
+### Langflow V2 Orchestration (Runtime Engine)
+Nomz utilizes Langflow V2 as its live recipe reasoning and orchestration engine. The 10-node `find_meals_v2` pipeline normalizes input ingredients, interprets user cooking style constraints, constructs anti-waste rescue prompts, invokes Google Gemini (`gemini-2.5-flash-lite`), enforces strict recipe output validation, and performs YouTube recipe tutorial matching.
 
 ### Gemini Multimodal Vision
-Captured images are sent directly to the FastAPI vision service, which prompts Gemini with strict JSON schemas to extract ingredient names in natural Indonesian, filtering non-food objects.
+Captured counter and refrigerator images are sent directly to the FastAPI vision service, which prompts Gemini with strict JSON schemas to extract ingredient names in natural Indonesian, filtering non-food objects.
 
-### IBM Bob & Model Context Protocol (MCP)
-Nomz includes full support for IBM Bob via Model Context Protocol:
-- Configured in `bob/mcp-config.example.json` to expose the `find_meals` workflow to IBM Bob agents.
-- Agent instructions in `bob/agent-instructions.md` guide automated tool use and multi-step recipe queries.
+### IBM Bob & Model Context Protocol (MCP) (Developer Tooling)
+*Klarifikasi Arsitektur:* IBM Bob bertindak sebagai **Engineering Partner & Automated Test Orchestrator** (bukan bot obrolan di dalam aplikasi pengguna):
+- Dikonfigurasi dalam `.bob/mcp.json` dan `bob/mcp-config.example.json` untuk menghubungkan agen IBM Bob langsung ke server MCP Langflow (`nomz-food-assistant`).
+- Terverifikasi mengeksekusi tool `find_meals_v2` secara nyata di dalam sesi chat Bob untuk menguji alur rekomendasi dan integritas schema data backend.
 
-### Composio & YouTube Video Discovery
-For cooking guidance, Nomz searches verified recipe tutorial videos via Composio orchestration, with seamless fallback to YouTube Data API v3.
+### YouTube Recipe Video Discovery
+Untuk panduan memasak interaktif, Nomz menyematkan video tutorial memasak yang dikurasi khusus melalui YouTube Data API v3 dan disaring oleh `video_relevance_ranker.py` agar tepat sasaran dengan hidangan Nusantara yang disarankan.
 
 ---
 
 ## Production Infrastructure (Railway + PostgreSQL)
 
-Nomz is deployed live on Railway:
+Nomz disiapkan untuk produksi di Railway:
 - **Base URL**: `https://nomz-backend-production.up.railway.app`
 - **Health Check**: `https://nomz-backend-production.up.railway.app/api/health`
-- **Database**: Hosted managed PostgreSQL instance (`railway.internal`).
-- **Containerization**: Optimized multi-stage Docker build with zero host-specific dependencies.
+- **Database**: PostgreSQL terkelola di Railway Cloud (`DATABASE_URL` otomatis mendeteksi dialect `postgresql+psycopg2://`).
+- **Containerization**: Multi-stage Docker build yang dioptimasi untuk FastAPI.
+
 
 ---
 
@@ -275,12 +285,17 @@ Nomz provides production-signed standalone Android release artifacts engineered 
 ## Presentation & Comprehensive Documentation
 
 Comprehensive materials prepared for hackathon judges, developers, and deployment engineers:
-- **[Project Overview](docs/PROJECT_OVERVIEW.md)**: Problem statement, UVP, user journey, impact model, and monetization.
-- **[System Architecture](docs/ARCHITECTURE.md)**: End-to-end architecture diagrams, security isolation, and service contracts.
-- **[11-Slide Pitch Outline](docs/PRESENTATION_OUTLINE.md)**: Slide-by-slide messages, visuals, speaker notes, and transitions.
+- **[Evidence & Proof Index](submission/evidence/README.md)**: Indeks 13 screenshot asli (Langflow V2 canvas/playground, IBM Bob chat MCP, Gemini vision, dan mobile APK).
+- **[Technical Evidence Audit](docs/TECHNICAL_EVIDENCE.md)**: Laporan audit teknis lengkap, verifikasi status (PASS), log Pytest 100%, dan sumber bukti.
+- **[System Architecture](docs/ARCHITECTURE.md)**: End-to-end architecture diagrams, security isolation, dan pemisahan runtime vs tooling.
+- **[Slide 8 Evidence Checklist](submission/SLIDE_8_EVIDENCE_CHECKLIST.md)**: Checklist bukti teknis terverifikasi untuk Canva & Slide 8.
+- **[Hackathon Submission Form Copy-Paste](submission/FORM_SUBMISSION.md)**: Jawaban lengkap dan terstruktur untuk pengisian formulir pendaftaran.
+- **[11-Slide Pitch Outline](docs/PRESENTATION_OUTLINE.md)**: Slide-by-slide messages, visuals, speaker notes, dan Canva layout guide.
+- **[Project Overview](docs/PROJECT_OVERVIEW.md)**: Problem statement, UVP, user journey, impact hypothesis, dan monetization.
 - **[Live Demo Script](docs/DEMO_SCRIPT.md)**: 3–5 minute step-by-step demonstration walkthrough with edge-case fallbacks.
 - **[Testing & Release Guide](docs/TESTING_AND_RELEASE.md)**: Pytest verification, device compatibility matrix, and APK installation guide.
 - **[Responsible AI Manifesto](docs/RESPONSIBLE_AI.md)**: Food-safety boundaries, sensory limitations, and user-confirmation safeguards.
+
 
 ---
 
